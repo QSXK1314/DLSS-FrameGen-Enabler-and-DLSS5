@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <RootNamespace>DLSSFrameGenEnabler</RootNamespace>
+    <AssemblyName>DLSS多帧生成开启工具</AssemblyName>
+    <Version>1.2.0</Version>
+    <Company>DLSS FrameGen Enabler</Company>
+    <Product>DLSS多帧生成开启工具</Product>
+    <Description>一键为支持DLSS的游戏开启多帧生成（RTX50系以下显卡），单文件独立版，补丁已内置，含排错修复功能</Description>
+  </PropertyGroup>
+
+  <!-- 主补丁文件：既复制到输出目录（外部优先），又嵌入程序集（单文件独立运行） -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\nvngx_dlssg.dll" />
+    <EmbeddedResource Include="Patches\RTX40MFG.asi" />
+    <EmbeddedResource Include="Patches\RTX40MFG_config.json" />
+    <EmbeddedResource Include="Patches\version.dll" />
+  </ItemGroup>
+
+  <!-- 排错补丁文件（sl.开头）：嵌入程序集 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.common.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.deepdvc.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.dlss.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.dlss_d.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.dlss_g.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.dlss_nr.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.interposer.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.nis.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.pcl.dll" />
+    <EmbeddedResource Include="Patches\Troubleshoot\sl.reflex.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Patches\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

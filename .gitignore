@@ -1,0 +1,23 @@
+# 编译产物
+bin/
+obj/
+*.user
+*.suo
+
+# 发布产物
+publish/
+*.exe
+
+# 补丁文件（第三方版权文件，不提交到开源仓库）
+Patches/
+*.dll
+*.asi
+
+# IDE
+.vs/
+.vscode/
+*.csproj.user
+
+# 系统文件
+Thumbs.db
+.DS_Store
