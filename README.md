@@ -1,4 +1,4 @@
-# 多帧生成+DLSS5开启工具
+﻿# 多帧生成+DLSS5开启工具
 
 一款基于 C# WinForms 开发的桌面工具，一键为支持 DLSS 的游戏开启多帧生成和 DLSS5 功能，让 RTX 50 系以下显卡也能使用多帧生成功能。
 
@@ -47,7 +47,7 @@
 
 ## 📦 下载
 
-从 [发布页面](https://github.com/QSXK1314/DLSS-FrameGen-Enabler/releases) 下载最新版本的单文件 exe，无需安装，直接运行即可。
+从 [发布页面](https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases) 下载最新版本的单文件 exe，无需安装，直接运行即可。
 
 ## 🚀 使用方法
 
@@ -76,7 +76,7 @@
 - .NET 8.0 SDK
 
 ### 编译步骤
-1. 克隆仓库：`git clone https://github.com/QSXK1314/DLSS-FrameGen-Enabler.git`
+1. 克隆仓库：`git clone https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5.git`
 2. 打开 `DLSSFrameGenEnabler.csproj`
 3. 将补丁文件放入 `Patches/` 目录（详见下方补丁说明）
 4. 编译：`dotnet build -c Release`
@@ -147,8 +147,8 @@ Patches/
 
 欢迎提交 Issue 和 Pull Request！
 
-- 发现 Bug 请提交 [Issue](https://github.com/QSXK1314/DLSS-FrameGen-Enabler/issues)
-- 代码贡献请提交 [Pull Request](https://github.com/QSXK1314/DLSS-FrameGen-Enabler/pulls)
+- 发现 Bug 请提交 [Issue](https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/issues)
+- 代码贡献请提交 [Pull Request](https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/pulls)
 
 ## 📞 联系方式
 
