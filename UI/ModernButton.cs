@@ -31,6 +31,10 @@ public class ModernButton : Button
     [Category("Appearance")]
     public bool IsSecondary { get; set; }
 
+    /// <summary>是否为浅色主题（由父窗体设置）</summary>
+    [Category("Appearance")]
+    public bool IsLightTheme { get; set; }
+
     public ModernButton()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint
@@ -48,7 +52,9 @@ public class ModernButton : Button
         ForeColor = Color.White;
         Font = new Font("Segoe UI Variable Text", 9.5f, FontStyle.Regular);
         Cursor = Cursors.Hand;
+        AutoSize = false;
         Size = new Size(140, 40);
+        MinimumSize = new Size(80, 30);
         Padding = new Padding(16, 0, 16, 0);
     }
 
@@ -89,6 +95,9 @@ public class ModernButton : Button
 
     protected override void OnPaint(PaintEventArgs pevent)
     {
+        // 尺寸无效时跳过绘制，防止 AddArc 参数异常
+        if (Width <= 0 || Height <= 0) return;
+
         var g = pevent.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
@@ -97,21 +106,42 @@ public class ModernButton : Button
 
         // 整个按钮区域（留1像素边距给边框）
         var rect = new Rectangle(1, 1, Width - 3, Height - 3);
+        // 确保矩形尺寸有效
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+
         var path = GetRoundedRect(rect, CornerRadius);
 
         // 确定背景色
         Color bgColor;
         if (!Enabled)
         {
-            bgColor = IsSecondary
-                ? Color.FromArgb(12, 255, 255, 255)
-                : Color.FromArgb(70, 70, 70);
+            if (IsSecondary)
+            {
+                bgColor = IsLightTheme
+                    ? Color.FromArgb(20, 0, 0, 0)
+                    : Color.FromArgb(12, 255, 255, 255);
+            }
+            else
+            {
+                bgColor = Color.FromArgb(70, 70, 70);
+            }
         }
         else if (IsSecondary)
         {
-            bgColor = _isPressed ? Color.FromArgb(55, 255, 255, 255)
-                     : _isHovered ? Color.FromArgb(35, 255, 255, 255)
-                     : Color.FromArgb(20, 255, 255, 255);
+            if (IsLightTheme)
+            {
+                // 浅色模式：用黑色透明度实现次要按钮
+                bgColor = _isPressed ? Color.FromArgb(45, 0, 0, 0)
+                         : _isHovered ? Color.FromArgb(30, 0, 0, 0)
+                         : Color.FromArgb(15, 0, 0, 0);
+            }
+            else
+            {
+                // 深色模式：用白色透明度实现次要按钮
+                bgColor = _isPressed ? Color.FromArgb(55, 255, 255, 255)
+                         : _isHovered ? Color.FromArgb(35, 255, 255, 255)
+                         : Color.FromArgb(20, 255, 255, 255);
+            }
         }
         else
         {
@@ -120,8 +150,9 @@ public class ModernButton : Button
                      : AccentColor;
         }
 
-        // 绘制背景（先用纯色填充整个区域，防止透明穿透）
-        using (var bgBrush = new SolidBrush(Parent?.BackColor ?? Color.FromArgb(32, 32, 32)))
+        // 绘制背景（先用父控件背景色填充整个区域，防止透明穿透）
+        var parentBg = Parent?.BackColor ?? (IsLightTheme ? Color.FromArgb(243, 243, 243) : Color.FromArgb(32, 32, 32));
+        using (var bgBrush = new SolidBrush(parentBg))
         {
             g.FillRectangle(bgBrush, 0, 0, Width, Height);
         }
@@ -135,7 +166,16 @@ public class ModernButton : Button
         // 次要按钮绘制边框
         if (IsSecondary)
         {
-            using var pen = new Pen(Enabled ? Color.FromArgb(90, 255, 255, 255) : Color.FromArgb(40, 255, 255, 255), 1);
+            Color borderColor;
+            if (IsLightTheme)
+            {
+                borderColor = Enabled ? Color.FromArgb(120, 0, 0, 0) : Color.FromArgb(50, 0, 0, 0);
+            }
+            else
+            {
+                borderColor = Enabled ? Color.FromArgb(90, 255, 255, 255) : Color.FromArgb(40, 255, 255, 255);
+            }
+            using var pen = new Pen(borderColor, 1);
             g.DrawPath(pen, path);
         }
 
@@ -162,7 +202,16 @@ public class ModernButton : Button
     private static GraphicsPath GetRoundedRect(Rectangle rect, int radius)
     {
         var path = new GraphicsPath();
+
+        // 尺寸无效时返回空路径，防止 AddArc 抛出异常
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            path.CloseFigure();
+            return path;
+        }
+
         var d = radius * 2;
+        if (d <= 0) d = 1;
         if (d > rect.Width) d = rect.Width;
         if (d > rect.Height) d = rect.Height;
 

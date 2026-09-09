@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 你的名字
+Copyright (c) 2026 QSXK
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+**注意：** 本软件包含的补丁文件（nvngx_dlssg.dll、nvngx_dlssnr.dll、ReShade 相关文件等）不属于本软件的一部分，其版权归原作者及 NVIDIA 所有。本软件仅作学习交流使用，不得用于商业用途。

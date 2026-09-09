@@ -7,13 +7,24 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <ApplicationIcon>DLSSG.ico</ApplicationIcon>
     <RootNamespace>DLSSFrameGenEnabler</RootNamespace>
     <AssemblyName>DLSS多帧生成开启工具</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>1.7.0</Version>
     <Company>DLSS FrameGen Enabler</Company>
     <Product>DLSS多帧生成开启工具</Product>
     <Description>一键为支持DLSS的游戏开启多帧生成（RTX50系以下显卡），单文件独立版，补丁已内置，含排错修复功能</Description>
+    <!-- 发布优化：加快启动速度 -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <Optimize>true</Optimize>
   </PropertyGroup>
+
+  <!-- NuGet 包引用 -->
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
 
   <!-- 主补丁文件：既复制到输出目录（外部优先），又嵌入程序集（单文件独立运行） -->
   <ItemGroup>
@@ -37,10 +48,93 @@
     <EmbeddedResource Include="Patches\Troubleshoot\sl.reflex.dll" />
   </ItemGroup>
 
+  <!-- 高级模式补丁文件：嵌入程序集 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\Advanced\nvngx_dlssg.dll" />
+    <EmbeddedResource Include="Patches\Advanced\version.dll" />
+    <EmbeddedResource Include="Patches\Advanced\reshade\ReShade.ini" />
+    <EmbeddedResource Include="Patches\Advanced\reshade\Fonts\**\*" />
+    <EmbeddedResource Include="Patches\Advanced\unlock\global.ini" />
+    <EmbeddedResource Include="Patches\Advanced\unlock\RTX40MFG-UI.addon64" />
+    <EmbeddedResource Include="Patches\Advanced\unlock\RTX40MFG.asi" />
+    <EmbeddedResource Include="Patches\Advanced\unlock\RTX40MFGCore.dll" />
+  </ItemGroup>
+
+  <!-- 高级模式排错补丁文件（sl.开头）：嵌入程序集 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.common.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.deepdvc.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.dlss.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.dlss_d.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.dlss_g.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.dlss_nr.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.interposer.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.nis.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.nvperf.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.pcl.dll" />
+    <EmbeddedResource Include="Patches\TroubleshootAdvanced\sl.reflex.dll" />
+  </ItemGroup>
+
+  <!-- 赛博朋克2077专用补丁文件：嵌入程序集 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\Cyberpunk2077\global.ini" />
+    <EmbeddedResource Include="Patches\Cyberpunk2077\nvngx_dlssd.dll" />
+    <EmbeddedResource Include="Patches\Cyberpunk2077\version.dll" />
+    <!-- plugins 目录下所有文件（含子目录） -->
+    <EmbeddedResource Include="Patches\Cyberpunk2077\plugins\**\*" />
+  </ItemGroup>
+
+  <!-- DLSS5 补丁文件：嵌入程序集 -->
+  <ItemGroup>
+    <!-- 通用文件（reshade配置 + nvngx_dlssnr.dll） -->
+    <EmbeddedResource Include="Patches\DLSS5\Common\**\*" />
+    <!-- N卡特有文件 -->
+    <EmbeddedResource Include="Patches\DLSS5\Nvidia\**\*" />
+    <!-- A卡特有文件 -->
+    <EmbeddedResource Include="Patches\DLSS5\AMD\**\*" />
+    <!-- RE引擎通用文件 -->
+    <EmbeddedResource Include="Patches\DLSS5\REEngine\**\*" />
+  </ItemGroup>
+
+  <!-- 共享大文件（避免重复嵌入，减小软件体积） -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\Shared\**\*" />
+  </ItemGroup>
+
+  <!-- DX9 DLSS5 补丁文件：嵌入程序集 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\DX9\**\*" />
+  </ItemGroup>
+
+  <!-- RTX20系多帧生成补丁 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\RTX20\**\*" />
+  </ItemGroup>
+
+  <!-- RTX30系多帧生成补丁 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\RTX30\**\*" />
+  </ItemGroup>
+
+  <!-- RE引擎多帧生成补丁 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Patches\REFrameGen\**\*" />
+  </ItemGroup>
+
+  <!-- 关于页面logo图片（嵌入资源，确保所有电脑都能显示） -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\github.jpg" />
+    <EmbeddedResource Include="Resources\bilibili.png" />
+    <EmbeddedResource Include="Resources\xiaoheihe.png" />
+  </ItemGroup>
+
+  <!-- 补丁文件只嵌入程序集，不复制到输出目录（避免重复占用空间） -->
+  <!--
   <ItemGroup>
     <None Update="Patches\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  -->
 
 </Project>

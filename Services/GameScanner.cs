@@ -5,7 +5,7 @@ using Microsoft.Win32;
 namespace DLSSFrameGenEnabler.Services;
 
 /// <summary>
-/// 游戏库扫描引擎：自动扫描 Steam 和 Epic 已安装游戏
+/// 游戏库扫描引擎：自动扫描 Steam、Epic、EA、育碧、GOG 已安装游戏
 /// </summary>
 public class GameScanner
 {
@@ -29,6 +29,21 @@ public class GameScanner
         games.AddRange(epicGames);
         progress?.Report($"Epic 找到 {epicGames.Count} 个游戏");
 
+        progress?.Report("正在扫描 EA 游戏库...");
+        var eaGames = ScanEaGames();
+        games.AddRange(eaGames);
+        progress?.Report($"EA 找到 {eaGames.Count} 个游戏");
+
+        progress?.Report("正在扫描育碧游戏库...");
+        var ubisoftGames = ScanUbisoftGames();
+        games.AddRange(ubisoftGames);
+        progress?.Report($"育碧 找到 {ubisoftGames.Count} 个游戏");
+
+        progress?.Report("正在扫描 GOG 游戏库...");
+        var gogGames = ScanGogGames();
+        games.AddRange(gogGames);
+        progress?.Report($"GOG 找到 {gogGames.Count} 个游戏");
+
         // 去重（按安装路径）
         var unique = new Dictionary<string, GameInfo>();
         foreach (var g in games)
@@ -40,20 +55,39 @@ public class GameScanner
 
         progress?.Report($"共找到 {unique.Count} 个游戏，正在检测 DLSS 支持...");
 
-        // 检测每个游戏是否包含 nvngx_dlssg.dll，并查找游戏 exe
+        // 检测每个游戏：所有游戏都保留，标记是否支持帧生成（有 nvngx_dlssg.dll）
+        // 但必须找到真正的游戏运行 exe 才能添加（排除卸载后留下的空文件夹）
         var result = new List<GameInfo>();
         foreach (var g in unique.Values)
         {
             try
             {
-                var dlssgPath = FindFileInDirectory(g.InstallPath, DlssgDllName);
+                var dlssgPath = FindCorrectDlssgDll(g.InstallPath);
+                var gameExePath = FindGameExe(g.InstallPath);
+
+                // 如果找不到真正的游戏运行 exe，跳过（可能是卸载后留下的空文件夹，或者不是游戏）
+                if (string.IsNullOrEmpty(gameExePath))
+                    continue;
+
                 if (dlssgPath != null)
                 {
+                    // 支持帧生成的游戏
                     g.DlssgDllPath = dlssgPath;
-                    g.GameExePath = FindGameExe(g.InstallPath);
-                    g.IsPatched = CheckAlreadyPatched(g);
-                    result.Add(g);
+                    g.SupportsFrameGen = true;
                 }
+                else
+                {
+                    // 不支持帧生成的游戏，但可能支持 DLSS5
+                    g.SupportsFrameGen = false;
+                }
+
+                g.GameExePath = gameExePath;
+                g.IsPatched = CheckAlreadyPatched(g);
+                g.IsAdvancedPatched = CheckAlreadyAdvancedPatched(g);
+                g.IsCyberpunkPatched = CheckAlreadyCyberpunkPatched(g);
+                g.IsDLSS5Patched = FilePatcher.IsDLSS5Enabled(g);
+                g.DLSS5GpuType = FilePatcher.DetectDLSS5GpuType(g);
+                result.Add(g);
             }
             catch
             {
@@ -61,7 +95,7 @@ public class GameScanner
             }
         }
 
-        progress?.Report($"检测完成，共 {result.Count} 个游戏支持 DLSS 多帧生成");
+        progress?.Report($"检测完成，共 {result.Count} 个游戏（其中 {result.Count(x => x.SupportsFrameGen)} 个支持帧生成）");
         return result.OrderBy(x => x.Name).ToList();
     }
 
@@ -73,8 +107,11 @@ public class GameScanner
         if (!Directory.Exists(directory))
             return null;
 
-        var dlssgPath = FindFileInDirectory(directory, DlssgDllName);
-        if (dlssgPath == null)
+        var dlssgPath = FindCorrectDlssgDll(directory);
+        var gameExePath = FindGameExe(directory);
+
+        // 必须找到真正的游戏运行 exe 才能添加（排除空文件夹和非游戏目录）
+        if (string.IsNullOrEmpty(gameExePath))
             return null;
 
         var game = new GameInfo
@@ -82,326 +119,17 @@ public class GameScanner
             Name = new DirectoryInfo(directory).Name,
             InstallPath = directory,
             DlssgDllPath = dlssgPath,
-            GameExePath = FindGameExe(directory),
+            SupportsFrameGen = dlssgPath != null,
+            GameExePath = gameExePath,
             Source = "手动选择"
         };
         game.IsPatched = CheckAlreadyPatched(game);
+        game.IsAdvancedPatched = CheckAlreadyAdvancedPatched(game);
+        game.IsCyberpunkPatched = CheckAlreadyCyberpunkPatched(game);
+        game.IsDLSS5Patched = FilePatcher.IsDLSS5Enabled(game);
+        game.DLSS5GpuType = FilePatcher.DetectDLSS5GpuType(game);
         return game;
     }
-
-    #region 全盘/分区扫描
-
-    /// <summary>
-    /// 扫描所有可用分区中支持 DLSS 的游戏
-    /// </summary>
-    public List<GameInfo> ScanAllDrives(IProgress<string>? progress = null)
-    {
-        var games = new List<GameInfo>();
-        var drives = DriveInfo.GetDrives()
-            .Where(d => d.DriveType == DriveType.Fixed && d.IsReady)
-            .ToList();
-
-        progress?.Report($"发现 {drives.Count} 个本地分区，开始全盘扫描...");
-
-        foreach (var drive in drives)
-        {
-            try
-            {
-                var driveGames = ScanDrive(drive.Name, progress);
-                games.AddRange(driveGames);
-            }
-            catch { }
-        }
-
-        // 去重
-        var unique = new Dictionary<string, GameInfo>();
-        foreach (var g in games)
-        {
-            var key = g.InstallPath.TrimEnd('\\').ToLowerInvariant();
-            if (!unique.ContainsKey(key))
-                unique[key] = g;
-        }
-
-        progress?.Report($"全盘扫描完成，共找到 {unique.Count} 个支持 DLSS 的游戏");
-        return unique.Values.OrderBy(x => x.Name).ToList();
-    }
-
-    /// <summary>
-    /// 扫描指定分区
-    /// </summary>
-    public List<GameInfo> ScanDrive(string driveRoot, IProgress<string>? progress = null)
-    {
-        var games = new List<GameInfo>();
-        if (!Directory.Exists(driveRoot)) return games;
-
-        progress?.Report($"正在扫描 {driveRoot} ...");
-
-        // 递归查找所有 nvngx_dlssg.dll
-        var dlssgFiles = FindAllFilesInDirectory(driveRoot, DlssgDllName, progress);
-
-        foreach (var dlssgPath in dlssgFiles)
-        {
-            try
-            {
-                // 推断游戏根目录
-                var gameRoot = InferGameRootDirectory(dlssgPath);
-                if (string.IsNullOrEmpty(gameRoot) || !Directory.Exists(gameRoot))
-                    gameRoot = Directory.GetParent(dlssgPath)?.FullName ?? dlssgPath;
-
-                // 去重检查
-                var key = gameRoot.TrimEnd('\\').ToLowerInvariant();
-                if (games.Any(g => g.InstallPath.TrimEnd('\\').ToLowerInvariant() == key))
-                    continue;
-
-                // 验证是否为游戏（排除非游戏软件）
-                var (isGame, gameExe) = VerifyIsGame(gameRoot);
-                if (!isGame)
-                {
-                    progress?.Report($"跳过非游戏目录：{gameRoot}");
-                    continue;
-                }
-
-                var game = new GameInfo
-                {
-                    Name = new DirectoryInfo(gameRoot).Name,
-                    InstallPath = gameRoot,
-                    DlssgDllPath = dlssgPath,
-                    GameExePath = gameExe ?? FindGameExe(gameRoot),
-                    Source = "全盘扫描"
-                };
-                game.IsPatched = CheckAlreadyPatched(game);
-                games.Add(game);
-            }
-            catch { }
-        }
-
-        return games;
-    }
-
-    /// <summary>
-    /// 验证目录是否为游戏目录（排除包含 nvngx_dlssg.dll 但非游戏的软件）
-    /// 验证逻辑：
-    /// 1. 优先检查 Binaries\Win64 目录下是否有 *Shipping*.exe（UE游戏典型特征）
-    /// 2. 其次检查 Binaries\Win64 下是否有其他游戏exe（排除安装/卸载/配置/启动器）
-    /// 3. 最后检查根目录下是否有游戏exe
-    /// </summary>
-    private static (bool IsGame, string? GameExe) VerifyIsGame(string gameRoot)
-    {
-        if (!Directory.Exists(gameRoot)) return (false, null);
-
-        // 跳过备份目录
-        var dirName = Path.GetFileName(gameRoot);
-        if (IsBackupDirectory(dirName)) return (false, null);
-
-        // 非游戏exe关键词（安装程序、卸载程序、配置工具、启动器、更新器等）
-        var nonGameKeywords = new[] { "unins", "uninstall", "setup", "install", "config",
-            "configuration", "launcher", "update", "updater", "crash", "report", "repair",
-            "dxwebsetup", "vcredist", "dotnet", "ue4prereq", "easyanticheat", "battleye",
-            "redist", "prereq", "tool", "editor", "cooker", "demo", "benchmark", "test" };
-
-        // 策略1：检查 Binaries\Win64 目录
-        var win64Dir = Path.Combine(gameRoot, "Binaries", "Win64");
-        if (Directory.Exists(win64Dir))
-        {
-            try
-            {
-                var exes = Directory.GetFiles(win64Dir, "*.exe");
-
-                // 优先找 *Shipping*.exe（UE游戏的典型主程序命名）
-                var shippingExe = exes.FirstOrDefault(e =>
-                    Path.GetFileName(e).Contains("Shipping", StringComparison.OrdinalIgnoreCase));
-                if (shippingExe != null)
-                    return (true, shippingExe);
-
-                // 找其他游戏exe（排除非游戏程序）
-                var gameExe = exes.FirstOrDefault(e =>
-                {
-                    var name = Path.GetFileName(e).ToLowerInvariant();
-                    return !nonGameKeywords.Any(k => name.Contains(k));
-                });
-                if (gameExe != null)
-                    return (true, gameExe);
-            }
-            catch { }
-        }
-
-        // 策略2：检查 Binaries 下的其他子目录（如 Win32、Win64 之外的）
-        var binariesDir = Path.Combine(gameRoot, "Binaries");
-        if (Directory.Exists(binariesDir))
-        {
-            try
-            {
-                foreach (var subDir in Directory.GetDirectories(binariesDir))
-                {
-                    var exes = Directory.GetFiles(subDir, "*.exe");
-                    var shippingExe = exes.FirstOrDefault(e =>
-                        Path.GetFileName(e).Contains("Shipping", StringComparison.OrdinalIgnoreCase));
-                    if (shippingExe != null)
-                        return (true, shippingExe);
-
-                    var gameExe = exes.FirstOrDefault(e =>
-                    {
-                        var name = Path.GetFileName(e).ToLowerInvariant();
-                        return !nonGameKeywords.Any(k => name.Contains(k));
-                    });
-                    if (gameExe != null)
-                        return (true, gameExe);
-                }
-            }
-            catch { }
-        }
-
-        // 策略3：检查根目录下是否有游戏exe（非UE游戏可能直接放在根目录）
-        try
-        {
-            var rootExes = Directory.GetFiles(gameRoot, "*.exe");
-            var rootGameExe = rootExes.FirstOrDefault(e =>
-            {
-                var name = Path.GetFileName(e).ToLowerInvariant();
-                // 排除非游戏程序
-                if (nonGameKeywords.Any(k => name.Contains(k)))
-                    return false;
-                // 根目录的exe通常名字比较短，且不包含版本号等
-                return name.Length >= 3;
-            });
-            if (rootGameExe != null)
-                return (true, rootGameExe);
-        }
-        catch { }
-
-        // 都没找到，判定为非游戏
-        return (false, null);
-    }
-
-    /// <summary>
-    /// 判断目录名是否为备份目录（包含 backup、_backup、备份等关键词）
-    /// </summary>
-    private static bool IsBackupDirectory(string dirName)
-    {
-        if (string.IsNullOrEmpty(dirName)) return false;
-        var lower = dirName.ToLowerInvariant();
-        return lower.Contains("backup") ||
-               lower.Contains("_backup") ||
-               lower.Contains("备份") ||
-               lower.Contains("bak") ||
-               lower.Contains(".old");
-    }
-
-    /// <summary>
-    /// 递归查找目录中所有指定文件（全盘扫描用，跳过系统目录）
-    /// </summary>
-    private static List<string> FindAllFilesInDirectory(string rootDir, string fileName, IProgress<string>? progress = null)
-    {
-        var result = new List<string>();
-        if (!Directory.Exists(rootDir)) return result;
-
-        var queue = new Queue<string>();
-        queue.Enqueue(rootDir);
-        var scanned = 0;
-
-        // 要跳过的目录名（全盘扫描性能优化）
-        var skipDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "$recycle.bin", "system volume information", "windows", "winnt",
-            "program files\\common files", "program files (x86)\\common files",
-            "programdata", "appdata", "$windows.~bt", "$windows.~ws",
-            "msocache", "perflogs", "recovery", "boot", "efi",
-            "node_modules", ".git", ".svn", "__pycache__",
-            "packages", "lib", "logs", "cache", "temp", "tmp",
-            "_backup", "backup", "backups"
-        };
-
-        while (queue.Count > 0)
-        {
-            var current = queue.Dequeue();
-            scanned++;
-
-            if (scanned % 500 == 0)
-                progress?.Report($"已扫描 {scanned} 个目录，正在查找 {fileName}...");
-
-            try
-            {
-                // 检查当前目录
-                var targetPath = Path.Combine(current, fileName);
-                if (File.Exists(targetPath))
-                    result.Add(targetPath);
-
-                // 子目录入队（跳过系统目录和明显无关的目录）
-                foreach (var subDir in Directory.GetDirectories(current))
-                {
-                    var dirName = Path.GetFileName(subDir).ToLowerInvariant();
-                    var fullPathLower = subDir.ToLowerInvariant();
-
-                    // 跳过指定目录名
-                    if (skipDirs.Contains(dirName)) continue;
-
-                    // 跳过备份目录（名字包含 backup、_backup、备份等）
-                    if (IsBackupDirectory(dirName)) continue;
-
-                    // 跳过路径中包含系统目录的
-                    if (fullPathLower.Contains("\\windows\\") ||
-                        fullPathLower.Contains("\\program files\\common files\\") ||
-                        fullPathLower.Contains("\\program files (x86)\\common files\\"))
-                        continue;
-
-                    // 限制路径深度（最多12层）
-                    var depth = subDir.Split(Path.DirectorySeparatorChar).Length;
-                    if (depth > 15) continue;
-
-                    queue.Enqueue(subDir);
-                }
-            }
-            catch { }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// 根据 nvngx_dlssg.dll 的路径推断游戏根目录
-    /// </summary>
-    private static string? InferGameRootDirectory(string dlssgPath)
-    {
-        try
-        {
-            var dir = Path.GetDirectoryName(dlssgPath);
-            if (string.IsNullOrEmpty(dir)) return null;
-
-            // 向上查找包含 Binaries 目录的最近目录（UE游戏的典型结构）
-            var current = dir;
-            for (int i = 0; i < 8 && !string.IsNullOrEmpty(current); i++)
-            {
-                // 检查当前目录是否有 Binaries
-                if (Directory.Exists(Path.Combine(current, "Binaries")))
-                    return current;
-
-                // 检查当前目录是否有游戏exe（直接在根目录的情况）
-                var exes = Directory.GetFiles(current, "*.exe");
-                if (exes.Length > 0 && exes.Any(e => !Path.GetFileName(e).ToLowerInvariant().Contains("unins") &&
-                    !Path.GetFileName(e).ToLowerInvariant().Contains("setup") &&
-                    !Path.GetFileName(e).ToLowerInvariant().Contains("install")))
-                {
-                    return current;
-                }
-
-                current = Directory.GetParent(current)?.FullName;
-            }
-
-            // 默认返回上3级目录
-            var defaultDir = Path.GetDirectoryName(dlssgPath);
-            for (int i = 0; i < 3 && !string.IsNullOrEmpty(defaultDir); i++)
-            {
-                defaultDir = Directory.GetParent(defaultDir)?.FullName;
-            }
-            return defaultDir ?? Path.GetDirectoryName(dlssgPath);
-        }
-        catch
-        {
-            return Path.GetDirectoryName(dlssgPath);
-        }
-    }
-
-    #endregion
 
     #region Steam 扫描
 
@@ -525,6 +253,237 @@ public class GameScanner
 
     #endregion
 
+    #region EA 扫描
+
+    /// <summary>
+    /// 扫描 EA Desktop 已安装游戏
+    /// </summary>
+    private List<GameInfo> ScanEaGames()
+    {
+        var games = new List<GameInfo>();
+        var gameDirs = new List<string>();
+
+        // 从注册表获取 EA Desktop 安装路径
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\EA Desktop");
+            var installPath = key?.GetValue("InstallDir") as string;
+            if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
+            {
+                var gamesPath = Path.Combine(installPath, "Games");
+                if (Directory.Exists(gamesPath))
+                    gameDirs.Add(gamesPath);
+            }
+        }
+        catch { }
+
+        // 尝试 WOW6432Node
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\EA Desktop");
+            var installPath = key?.GetValue("InstallDir") as string;
+            if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
+            {
+                var gamesPath = Path.Combine(installPath, "Games");
+                if (Directory.Exists(gamesPath) && !gameDirs.Contains(gamesPath))
+                    gameDirs.Add(gamesPath);
+            }
+        }
+        catch { }
+
+        // 默认安装路径
+        var defaultPaths = new[]
+        {
+            @"C:\Program Files\EA Games",
+            @"C:\Program Files (x86)\EA Games",
+            @"D:\EA Games",
+            @"E:\EA Games"
+        };
+        foreach (var p in defaultPaths)
+        {
+            if (Directory.Exists(p) && !gameDirs.Contains(p))
+                gameDirs.Add(p);
+        }
+
+        // 遍历每个游戏目录
+        foreach (var gamesDir in gameDirs)
+        {
+            try
+            {
+                foreach (var gameDir in Directory.GetDirectories(gamesDir))
+                {
+                    var dirName = Path.GetFileName(gameDir);
+                    if (IsBackupDirectory(dirName)) continue;
+                    games.Add(new GameInfo
+                    {
+                        Name = dirName,
+                        InstallPath = gameDir,
+                        Source = "EA"
+                    });
+                }
+            }
+            catch { }
+        }
+
+        return games;
+    }
+
+    #endregion
+
+    #region 育碧 扫描
+
+    /// <summary>
+    /// 扫描育碧 Uplay/Connect 已安装游戏
+    /// </summary>
+    private List<GameInfo> ScanUbisoftGames()
+    {
+        var games = new List<GameInfo>();
+        var gameDirs = new List<string>();
+
+        // 从注册表获取育碧安装路径
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Ubisoft\Launcher");
+            var installPath = key?.GetValue("InstallDir") as string;
+            if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
+            {
+                var gamesPath = Path.Combine(installPath, "games");
+                if (Directory.Exists(gamesPath))
+                    gameDirs.Add(gamesPath);
+            }
+        }
+        catch { }
+
+        // 尝试 CurrentUser
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Ubisoft\Launcher");
+            var installPath = key?.GetValue("InstallDir") as string;
+            if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
+            {
+                var gamesPath = Path.Combine(installPath, "games");
+                if (Directory.Exists(gamesPath) && !gameDirs.Contains(gamesPath))
+                    gameDirs.Add(gamesPath);
+            }
+        }
+        catch { }
+
+        // 默认安装路径
+        var defaultPaths = new[]
+        {
+            @"C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\games",
+            @"C:\Program Files\Ubisoft\Ubisoft Game Launcher\games",
+            @"D:\Ubisoft\games",
+            @"E:\Ubisoft\games"
+        };
+        foreach (var p in defaultPaths)
+        {
+            if (Directory.Exists(p) && !gameDirs.Contains(p))
+                gameDirs.Add(p);
+        }
+
+        // 遍历每个游戏目录
+        foreach (var gamesDir in gameDirs)
+        {
+            try
+            {
+                foreach (var gameDir in Directory.GetDirectories(gamesDir))
+                {
+                    var dirName = Path.GetFileName(gameDir);
+                    if (IsBackupDirectory(dirName)) continue;
+                    games.Add(new GameInfo
+                    {
+                        Name = dirName,
+                        InstallPath = gameDir,
+                        Source = "育碧"
+                    });
+                }
+            }
+            catch { }
+        }
+
+        return games;
+    }
+
+    #endregion
+
+    #region GOG 扫描
+
+    /// <summary>
+    /// 扫描 GOG Galaxy 已安装游戏
+    /// </summary>
+    private List<GameInfo> ScanGogGames()
+    {
+        var games = new List<GameInfo>();
+        var gameDirs = new List<string>();
+
+        // 从注册表获取 GOG Galaxy 安装路径
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\GOG.com\Galaxy");
+            var installPath = key?.GetValue("installPath") as string;
+            if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
+            {
+                var gamesPath = Path.Combine(installPath, "Games");
+                if (Directory.Exists(gamesPath))
+                    gameDirs.Add(gamesPath);
+            }
+        }
+        catch { }
+
+        // 尝试 CurrentUser
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\GOG.com\Galaxy");
+            var installPath = key?.GetValue("installPath") as string;
+            if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
+            {
+                var gamesPath = Path.Combine(installPath, "Games");
+                if (Directory.Exists(gamesPath) && !gameDirs.Contains(gamesPath))
+                    gameDirs.Add(gamesPath);
+            }
+        }
+        catch { }
+
+        // 默认安装路径
+        var defaultPaths = new[]
+        {
+            @"C:\Program Files (x86)\GOG Galaxy\Games",
+            @"C:\Program Files\GOG Galaxy\Games",
+            @"D:\GOG Galaxy\Games",
+            @"E:\GOG Galaxy\Games"
+        };
+        foreach (var p in defaultPaths)
+        {
+            if (Directory.Exists(p) && !gameDirs.Contains(p))
+                gameDirs.Add(p);
+        }
+
+        // 遍历每个游戏目录
+        foreach (var gamesDir in gameDirs)
+        {
+            try
+            {
+                foreach (var gameDir in Directory.GetDirectories(gamesDir))
+                {
+                    var dirName = Path.GetFileName(gameDir);
+                    if (IsBackupDirectory(dirName)) continue;
+                    games.Add(new GameInfo
+                    {
+                        Name = dirName,
+                        InstallPath = gameDir,
+                        Source = "GOG"
+                    });
+                }
+            }
+            catch { }
+        }
+
+        return games;
+    }
+
+    #endregion
+
     #region 通用文件查找
 
     /// <summary>
@@ -566,21 +525,171 @@ public class GameScanner
     }
 
     /// <summary>
-    /// 查找游戏真正的运行 exe（优先 Binaries\Win64 目录下的 Shipping exe）
+    /// 查找正确的 nvngx_dlssg.dll 路径（优先选择路径中包含 Nvidia 的目录）
+    /// 有些游戏（如异环）有两个 nvngx_dlssg.dll，只有放在 Nvidia 目录下的才有效
+    /// </summary>
+    public static string? FindCorrectDlssgDll(string rootDir)
+    {
+        if (!Directory.Exists(rootDir)) return null;
+
+        var allDlssg = new List<string>();
+        FindFilesRecursive(rootDir, DlssgDllName, allDlssg);
+        if (allDlssg.Count == 0) return null;
+        if (allDlssg.Count == 1) return allDlssg[0];
+
+        // 优先选择路径中包含 "Nvidia" 的
+        var nvidiaPath = allDlssg.FirstOrDefault(p =>
+            p.Contains("Nvidia", StringComparison.OrdinalIgnoreCase) ||
+            p.Contains("Streamline", StringComparison.OrdinalIgnoreCase));
+        if (nvidiaPath != null) return nvidiaPath;
+
+        // 其次选择路径更深的（通常在 Plugins/Nvidia 下的路径更深）
+        return allDlssg.OrderByDescending(p => p.Count(c => c == '\\')).First();
+    }
+
+    /// <summary>
+    /// 递归查找指定文件（简单版本，用于查找 nvngx_dlssg.dll）
+    /// </summary>
+    private static void FindFilesRecursive(string rootDir, string fileName, List<string> result)
+    {
+        try
+        {
+            var targetPath = Path.Combine(rootDir, fileName);
+            if (File.Exists(targetPath))
+                result.Add(targetPath);
+
+            foreach (var subDir in Directory.GetDirectories(rootDir))
+            {
+                FindFilesRecursive(subDir, fileName, result);
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 判断目录名是否为备份目录（包含 backup、_backup、备份等关键词）
+    /// </summary>
+    private static bool IsBackupDirectory(string dirName)
+    {
+        if (string.IsNullOrEmpty(dirName)) return false;
+        var lower = dirName.ToLowerInvariant();
+        return lower.Contains("backup") ||
+               lower.Contains("_backup") ||
+               lower.Contains("备份") ||
+               lower.Contains("bak") ||
+               lower.Contains(".old");
+    }
+
+    /// <summary>
+    /// 判断一个 exe 是否可能是真正的游戏运行程序（排除卸载程序、安装程序、启动器等）
+    /// </summary>
+    private static bool IsLikelyGameExe(string exePath)
+    {
+        var name = Path.GetFileName(exePath).ToLowerInvariant();
+
+        // 明确排除的非游戏程序关键词
+        // 注意：
+        // 1. 不要添加 "x64"、"x86"、"win64" 等关键词，因为很多游戏exe文件名包含这些（如 XXX-Win64-Shipping.exe）
+        // 2. 不要添加太短的关键词（如 "be"、"eac"），会误过滤很多游戏名（如 BETGameSteam 包含 "be"）
+        // 3. 不要添加平台相关关键词（如 "steam"、"epic"），很多游戏exe文件名包含这些（如 XXXSteam.exe）
+        // 4. 反作弊程序使用完整名称匹配
+        string[] excludeKeywords =
+        {
+            "unins", "uninstall", "setup", "install", "installer",
+            "crash", "report", "config", "configuration", "settings",
+            "launcher", "update", "updater", "patch", "patcher",
+            "dxwebsetup", "vcredist", "vc_redist", "redist", "dotnet",
+            "ue4prereq", "prereq", "dxsetup", "directx", "physx",
+            "easyanticheat", "battleye", "anticheat",
+            "benchmark", "demo", "tool", "editor", "sdk",
+            "debug", "release", "test", "helper", "service",
+            "webhelper", "overlay", "notification", "tray",
+            "nvidia", "amd", "driver",
+            "unitycrashhandler", "crashhandler",
+            "microsoft", "windows", "system", "runtime",
+            "compiler", "captioncompiler", "studiomdl", "vpk",
+            "hlmv", "mdlcompiler", "shadercompiler", "resourcecompiler",
+            "faceposer", "sourcetv", "hammer", "vrad", "vvis", "vbsp",
+            "elementviewer", "sdklauncher", "vconfig", "mksheet",
+            "qc_eyes", "dmxconvert", "sfmgen", "height2normal",
+            "normal2height", "bumpgenerator", "texturecompile",
+            "shadercompile", "vmpi", "vtex", "vfont", "videofunctions"
+        };
+
+        foreach (var keyword in excludeKeywords)
+        {
+            if (name.Contains(keyword))
+                return false;
+        }
+
+        // 排除太小的 exe（小于 100KB 的通常不是游戏主程序）
+        try
+        {
+            var fileInfo = new FileInfo(exePath);
+            if (fileInfo.Length < 100 * 1024) // 小于 100KB
+                return false;
+        }
+        catch
+        {
+            // 无法获取文件大小，不排除
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 从 exe 列表中筛选出可能是游戏运行程序的 exe
+    /// 注意：过滤后为空时返回空数组，不会回退到原数组（避免把卸载程序等非游戏程序当成游戏 exe）
+    /// </summary>
+    private static string[] FilterGameExes(string[] exes)
+    {
+        return exes.Where(IsLikelyGameExe).ToArray();
+    }
+
+    /// <summary>
+    /// 查找游戏真正的运行 exe（优先 Binaries\Win64 目录下的 Shipping exe，排除 Engine 目录）
     /// </summary>
     public static string? FindGameExe(string rootDir)
     {
         if (!Directory.Exists(rootDir)) return null;
 
-        // 策略1：直接找 Binaries\Win64 目录
-        var win64Dirs = FindDirectoriesByName(rootDir, "Win64");
-        foreach (var dir in win64Dirs)
+        // 策略1：直接找 Binaries\Win64 目录（UE游戏），优先排除 Engine 目录
+        // 支持Win64、Win64r、Win64_Shipping等变体目录名
+        var win64Dirs = FindDirectoriesByPrefix(rootDir, "Win64");
+        // 优先找非 Engine 目录下的 Win64（Engine 目录下的通常是引擎 exe，不是游戏 exe）
+        // 但某些游戏（如燕云十六声）的真正 exe 就在 Engine 目录下，所以如果非 Engine 目录找不到，再找 Engine 目录的
+        var nonEngineWin64 = win64Dirs.Where(d => !d.Contains("\\Engine\\", StringComparison.OrdinalIgnoreCase)).ToList();
+        var engineWin64 = win64Dirs.Where(d => d.Contains("\\Engine\\", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // 先找非 Engine 目录的
+        foreach (var dir in nonEngineWin64)
         {
-            // 优先找 *Shipping*.exe
-            var exes = Directory.GetFiles(dir, "*.exe");
+            var exes = FilterGameExes(Directory.GetFiles(dir, "*.exe"));
             var shipping = exes.FirstOrDefault(e =>
                 Path.GetFileName(e).Contains("Shipping", StringComparison.OrdinalIgnoreCase));
             if (shipping != null) return shipping;
+            if (exes.Length > 0) return exes[0];
+        }
+
+        // 非 Engine 目录找不到，再找 Engine 目录的（燕云十六声等特殊游戏）
+        foreach (var dir in engineWin64)
+        {
+            var exes = FilterGameExes(Directory.GetFiles(dir, "*.exe"));
+            var shipping = exes.FirstOrDefault(e =>
+                Path.GetFileName(e).Contains("Shipping", StringComparison.OrdinalIgnoreCase));
+            if (shipping != null) return shipping;
+            if (exes.Length > 0) return exes[0];
+        }
+
+        // 策略1.5：找 bin\x64 目录（如赛博朋克2077）
+        var binX64Dirs = FindDirectoriesByName(rootDir, "x64");
+        foreach (var dir in binX64Dirs)
+        {
+            // 只处理 bin 目录下的 x64
+            var parentName = Path.GetFileName(Path.GetDirectoryName(dir))?.ToLowerInvariant();
+            if (parentName != "bin") continue;
+
+            var exes = FilterGameExes(Directory.GetFiles(dir, "*.exe"));
             if (exes.Length > 0) return exes[0];
         }
 
@@ -603,24 +712,20 @@ public class GameScanner
 
         if (allExes.Count == 0) return null;
 
-        // 过滤掉常见的非游戏主程序
-        var filtered = allExes.Where(e =>
-        {
-            var name = Path.GetFileName(e).ToLowerInvariant();
-            return !name.Contains("unins") && !name.Contains("setup") &&
-                   !name.Contains("install") && !name.Contains("crash") &&
-                   !name.Contains("report") && !name.Contains("config") &&
-                   !name.Contains("launcher") && !name.Contains("update") &&
-                   !name.Contains("dxwebsetup") && !name.Contains("vcredist") &&
-                   !name.Contains("dotnet") && !name.Contains("ue4prereq") &&
-                   !name.Contains("easyanticheat") && !name.Contains("battleye");
-        }).ToList();
+        // 过滤掉常见的非游戏主程序（使用统一的过滤逻辑）
+        var filtered = allExes.Where(IsLikelyGameExe).ToList();
 
-        if (filtered.Count == 0) filtered = allExes;
+        // 注意：过滤后为空时返回 null，不会回退到原数组（避免把卸载程序等非游戏程序当成游戏 exe）
+        if (filtered.Count == 0) return null;
 
-        // 优先选 Shipping，然后选名字最长的（通常是主程序）
+        // 优先选不在 Engine/Extras/Redist 等目录下的 Shipping exe，然后选名字最长的（通常是主程序）
         return filtered
-            .OrderByDescending(e => Path.GetFileName(e).Contains("Shipping", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(e => e.Contains("\\Engine\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ThenBy(e => e.Contains("\\Extras\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ThenBy(e => e.Contains("\\Redist\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ThenBy(e => e.Contains("\\ThirdParty\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ThenBy(e => e.Contains("\\Prereq\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ThenByDescending(e => Path.GetFileName(e).Contains("Shipping", StringComparison.OrdinalIgnoreCase))
             .ThenByDescending(e => Path.GetFileName(e).Length)
             .First();
     }
@@ -655,14 +760,122 @@ public class GameScanner
     }
 
     /// <summary>
-    /// 检查游戏是否已经打过补丁
+    /// 递归查找以指定前缀开头的目录（如Win64、Win64r、Win64_Shipping等）
+    /// </summary>
+    private static List<string> FindDirectoriesByPrefix(string rootDir, string prefix)
+    {
+        var result = new List<string>();
+        var queue = new Queue<(string Path, int Depth)>();
+        queue.Enqueue((rootDir, 0));
+
+        while (queue.Count > 0)
+        {
+            var (current, depth) = queue.Dequeue();
+            if (depth > 8) continue;
+
+            try
+            {
+                foreach (var sub in Directory.GetDirectories(current))
+                {
+                    var dirName = Path.GetFileName(sub);
+                    if (dirName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        result.Add(sub);
+                    queue.Enqueue((sub, depth + 1));
+                }
+            }
+            catch { }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 常见的配置名列表（配置名修改功能支持的名称）
+    /// </summary>
+    private static readonly string[] ConfigNames = new[]
+    {
+        "version", "dinput8", "d3d11", "winmm", "d3d9", "winhttp",
+        "wininet", "dsound", "binkw64", "xinput1_3", "bink2w64",
+        "xinput1_4", "xinputuap", "d3d12"
+    };
+
+    /// <summary>
+    /// 检查游戏是否已经打过补丁（经典模式）
+    /// 支持配置名修改后的检测（如 version.dll 改成 dinput8.dll）
     /// </summary>
     public static bool CheckAlreadyPatched(GameInfo game)
     {
         if (string.IsNullOrEmpty(game.GameExeDirectory)) return false;
+
+        // 经典模式的核心特征：RTX40MFG.asi 必须存在
         var asiPath = Path.Combine(game.GameExeDirectory, "RTX40MFG.asi");
-        var versionDllPath = Path.Combine(game.GameExeDirectory, "version.dll");
-        return File.Exists(asiPath) && File.Exists(versionDllPath);
+        if (!File.Exists(asiPath)) return false;
+
+        // 配置文件存在（经典模式特有）
+        var configPath = Path.Combine(game.GameExeDirectory, "RTX40MFG_config.json");
+        if (File.Exists(configPath)) return true;
+
+        // 检查是否存在任何常见配置名的 dll（version.dll 或修改后的名称）
+        foreach (var name in ConfigNames)
+        {
+            var dllPath = Path.Combine(game.GameExeDirectory, name + ".dll");
+            if (File.Exists(dllPath)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 检查游戏是否已经打过高级模式补丁
+    /// 支持配置名修改后的检测（如 version.ini 改成 dinput8.ini）
+    /// </summary>
+    public static bool CheckAlreadyAdvancedPatched(GameInfo game)
+    {
+        if (string.IsNullOrEmpty(game.GameExeDirectory)) return false;
+
+        // 高级模式的核心特征：RTX40MFGCore.dll 必须存在
+        var mfgCore = Path.Combine(game.GameExeDirectory, "RTX40MFGCore.dll");
+        if (!File.Exists(mfgCore)) return false;
+
+        // 检查是否存在任何常见配置名的 ini（version.ini 或修改后的名称）
+        foreach (var name in ConfigNames)
+        {
+            var iniPath = Path.Combine(game.GameExeDirectory, name + ".ini");
+            if (File.Exists(iniPath)) return true;
+        }
+
+        // 也检查 dll（高级模式也有 version.dll 或修改后的 dll）
+        foreach (var name in ConfigNames)
+        {
+            var dllPath = Path.Combine(game.GameExeDirectory, name + ".dll");
+            if (File.Exists(dllPath)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 检查游戏是否已经打过2077专用补丁
+    /// </summary>
+    public static bool CheckAlreadyCyberpunkPatched(GameInfo game)
+    {
+        if (string.IsNullOrEmpty(game.GameExeDirectory)) return false;
+        // 2077专用补丁的特征：plugins\cyber_engine_tweaks.asi 存在
+        var cetAsi = Path.Combine(game.GameExeDirectory, "plugins", "cyber_engine_tweaks.asi");
+        var rtx40mfgAsi = Path.Combine(game.GameExeDirectory, "plugins", "RTX40MFG.asi");
+        return File.Exists(cetAsi) && File.Exists(rtx40mfgAsi);
+    }
+
+    /// <summary>
+    /// 检查游戏是否已经打过RE引擎多帧生成补丁
+    /// 特征文件：dlssg_sm86.ini（RE引擎多帧生成补丁特有）
+    /// </summary>
+    public static bool CheckAlreadyREFrameGenPatched(GameInfo game)
+    {
+        if (string.IsNullOrEmpty(game.GameExeDirectory)) return false;
+        // RE引擎多帧生成补丁的特征：dlssg_sm86.ini 存在
+        var iniPath = Path.Combine(game.GameExeDirectory, "dlssg_sm86.ini");
+        return File.Exists(iniPath);
     }
 
     #endregion

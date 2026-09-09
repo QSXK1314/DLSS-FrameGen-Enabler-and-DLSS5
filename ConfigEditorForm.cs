@@ -9,17 +9,74 @@ namespace DLSSFrameGenEnabler;
 /// </summary>
 public class ConfigEditorForm : Form
 {
-    #region 颜色主题
+    #region 颜色主题（支持深色/浅色切换）
 
-    private static readonly Color BgColor = Color.FromArgb(32, 32, 32);
-    private static readonly Color BgColorLight = Color.FromArgb(43, 43, 43);
-    private static readonly Color BgColorLighter = Color.FromArgb(50, 50, 50);
-    private static readonly Color AccentColor = Color.FromArgb(0, 120, 212);
-    private static readonly Color SuccessColor = Color.FromArgb(16, 185, 129);
-    private static readonly Color TextPrimary = Color.FromArgb(255, 255, 255);
-    private static readonly Color TextSecondary = Color.FromArgb(200, 200, 200);
-    private static readonly Color TextTertiary = Color.FromArgb(150, 150, 150);
-    private static readonly Color BorderColor = Color.FromArgb(60, 60, 60);
+    /// <summary>是否为浅色主题</summary>
+    private bool _isLightTheme;
+    public bool IsLightTheme
+    {
+        get => _isLightTheme;
+        set
+        {
+            _isLightTheme = value;
+            ApplyTheme();
+        }
+    }
+
+    /// <summary>
+    /// 应用主题到所有控件（设置IsLightTheme后自动调用）
+    /// </summary>
+    private void ApplyTheme()
+    {
+        if (_titleLabel == null) return; // 还未初始化，跳过
+
+        BackColor = BgColor;
+        ForeColor = TextPrimary;
+
+        // 标签
+        _titleLabel.ForeColor = TextPrimary;
+        _multiplierLabel.ForeColor = TextSecondary;
+        _modeLabel.ForeColor = TextSecondary;
+        _fpsLabel.ForeColor = TextSecondary;
+        _advancedLabel.ForeColor = TextSecondary;
+
+        // 下拉框
+        _multiplierCombo.BackColor = BgColorLighter;
+        _multiplierCombo.ForeColor = TextPrimary;
+        _modeCombo.BackColor = BgColorLighter;
+        _modeCombo.ForeColor = TextPrimary;
+        _fpsCombo.BackColor = BgColorLighter;
+        _fpsCombo.ForeColor = TextPrimary;
+
+        // 复选框
+        _debugCheck.BackColor = BgColor;
+        _debugCheck.ForeColor = TextPrimary;
+        _exp56Check.BackColor = BgColor;
+        _exp56Check.ForeColor = TextPrimary;
+
+        // ModernButton
+        foreach (Control ctrl in Controls)
+        {
+            if (ctrl is ModernButton mbtn)
+            {
+                mbtn.IsLightTheme = _isLightTheme;
+                mbtn.ForeColor = TextPrimary;
+            }
+        }
+
+        Invalidate();
+        Refresh();
+    }
+
+    private Color BgColor => IsLightTheme ? Color.FromArgb(243, 243, 243) : Color.FromArgb(32, 32, 32);
+    private Color BgColorLight => IsLightTheme ? Color.FromArgb(255, 255, 255) : Color.FromArgb(43, 43, 43);
+    private Color BgColorLighter => IsLightTheme ? Color.FromArgb(230, 230, 230) : Color.FromArgb(50, 50, 50);
+    private Color AccentColor => Color.FromArgb(0, 120, 212);
+    private Color SuccessColor => Color.FromArgb(16, 185, 129);
+    private Color TextPrimary => IsLightTheme ? Color.FromArgb(30, 30, 30) : Color.FromArgb(255, 255, 255);
+    private Color TextSecondary => IsLightTheme ? Color.FromArgb(80, 80, 80) : Color.FromArgb(200, 200, 200);
+    private Color TextTertiary => IsLightTheme ? Color.FromArgb(120, 120, 120) : Color.FromArgb(150, 150, 150);
+    private Color BorderColor => IsLightTheme ? Color.FromArgb(200, 200, 200) : Color.FromArgb(60, 60, 60);
 
     #endregion
 
@@ -31,17 +88,15 @@ public class ConfigEditorForm : Form
     private Label _multiplierLabel = null!;
     private ComboBox _multiplierCombo = null!;
     private Label _modeLabel = null!;
-    private RadioButton _modeFixedRadio = null!;
-    private RadioButton _modeDynamicRadio = null!;
+    private ComboBox _modeCombo = null!;
     private Label _fpsLabel = null!;
     private ComboBox _fpsCombo = null!;
-    private GroupBox _advancedGroup = null!;
+    private Label _advancedLabel = null!;
     private CheckBox _debugCheck = null!;
     private CheckBox _exp56Check = null!;
     private ModernButton _saveButton = null!;
     private ModernButton _cancelButton = null!;
     private ModernButton _resetButton = null!;
-    private Label _hintLabel = null!;
 
     /// <summary>
     /// 配置是否已保存
@@ -60,9 +115,9 @@ public class ConfigEditorForm : Form
 
     private void InitializeComponent()
     {
-        Text = "多帧生成配置";
-        Size = new Size(480, 510);
-        MinimumSize = new Size(460, 490);
+        Text = "编辑多帧配置";
+        Size = new Size(660, 380);
+        MinimumSize = new Size(640, 360);
         BackColor = BgColor;
         ForeColor = TextPrimary;
         Font = new Font("Segoe UI Variable Text", 9.5f);
@@ -75,21 +130,28 @@ public class ConfigEditorForm : Form
         // 标题
         _titleLabel = new Label
         {
-            Text = "多帧生成配置",
+            Text = "编辑多帧配置",
             ForeColor = TextPrimary,
-            Font = new Font("Segoe UI Variable Display", 15f, FontStyle.Bold),
+            Font = new Font("Segoe UI Variable Display", 14f, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(24, 20)
+            Location = new Point(24, 18)
         };
 
-        // 倍率
+        // 三个下拉框并排
+        const int comboY = 72;
+        const int comboH = 34;
+        const int labelY = 48;
+        int[] comboXs = { 24, 234, 444 };
+        int[] comboWs = { 190, 190, 190 };
+
+        // 多帧倍率
         _multiplierLabel = new Label
         {
             Text = "多帧倍率",
             ForeColor = TextSecondary,
-            Font = new Font("Segoe UI Variable Text", 10f, FontStyle.Bold),
+            Font = new Font("Segoe UI Variable Text", 9.5f, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(24, 68)
+            Location = new Point(comboXs[0], labelY)
         };
 
         _multiplierCombo = new ComboBox
@@ -98,58 +160,54 @@ public class ConfigEditorForm : Form
             BackColor = BgColorLighter,
             ForeColor = TextPrimary,
             Font = new Font("Segoe UI Variable Text", 10f),
-            Size = new Size(200, 32),
-            Location = new Point(24, 92),
+            Size = new Size(comboWs[0], comboH),
+            Location = new Point(comboXs[0], comboY),
             FlatStyle = FlatStyle.Flat
         };
         _multiplierCombo.Items.AddRange(new object[]
         {
-            "2 倍",
-            "3 倍",
-            "4 倍（推荐）",
-            "5 倍",
-            "6 倍（实验性较强）"
+            "2倍",
+            "3倍",
+            "4倍(推荐)",
+            "5倍",
+            "6倍(实验性)"
         });
 
-        // 模式
+        // 运行模式
         _modeLabel = new Label
         {
             Text = "运行模式",
             ForeColor = TextSecondary,
-            Font = new Font("Segoe UI Variable Text", 10f, FontStyle.Bold),
+            Font = new Font("Segoe UI Variable Text", 9.5f, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(24, 140)
+            Location = new Point(comboXs[1], labelY)
         };
 
-        _modeFixedRadio = new RadioButton
+        _modeCombo = new ComboBox
         {
-            Text = "固定倍率",
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            BackColor = BgColorLighter,
             ForeColor = TextPrimary,
             Font = new Font("Segoe UI Variable Text", 10f),
-            AutoSize = true,
-            Location = new Point(24, 166),
-            BackColor = Color.Transparent
+            Size = new Size(comboWs[1], comboH),
+            Location = new Point(comboXs[1], comboY),
+            FlatStyle = FlatStyle.Flat
         };
-        _modeFixedRadio.CheckedChanged += (_, _) => UpdateFpsEnabled();
-
-        _modeDynamicRadio = new RadioButton
+        _modeCombo.Items.AddRange(new object[]
         {
-            Text = "动态多帧生成",
-            ForeColor = TextPrimary,
-            Font = new Font("Segoe UI Variable Text", 10f),
-            AutoSize = true,
-            Location = new Point(140, 166),
-            BackColor = Color.Transparent
-        };
+            "固定倍率",
+            "动态多帧生成"
+        });
+        _modeCombo.SelectedIndexChanged += (_, _) => UpdateFpsEnabled();
 
         // 动态目标帧率
         _fpsLabel = new Label
         {
-            Text = "动态目标帧率（仅动态模式生效）",
+            Text = "动态目标帧率(仅动态模式生效)",
             ForeColor = TextTertiary,
-            Font = new Font("Segoe UI Variable Text", 9f),
+            Font = new Font("Segoe UI Variable Text", 9f, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(24, 200)
+            Location = new Point(comboXs[2], labelY)
         };
 
         _fpsCombo = new ComboBox
@@ -158,14 +216,14 @@ public class ConfigEditorForm : Form
             BackColor = BgColorLighter,
             ForeColor = TextPrimary,
             Font = new Font("Segoe UI Variable Text", 10f),
-            Size = new Size(200, 32),
-            Location = new Point(24, 222),
+            Size = new Size(comboWs[2], comboH),
+            Location = new Point(comboXs[2], comboY),
             FlatStyle = FlatStyle.Flat,
             Enabled = false
         };
         _fpsCombo.Items.AddRange(new object[]
         {
-            "自动跟随显示器刷新率",
+            "自动跟随刷新率",
             "120 FPS",
             "144 FPS",
             "165 FPS",
@@ -173,48 +231,33 @@ public class ConfigEditorForm : Form
         });
 
         // 高级选项
-        _advancedGroup = new GroupBox
+        _advancedLabel = new Label
         {
-            Text = "高级选项（一般无需修改）",
+            Text = "高级选项(一般无需修改)",
             ForeColor = TextTertiary,
-            Font = new Font("Segoe UI Variable Text", 9f),
-            Location = new Point(24, 258),
-            Size = new Size(420, 88),
-            BackColor = BgColor,
-            FlatStyle = FlatStyle.Flat
+            Font = new Font("Segoe UI Variable Text", 9.5f, FontStyle.Bold),
+            AutoSize = true,
+            Location = new Point(24, 130)
         };
 
         _debugCheck = new CheckBox
         {
-            Text = "generatedOnlyDebug（仅生成帧调试，正常保持关闭）",
+            Text = "generatedOnlyDebug（仅生成帧调试，默认保持关闭）",
             ForeColor = TextSecondary,
             Font = new Font("Segoe UI Variable Text", 9f),
             AutoSize = true,
-            Location = new Point(12, 25),
+            Location = new Point(24, 156),
             BackColor = Color.Transparent
         };
 
         _exp56Check = new CheckBox
         {
-            Text = "dynamicExperimental56（动态模式允许5/6倍，建议关闭）",
+            Text = "dynamicExperimental56（动态模式允许开启5/6倍帧生成，默认保持关闭）",
             ForeColor = TextSecondary,
             Font = new Font("Segoe UI Variable Text", 9f),
             AutoSize = true,
-            Location = new Point(12, 52),
+            Location = new Point(24, 182),
             BackColor = Color.Transparent
-        };
-
-        _advancedGroup.Controls.Add(_debugCheck);
-        _advancedGroup.Controls.Add(_exp56Check);
-
-        // 提示
-        _hintLabel = new Label
-        {
-            Text = "修改后点击保存，配置将写入游戏目录的 RTX40MFG_config.json",
-            ForeColor = TextTertiary,
-            Font = new Font("Segoe UI Variable Text", 8.5f),
-            AutoSize = true,
-            Location = new Point(24, 388)
         };
 
         // 按钮
@@ -222,8 +265,8 @@ public class ConfigEditorForm : Form
         {
             Text = "恢复默认",
             IsSecondary = true,
-            Size = new Size(100, 36),
-            Location = new Point(24, 416)
+            Size = new Size(120, 38),
+            Location = new Point(24, 290)
         };
         _resetButton.Click += (_, _) => ResetToDefault();
 
@@ -231,8 +274,8 @@ public class ConfigEditorForm : Form
         {
             Text = "取消",
             IsSecondary = true,
-            Size = new Size(100, 36),
-            Location = new Point(214, 416)
+            Size = new Size(120, 38),
+            Location = new Point(340, 290)
         };
         _cancelButton.Click += (_, _) => Close();
 
@@ -242,8 +285,8 @@ public class ConfigEditorForm : Form
             AccentColor = SuccessColor,
             HoverColor = Color.FromArgb(30, 200, 140),
             PressedColor = Color.FromArgb(10, 160, 110),
-            Size = new Size(110, 36),
-            Location = new Point(324, 416)
+            Size = new Size(120, 38),
+            Location = new Point(470, 290)
         };
         _saveButton.Click += (_, _) => SaveConfig();
 
@@ -252,15 +295,25 @@ public class ConfigEditorForm : Form
         Controls.Add(_multiplierLabel);
         Controls.Add(_multiplierCombo);
         Controls.Add(_modeLabel);
-        Controls.Add(_modeFixedRadio);
-        Controls.Add(_modeDynamicRadio);
+        Controls.Add(_modeCombo);
         Controls.Add(_fpsLabel);
         Controls.Add(_fpsCombo);
-        Controls.Add(_advancedGroup);
-        Controls.Add(_hintLabel);
+        Controls.Add(_advancedLabel);
+        Controls.Add(_debugCheck);
+        Controls.Add(_exp56Check);
         Controls.Add(_resetButton);
         Controls.Add(_cancelButton);
         Controls.Add(_saveButton);
+
+        // 应用主题到所有 ModernButton
+        foreach (Control ctrl in Controls)
+        {
+            if (ctrl is ModernButton mbtn)
+            {
+                mbtn.IsLightTheme = IsLightTheme;
+                mbtn.ForeColor = TextPrimary;
+            }
+        }
     }
 
     #endregion
@@ -293,14 +346,7 @@ public class ConfigEditorForm : Form
         _multiplierCombo.SelectedIndex = multiplierIndex;
 
         // 模式
-        if (_config.mode == "dynamic")
-        {
-            _modeDynamicRadio.Checked = true;
-        }
-        else
-        {
-            _modeFixedRadio.Checked = true;
-        }
+        _modeCombo.SelectedIndex = _config.mode == "dynamic" ? 1 : 0;
 
         // 动态帧率
         var fpsIndex = _config.dynamicTargetFrameRate switch
@@ -327,7 +373,7 @@ public class ConfigEditorForm : Form
         {
             // 从UI读取配置
             _config.multiplier = _multiplierCombo.SelectedIndex + 2;
-            _config.mode = _modeDynamicRadio.Checked ? "dynamic" : "fixed";
+            _config.mode = _modeCombo.SelectedIndex == 1 ? "dynamic" : "fixed";
             _config.dynamicTargetFrameRate = _fpsCombo.SelectedIndex switch
             {
                 0 => 0,
@@ -373,7 +419,7 @@ public class ConfigEditorForm : Form
 
     private void UpdateFpsEnabled()
     {
-        var isDynamic = _modeDynamicRadio.Checked;
+        var isDynamic = _modeCombo.SelectedIndex == 1;
         _fpsCombo.Enabled = isDynamic;
         _fpsLabel.ForeColor = isDynamic ? TextSecondary : TextTertiary;
     }
