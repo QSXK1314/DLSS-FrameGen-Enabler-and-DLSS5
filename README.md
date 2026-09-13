@@ -1,5 +1,7 @@
 # DLSS FrameGen Enabler & DLSS5
 
+2026-09-12最新版本更新：V1.12.5.2
+
 一款用于开启游戏DLSS5和多帧生成（Frame Generation）功能的Windows桌面工具。
 A Windows desktop tool for enabling DLSS5 and Frame Generation in games.
 
