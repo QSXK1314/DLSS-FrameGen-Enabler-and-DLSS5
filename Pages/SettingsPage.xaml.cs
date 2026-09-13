@@ -82,7 +82,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             GpuTipText.Text = Translator.IsEnglish ? "If auto-detection fails, manually select GPU" : "如果自动检测出错，可以手动选择显卡";
             GpuComboBox.Header = Translator.T("Settings_GpuHeader");
             AboutText.Text = Translator.T("Settings_About");
-            VersionText.Text = Translator.IsEnglish ? "Version: V1.12.5.2" : "版本：V1.12.5.2";
+            VersionText.Text = Translator.IsEnglish ? "Version: V1.13.0.0" : "版本：V1.13.0.0";
             DevLangText.Text = Translator.T("About_DevLang");
 
             // 更新语言下拉框的选项文本

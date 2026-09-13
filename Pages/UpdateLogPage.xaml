@@ -21,6 +21,32 @@
         </StackPanel>
         <ScrollViewer Grid.Row="1">
             <StackPanel Spacing="8" x:Name="ContentStack">
+                <!-- V1.13.0.0 -->
+                <TextBlock x:Name="V11300Title" Text="V1.13.0.0" FontWeight="Bold" FontSize="18" />
+                <TextBlock x:Name="V11300_1" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11300_2" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11300_3" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11300_4" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11300_5" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11300_6" Text="" TextWrapping="Wrap" />
+
+                <!-- V1.12.9.0 -->
+                <TextBlock x:Name="V11290Title" Text="V1.12.9.0" FontWeight="Bold" FontSize="18" />
+                <TextBlock x:Name="V11290_1" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11290_2" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11290_3" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11290_4" Text="" TextWrapping="Wrap" />
+
+                <!-- V1.12.8.3 -->
+                <TextBlock x:Name="V11283Title" Text="V1.12.8.3" FontWeight="Bold" FontSize="18" />
+                <TextBlock x:Name="V11283_1" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11283_2" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11283_3" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11283_4" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11283_5" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11283_6" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11283_7" Text="" TextWrapping="Wrap" />
+
                 <!-- V1.12.5.2 -->
                 <TextBlock x:Name="V11252Title" Text="V1.12.5.2" FontWeight="Bold" FontSize="18" />
                 <TextBlock x:Name="V11252_1" Text="" TextWrapping="Wrap" />

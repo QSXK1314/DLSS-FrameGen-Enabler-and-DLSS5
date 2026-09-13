@@ -25,6 +25,66 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             CheckUpdateBtn.Content = en ? "Check Update" : "检查更新";
             DirectDownloadBtn.Content = en ? "Direct Download" : "直接下载最新版";
 
+            // ===== V1.13.0.0 =====
+            V11300Title.Text = "V1.13.0.0";
+            V11300_1.Text = en ?
+                "NEW: Detect Running Games feature - Enumerate system processes via Win32 API (CreateToolhelp32Snapshot + QueryFullProcessImageName), 100% accurate game exe path, just like Task Manager's 'Open file location'" :
+                "新增：检测运行中游戏功能 - 通过纯Win32 API（CreateToolhelp32Snapshot + QueryFullProcessImageName）枚举系统进程，100%准确获取游戏真正的exe路径，模仿任务管理器'打开文件所在位置'";
+            V11300_2.Text = en ?
+                "Process list with icons: Extract exe file icons via SHGetFileInfo Win32 API, display 24x24 icons next to process name for easy identification" :
+                "进程列表显示图标：通过SHGetFileInfo Win32 API提取exe文件图标，在进程名旁边显示24x24图标，方便用户辨认";
+            V11300_3.Text = en ?
+                "NEW: Usage Notes dialog on startup - Shows 6 important notes after startup dialog (enable DLSS first, miHoYo not supported, Ubisoft/EA may not be fully compatible, Vulkan not supported, backup game files, anti-cheat risk), with 'Don't show again' checkbox" :
+                "新增：启动时使用前说明弹窗 - 在启动弹窗后显示6条重要注意事项（先开启DLSS、米哈游不支持、育碧EA可能不完全适配、Vulkan不支持、备份游戏文件、反作弊风险），支持'不再显示'复选框";
+            V11300_4.Text = en ?
+                "Fixed ContentDialog crash: Changed all ContentDialog initialization from InitializeWithWindow (Win32 interop) to XamlRoot (WinUI3 native), resolved 'Specified cast is not valid' error" :
+                "修复ContentDialog崩溃：将所有ContentDialog初始化从InitializeWithWindow（Win32互操作）改为XamlRoot（WinUI3原生），解决'Specified cast is not valid'错误";
+            V11300_5.Text = en ?
+                "Fixed restore preview inconsistency: PreviewRestoreFrameGen and PreviewRestoreDLSS5 now use EXACTLY the same logic as actual Restore (IsAddedPatchFile function), preview and actual results are 100% consistent" :
+                "修复还原预览不一致：PreviewRestoreFrameGen和PreviewRestoreDLSS5现在使用与实际还原完全一致的逻辑（IsAddedPatchFile函数），预览和实际结果100%一致";
+            V11300_6.Text = en ?
+                "Improved running game detection prompt: Added warning to enable DLSS/Frame Generation in game settings FIRST, then close game, then install patches" :
+                "优化运行中游戏检测提示：添加提醒，告知用户必须先在游戏设置中开启DLSS/帧生成相关功能，然后关闭游戏，最后再安装补丁";
+
+            // ===== V1.12.9.0 =====
+            V11290Title.Text = "V1.12.9.0";
+            V11290_1.Text = en ?
+                "Critical fix: Restore function was deleting game native files (plugins folder, nvngx files etc.). Simplified restore logic to stable pattern matching, DLSS5 and Frame Gen restore now use EXACTLY the same logic" :
+                "关键修复：还原功能误删游戏原生文件（plugins文件夹、nvngx文件等）。简化还原逻辑为稳定的模式匹配，DLSS5和多帧生成的还原现在使用完全一致的逻辑";
+            V11290_2.Text = en ?
+                "Restore safety: Only delete explicitly added patch files (ReShade*, dxgi.dll, d3d9.dll etc.). Files that may be game native (nvngx_dlss.dll, nvngx_dlssg.dll, sl.*) are only restored if backup exists, otherwise left untouched" :
+                "还原安全保障：只删除明确添加的补丁文件（ReShade*、dxgi.dll、d3d9.dll等）。可能是游戏原生的文件（nvngx_dlss.dll、nvngx_dlssg.dll、sl.*等）只有备份存在时才恢复，否则完全不动";
+            V11290_3.Text = en ?
+                "Folder protection: Never delete plugins, Streamline, Fonts folders that may be game native. Only delete patch-created folders: reshade-shaders, runtime, host64" :
+                "文件夹保护：绝不删除可能是游戏原生的plugins、Streamline、Fonts文件夹。只删除补丁创建的文件夹：reshade-shaders、runtime、host64";
+            V11290_4.Text = en ?
+                "Removed complex snapshot feature that caused instability: Backup manifest and file pattern matching is sufficient and reliable for restore operations" :
+                "移除导致不稳定的复杂快照功能：备份清单和文件模式匹配对于还原操作已经足够且可靠";
+
+            // ===== V1.12.8.3 =====
+            V11283Title.Text = "V1.12.8.3";
+            V11283_1.Text = en ?
+                "Fixed crash on Usage page: NullReferenceException in UpdateLanguageTexts when XAML elements not fully initialized" :
+                "修复使用说明页面崩溃：XAML元素未完全初始化时UpdateLanguageTexts出现空引用异常";
+            V11283_2.Text = en ?
+                "Fixed crash on download feature: ContentDialog conflict when multiple dialogs try to open simultaneously (loading dialog + changelog dialog + error dialog)" :
+                "修复下载功能崩溃：多个对话框同时打开时的ContentDialog冲突（加载对话框+更新内容对话框+错误对话框）";
+            V11283_3.Text = en ?
+                "Fixed crash on Settings page: InvalidCastException when XAML generated cache out of sync, resolved by clean rebuild" :
+                "修复设置页面崩溃：XAML生成缓存不同步导致的类型转换异常，通过清理并重新编译解决";
+            V11283_4.Text = en ?
+                "Fixed software won't launch on many computers: Missing Visual C++ Redistributable runtime. Release package now includes ALL required runtimes (.NET, Windows App SDK, VC++), extract and run directly, no installation needed" :
+                "修复很多电脑无法打开软件的问题：缺少Visual C++ Redistributable运行时。发布版现已包含所有所需运行时（.NET、Windows App SDK、VC++），解压即用，无需安装任何组件";
+            V11283_5.Text = en ?
+                "Added VC++ runtime auto-detection: Checks registry and system DLLs on startup, shows bilingual prompt if missing" :
+                "新增VC++运行时自动检测：启动时检查注册表和系统DLL，如缺少则弹出中英文提示";
+            V11283_6.Text = en ?
+                "Added bilingual launchers: 启动软件.bat (Chinese) and Launch.bat (English), auto-detects VC++ runtime and Windows version before launching" :
+                "新增中英文启动器：启动软件.bat（中文）和Launch.bat（英文），启动前自动检测VC++运行时和Windows版本";
+            V11283_7.Text = en ?
+                "Updated usage guide: Added system requirements section (Windows 10 1809+, VC++ runtime, GPU requirements, latest drivers)" :
+                "更新使用说明：添加系统要求部分（Windows 10 1809+、VC++运行时、显卡要求、最新驱动）";
+
             // ===== V1.12.5.2 =====
             V11252Title.Text = "V1.12.5.2";
             V11252_1.Text = en ?
@@ -297,7 +357,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             directDownloadBtn.Click += async (s, e) => 
             {
                 dialog?.Hide(); // 先关闭当前对话框
-                await System.Threading.Tasks.Task.Delay(100); // 等待对话框关闭
+                await System.Threading.Tasks.Task.Delay(300); // 等待对话框完全关闭
                 await DownloadFromGitHubAsync();
             };
             panel.Children.Add(directDownloadBtn);
@@ -393,7 +453,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                     RequestedTheme = theme,
                     XamlRoot = this.Content.XamlRoot
                 };
-                _ = loadingDialog.ShowAsync();
+                var loadingTask = loadingDialog.ShowAsync();
 
                 // 从GitHub API获取最新release的下载链接
                 using var client = new System.Net.Http.HttpClient();
@@ -406,6 +466,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 if (assets.GetArrayLength() == 0)
                 {
                     loadingDialog.Hide();
+                    await System.Threading.Tasks.Task.Delay(200);
                     var errDialog = new ContentDialog
                     {
                         Title = Translator.IsEnglish ? "Download Failed" : "下载失败",
@@ -430,6 +491,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 var changelog = doc.RootElement.TryGetProperty("body", out var body) ? body.GetString() : "";
 
                 loadingDialog.Hide();
+                await System.Threading.Tasks.Task.Delay(200);
 
                 // 显示更新内容对话框，让用户确认是否下载
                 var changelogPanel = new StackPanel { Spacing = 12 };

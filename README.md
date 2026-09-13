@@ -23,6 +23,7 @@ A Windows desktop tool for enabling DLSS5 and Frame Generation in games.
 ### 其他功能 / Other Features
 - 自动扫描Steam/EA/育碧/GOG游戏库 / Auto-scan Steam/EA/Ubisoft/GOG game libraries
 - 手动添加游戏（支持选择游戏exe）/ Manual game addition (supports selecting game exe)
+- **检测运行中游戏 / Detect Running Games**：通过Win32 API枚举系统进程，100%准确识别游戏真正的exe路径 / Enumerate system processes via Win32 API for 100% accurate game exe identification
 - 游戏列表管理（右键菜单、移除列表、打开目录）/ Game list management (context menu, remove, open directory)
 - 排错功能（检测并替换游戏文件）/ Troubleshooting (detect and replace game files)
 - 一键还原/无责还原 / One-click restore / unconditional restore
@@ -35,6 +36,8 @@ A Windows desktop tool for enabling DLSS5 and Frame Generation in games.
 - 页面切换动画 / Page transition animation
 - 自动检查更新（支持GitHub直接下载、断点续传、自动安装Beta）/ Auto update check (GitHub direct download, resume, auto-install Beta)
 - 记住游戏列表 / Remember game list
+- 记住窗口大小 / Remember window size
+- 使用前说明弹窗 / Usage notes dialog on startup
 - 拖动窗口性能优化 / Window dragging performance optimization
 
 ## 系统要求 / System Requirements

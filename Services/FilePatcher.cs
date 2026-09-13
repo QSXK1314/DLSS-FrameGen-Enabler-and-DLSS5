@@ -280,7 +280,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             catch { }
         }
 
-        // 备份文件
+        // 备份文件（同时记录原始路径）
         private static void BackupFile(string sourceFile, string backupDir)
         {
             if (!File.Exists(sourceFile)) return;
@@ -290,19 +290,234 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             {
                 File.Copy(sourceFile, backupFile, true);
             }
+            // 记录文件的原始完整路径到manifest
+            try
+            {
+                var manifestFile = Path.Combine(backupDir, "backup_manifest.txt");
+                var manifestEntry = $"{fileName}|{sourceFile}";
+                var existingEntries = File.Exists(manifestFile) 
+                    ? File.ReadAllLines(manifestFile).ToList() 
+                    : new List<string>();
+                if (!existingEntries.Any(e => e.StartsWith(fileName + "|")))
+                {
+                    existingEntries.Add(manifestEntry);
+                    File.WriteAllLines(manifestFile, existingEntries);
+                }
+            }
+            catch { }
+
+            // 第一次备份时，自动保存安装前的目录快照（用于还原时精准对比）
+            try
+            {
+                var snapshotFile = Path.Combine(backupDir, "pre_install_snapshot.txt");
+                if (!File.Exists(snapshotFile))
+                {
+                    // 从sourceFile推断游戏根目录（向上找，直到找到包含exe的目录或驱动器根）
+                    var gameRoot = Path.GetDirectoryName(sourceFile);
+                    while (!string.IsNullOrEmpty(gameRoot) && Directory.GetFiles(gameRoot, "*.exe").Length == 0)
+                    {
+                        var parent = Directory.GetParent(gameRoot);
+                        if (parent == null) break;
+                        gameRoot = parent.FullName;
+                    }
+                    if (!string.IsNullOrEmpty(gameRoot) && Directory.Exists(gameRoot))
+                    {
+                        SaveDirectorySnapshot(gameRoot, snapshotFile);
+                    }
+                }
+            }
+            catch { }
         }
 
-        // 查找nvngx_dlssg.dll位置
-        private static string? FindNvngxDlssg(string gamePath)
+        // 保存目录快照（记录所有文件的相对路径，第一行保存根目录路径）
+        private static void SaveDirectorySnapshot(string rootPath, string snapshotFile)
         {
             try
             {
-                var files = GetFilesWithDepthLimit(gamePath, "nvngx_dlssg.dll", 4);
-                // 优先选择带NVIDIA路径的
-                var nvidiaPath = files.FirstOrDefault(f =>
-                    f.Contains("Nvidia", StringComparison.OrdinalIgnoreCase) ||
+                var files = GetFilesWithDepthLimit(rootPath, "*", 8);
+                using (var writer = new StreamWriter(snapshotFile))
+                {
+                    // 第一行保存根目录路径，确保还原时使用相同的根目录计算相对路径
+                    writer.WriteLine("ROOT|" + rootPath);
+                    foreach (var file in files)
+                    {
+                        try
+                        {
+                            var relativePath = file.Substring(rootPath.Length).TrimStart('\\', '/');
+                            writer.WriteLine(relativePath);
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // 加载目录快照（返回根目录路径和文件相对路径集合）
+        private static (string rootPath, HashSet<string> files) LoadDirectorySnapshot(string snapshotFile)
+        {
+            var rootPath = "";
+            var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                if (File.Exists(snapshotFile))
+                {
+                    var lines = File.ReadAllLines(snapshotFile);
+                    foreach (var line in lines)
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        if (line.StartsWith("ROOT|"))
+                        {
+                            rootPath = line.Substring(5).Trim();
+                        }
+                        else
+                        {
+                            files.Add(line.Trim().Replace('/', '\\'));
+                        }
+                    }
+                }
+            }
+            catch { }
+            return (rootPath, files);
+        }
+
+        // 根据备份文件名获取原始路径
+        private static string? GetOriginalPath(string backupDir, string fileName)
+        {
+            try
+            {
+                var manifestFile = Path.Combine(backupDir, "backup_manifest.txt");
+                if (!File.Exists(manifestFile)) return null;
+                var entries = File.ReadAllLines(manifestFile);
+                foreach (var entry in entries)
+                {
+                    var parts = entry.Split('|', 2);
+                    if (parts.Length == 2 && parts[0] == fileName)
+                    {
+                        return parts[1];
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        // 判断一个文件名是否是"明确添加的补丁文件"（基本不会是游戏原生的，不在备份目录中就可以删除）
+        private static bool IsAddedPatchFile(string fileName)
+        {
+            var name = fileName.ToLower();
+            // ReShade相关（明确是ReShade创建的）
+            if (name.StartsWith("reshade")) return true;
+            // RTX40MFG相关（明确是RTX40MFG创建的）
+            if (name.StartsWith("rtx40mfg")) return true;
+            // dlss5-feed相关（明确是DLSS5 feed插件）
+            if (name.StartsWith("dlss5-feed")) return true;
+            // dgVoodoo相关（明确是dgVoodoo创建的）
+            if (name.StartsWith("dgvoodoo")) return true;
+            // RE_DLSS5相关（明确是RE引擎DLSS5补丁）
+            if (name.StartsWith("re_dlss5")) return true;
+            // nvngx_dlssnr.dll（DLSS5神经渲染，游戏通常不原生自带，是DLSS5特有的）
+            if (name == "nvngx_dlssnr.dll") return true;
+            // 常见的注入DLL（游戏目录中出现这些基本都是注入DLL，系统已有）
+            var patchDlls = new[] { "dxgi.dll", "d3d9.dll", "d3d11.dll", "d3d12.dll",
+                "version.dll", "dinput8.dll", "winmm.dll", "dsound.dll", "xinput1_3.dll",
+                "xinput1_4.dll", "binkw64.dll", "bink2w64.dll", "winhttp.dll", "wininet.dll",
+                "xinputuap.dll", "dlssnr_on_amd_setup.exe" };
+            if (patchDlls.Contains(name)) return true;
+            // 常见的配置文件（明确是补丁创建的）
+            var patchInis = new[] { "version.ini", "global.ini", "dlssg_sm86.ini" };
+            if (patchInis.Contains(name)) return true;
+            // 插件文件（明确是补丁插件）
+            if (name.EndsWith(".addon64") || name.EndsWith(".asi") || name.EndsWith(".fx")) return true;
+            // 字体文件（补丁自带的中文字体）
+            if (name == "misans-bold.ttf") return true;
+            // 状态文件（明确是补丁创建的）
+            if (name == "rtx40mfg-universal.status.json") return true;
+            return false;
+        }
+
+        // 判断一个文件名是否是"可能被替换的补丁文件"（可能是游戏原生的，只有在备份目录中有时才处理）
+        private static bool IsReplacablePatchFile(string fileName)
+        {
+            var name = fileName.ToLower();
+            // nvngx_dlss.dll（DLSS超分辨率，游戏可能原生自带）
+            if (name == "nvngx_dlss.dll") return true;
+            // nvngx_dlssg.dll（DLSS帧生成，游戏可能原生自带）
+            if (name == "nvngx_dlssg.dll") return true;
+            // nvngx_dlssd.dll（DLSS光线追踪降噪，游戏可能原生自带）
+            if (name == "nvngx_dlssd.dll") return true;
+            // sl.系列（Streamline相关，游戏可能原生自带）
+            if (name.StartsWith("sl.")) return true;
+            // D3DCompiler（游戏可能原生自带）
+            if (name == "d3dcompiler_47.dll") return true;
+            // NvLowLatencyVk（游戏可能原生自带）
+            if (name == "nvlowlatencyvk.dll") return true;
+            return false;
+        }
+
+        // 判断一个文件名是否是补丁文件（通用模式匹配，适用于所有游戏）
+        private static bool IsPatchFile(string fileName)
+        {
+            return IsAddedPatchFile(fileName) || IsReplacablePatchFile(fileName);
+        }
+
+        // 查找nvngx_dlssg.dll位置
+        // 通用的文件优先级查找函数（适用于所有游戏，包括plugins文件夹、Streamline目录等）
+        private static string? FindFileWithPriority(string[] files, string exeDir)
+        {
+            if (files == null || files.Length == 0) return null;
+
+            // 优先选择plugins文件夹中的文件（有些游戏的源文件在plugins文件夹中！）
+            var pluginsPath = files.FirstOrDefault(f =>
+                f.Contains("plugins", StringComparison.OrdinalIgnoreCase));
+            if (pluginsPath != null) return pluginsPath;
+
+            // 其次选择带Streamline路径的文件
+            var streamlinePath = files.FirstOrDefault(f =>
+                f.Contains("Streamline", StringComparison.OrdinalIgnoreCase));
+            if (streamlinePath != null) return streamlinePath;
+
+            // 然后选择exe目录下的文件
+            var exeDirFile = files.FirstOrDefault(f => 
+                Path.GetDirectoryName(f)?.Equals(exeDir, StringComparison.OrdinalIgnoreCase) == true);
+            if (exeDirFile != null) return exeDirFile;
+
+            // 最后选择第一个找到的文件
+            return files.FirstOrDefault();
+        }
+
+        private static string? FindNvngxDlssg(string gamePath, string exeDir)
+        {
+            try
+            {
+                // 方法1：直接在exe目录中查找（最可靠）
+                var directPath = Path.Combine(exeDir, "nvngx_dlssg.dll");
+                if (File.Exists(directPath))
+                {
+                    return directPath;
+                }
+
+                // 方法2：递归搜索整个游戏目录（深度8层）
+                var files = GetFilesWithDepthLimit(gamePath, "nvngx_dlssg.dll", 8);
+                if (files.Length == 0) return null;
+
+                // 优先选择plugins文件夹中的文件（有些游戏的源文件在plugins文件夹中！）
+                var pluginsPath = files.FirstOrDefault(f =>
+                    f.Contains("plugins", StringComparison.OrdinalIgnoreCase));
+                if (pluginsPath != null) return pluginsPath;
+
+                // 其次选择带Streamline路径的文件
+                var streamlinePath = files.FirstOrDefault(f =>
                     f.Contains("Streamline", StringComparison.OrdinalIgnoreCase));
-                return nvidiaPath ?? files.FirstOrDefault();
+                if (streamlinePath != null) return streamlinePath;
+
+                // 然后选择exe目录下的文件
+                var exeDirFile = files.FirstOrDefault(f => 
+                    Path.GetDirectoryName(f)?.Equals(exeDir, StringComparison.OrdinalIgnoreCase) == true);
+                if (exeDirFile != null) return exeDirFile;
+
+                // 最后选择第一个找到的文件
+                return files.FirstOrDefault();
             }
             catch { return null; }
         }
@@ -316,14 +531,25 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             {
                 EnsurePatchesExtracted();
                 var exeDir = GetExeDir(game);
+                var searchRoot = !string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath) 
+                    ? game.GamePath 
+                    : exeDir;
                 var backupDir = GetBackupDir(game, "FrameGen_Classic");
 
                 // 替换nvngx_dlssg.dll
-                var dlssgPath = FindNvngxDlssg(game.GamePath);
+                var dlssgPath = FindNvngxDlssg(searchRoot, exeDir);
+                var dlssgSrc = Path.Combine(GetPatchDir(@"老驱动多帧生成\核心"), "nvngx_dlssg.dll");
                 if (dlssgPath != null)
                 {
+                    // 找到了原文件，备份后替换
                     BackupFile(dlssgPath, backupDir);
-                    File.Copy(Path.Combine(GetPatchDir(@"老驱动多帧生成\核心"), "nvngx_dlssg.dll"), dlssgPath, true);
+                    File.Copy(dlssgSrc, dlssgPath, true);
+                }
+                else
+                {
+                    // 找不到原文件（可能被还原功能删了），直接复制补丁版本到exe目录
+                    var dstPath = Path.Combine(exeDir, "nvngx_dlssg.dll");
+                    File.Copy(dlssgSrc, dstPath, true);
                 }
 
                 // 复制3个文件到exe目录
@@ -350,14 +576,25 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             {
                 EnsurePatchesExtracted();
                 var exeDir = GetExeDir(game);
+                var searchRoot = !string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath) 
+                    ? game.GamePath 
+                    : exeDir;
                 var backupDir = GetBackupDir(game, "FrameGen_Advanced");
 
                 // 替换nvngx_dlssg.dll
-                var dlssgPath = FindNvngxDlssg(game.GamePath);
+                var dlssgPath = FindNvngxDlssg(searchRoot, exeDir);
+                var dlssgSrc = Path.Combine(GetPatchDir("40系原生多帧生成"), "nvngx_dlssg.dll");
                 if (dlssgPath != null)
                 {
+                    // 找到了原文件，备份后替换
                     BackupFile(dlssgPath, backupDir);
-                    File.Copy(Path.Combine(GetPatchDir("40系原生多帧生成"), "nvngx_dlssg.dll"), dlssgPath, true);
+                    File.Copy(dlssgSrc, dlssgPath, true);
+                }
+                else
+                {
+                    // 找不到原文件（可能被还原功能删了），直接复制补丁版本到exe目录
+                    var dstPath = Path.Combine(exeDir, "nvngx_dlssg.dll");
+                    File.Copy(dlssgSrc, dstPath, true);
                 }
 
                 // 复制nvngx_dlss.dll
@@ -771,6 +1008,156 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             catch { return false; }
         }
 
+        // ========== 还原预览 ==========
+
+        // 预览还原多帧生成时会删除/恢复的文件（不实际操作）
+        public static (List<string> filesToDelete, List<string> filesToRestore, List<string> dirsToDelete) PreviewRestoreFrameGen(GameInfo game)
+        {
+            var filesToDelete = new List<string>();
+            var filesToRestore = new List<string>();
+            var dirsToDelete = new List<string>();
+
+            try
+            {
+                var exeDir = GetExeDir(game);
+                var searchRoot = !string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath) 
+                    ? game.GamePath 
+                    : exeDir;
+                var gameBackupRoot = Path.Combine(BackupBaseDir, game.Name);
+                if (!Directory.Exists(gameBackupRoot)) return (filesToDelete, filesToRestore, dirsToDelete);
+
+                var backupDirs = Directory.GetDirectories(gameBackupRoot)
+                    .Where(d => Path.GetFileName(d).Contains("FrameGen"))
+                    .ToList();
+
+                // 收集备份目录中的文件名（这些是被替换的文件，需要恢复）
+                var backedUpFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var backupFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var backupDir in backupDirs)
+                {
+                    foreach (var file in Directory.GetFiles(backupDir))
+                    {
+                        var fileName = Path.GetFileName(file);
+                        if (fileName == "backup_manifest.txt" || fileName == "game_path.txt" || fileName == "pre_install_snapshot.txt") continue;
+                        backedUpFileNames.Add(fileName);
+                        if (!backupFileMap.ContainsKey(fileName))
+                        {
+                            backupFileMap[fileName] = file;
+                        }
+                        var originalPath = GetOriginalPath(backupDir, fileName);
+                        filesToRestore.Add(originalPath ?? Path.Combine(exeDir, fileName));
+                    }
+                }
+
+                // 收集会被删除的文件（使用和实际还原完全一致的IsAddedPatchFile逻辑）
+                var allGameFiles = GetFilesWithDepthLimit(searchRoot, "*", 8);
+                foreach (var gameFile in allGameFiles)
+                {
+                    if (gameFile.Contains(BackupBaseDir)) continue;
+                    var fileName = Path.GetFileName(gameFile);
+                    // 备份目录中有同名文件 → 会被恢复，不是删除
+                    if (backedUpFileNames.Contains(fileName)) continue;
+                    // 匹配"明确添加的补丁文件"模式 → 会被删除
+                    if (IsAddedPatchFile(fileName))
+                    {
+                        filesToDelete.Add(gameFile);
+                    }
+                }
+
+                // 会被删除的目录（和实际还原完全一致）
+                var dirNames = new[] { "reshade-shaders", "runtime", "host64" };
+                foreach (var dirName in dirNames)
+                {
+                    try
+                    {
+                        var foundDirs = GetDirectoriesWithDepthLimit(searchRoot, dirName, 8);
+                        foreach (var d in foundDirs)
+                        {
+                            if (!d.Contains(BackupBaseDir) && Directory.Exists(d)) dirsToDelete.Add(d);
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            return (filesToDelete.Distinct().ToList(), filesToRestore.Distinct().ToList(), dirsToDelete.Distinct().ToList());
+        }
+
+        // 预览还原DLSS5时会删除/恢复的文件（不实际操作）
+        public static (List<string> filesToDelete, List<string> filesToRestore, List<string> dirsToDelete) PreviewRestoreDLSS5(GameInfo game)
+        {
+            var filesToDelete = new List<string>();
+            var filesToRestore = new List<string>();
+            var dirsToDelete = new List<string>();
+
+            try
+            {
+                var exeDir = GetExeDir(game);
+                var searchRoot = !string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath) 
+                    ? game.GamePath 
+                    : exeDir;
+                var gameBackupRoot = Path.Combine(BackupBaseDir, game.Name);
+                if (!Directory.Exists(gameBackupRoot)) return (filesToDelete, filesToRestore, dirsToDelete);
+
+                var backupDirs = Directory.GetDirectories(gameBackupRoot)
+                    .Where(d => Path.GetFileName(d).Contains("DLSS5") || Path.GetFileName(d).Contains("DX9DLSS5"))
+                    .ToList();
+
+                // 收集备份目录中的文件名（这些是被替换的文件，需要恢复）
+                var backedUpFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var backupFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var backupDir in backupDirs)
+                {
+                    foreach (var file in Directory.GetFiles(backupDir))
+                    {
+                        var fileName = Path.GetFileName(file);
+                        if (fileName == "backup_manifest.txt" || fileName == "game_path.txt" || fileName == "pre_install_snapshot.txt") continue;
+                        backedUpFileNames.Add(fileName);
+                        if (!backupFileMap.ContainsKey(fileName))
+                        {
+                            backupFileMap[fileName] = file;
+                        }
+                        var originalPath = GetOriginalPath(backupDir, fileName);
+                        filesToRestore.Add(originalPath ?? Path.Combine(exeDir, fileName));
+                    }
+                }
+
+                // 收集会被删除的文件（使用和实际还原完全一致的IsAddedPatchFile逻辑）
+                var allGameFiles = GetFilesWithDepthLimit(searchRoot, "*", 8);
+                foreach (var gameFile in allGameFiles)
+                {
+                    if (gameFile.Contains(BackupBaseDir)) continue;
+                    var fileName = Path.GetFileName(gameFile);
+                    // 备份目录中有同名文件 → 会被恢复，不是删除
+                    if (backedUpFileNames.Contains(fileName)) continue;
+                    // 匹配"明确添加的补丁文件"模式 → 会被删除
+                    if (IsAddedPatchFile(fileName))
+                    {
+                        filesToDelete.Add(gameFile);
+                    }
+                }
+
+                // 会被删除的目录（和实际还原完全一致）
+                var dirNames = new[] { "reshade-shaders", "host64", "runtime" };
+                foreach (var dirName in dirNames)
+                {
+                    try
+                    {
+                        var foundDirs = GetDirectoriesWithDepthLimit(searchRoot, dirName, 8);
+                        foreach (var d in foundDirs)
+                        {
+                            if (!d.Contains(BackupBaseDir) && Directory.Exists(d)) dirsToDelete.Add(d);
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            return (filesToDelete.Distinct().ToList(), filesToRestore.Distinct().ToList(), dirsToDelete.Distinct().ToList());
+        }
+
         // ========== 还原 ==========
 
         // 还原多帧生成
@@ -779,110 +1166,125 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             try
             {
                 var exeDir = GetExeDir(game);
-                var backupDirs = Directory.GetDirectories(Path.Combine(BackupBaseDir, game.Name))
-                    .Where(d => d.Contains("FrameGen"))
-                    .ToList();
+                var searchRoot = !string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath) 
+                    ? game.GamePath 
+                    : exeDir;
 
-                foreach (var backupDir in backupDirs)
-                {
-                    // 恢复备份文件
-                    foreach (var file in Directory.GetFiles(backupDir))
-                    {
-                        var fileName = Path.GetFileName(file);
-                        var target = Path.Combine(exeDir, fileName);
-                        if (File.Exists(target))
-                        {
-                            File.Copy(file, target, true);
-                        }
-                    }
-                }
+                // 第一步：收集备份目录中的所有文件名（这些是被替换的文件，需要恢复）
+                var gameBackupRoot = Path.Combine(BackupBaseDir, game.Name);
+                var backupDirs = new List<string>();
+                var backedUpFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var backupFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-                // 删除添加的文件（备份里有的说明是替换原文件，已经恢复了，不删除）
-                var addedFiles = new[] { "RTX40MFG.asi", "RTX40MFG_config.json", "version.dll", "version.ini",
-                    "nvngx_dlss.dll", "dxgi.dll", "ReShade.ini", "ReShade.log", "ReShadePreset.ini",
-                    "dinput8.dll", "dlssg_sm86.ini", "RTX40MFGCore.dll", "RTX40MFG-UI.addon64" };
-                foreach (var file in addedFiles)
+                if (Directory.Exists(gameBackupRoot))
                 {
-                    // 检查备份目录里是否有这个文件（有说明是替换原文件，已经恢复了）
-                    bool hasBackup = false;
+                    backupDirs = Directory.GetDirectories(gameBackupRoot)
+                        .Where(d => Path.GetFileName(d).Contains("FrameGen"))
+                        .ToList();
+
                     foreach (var backupDir in backupDirs)
                     {
-                        if (File.Exists(Path.Combine(backupDir, file)))
+                        foreach (var file in Directory.GetFiles(backupDir))
                         {
-                            hasBackup = true;
-                            break;
-                        }
-                    }
-                    if (hasBackup) continue; // 跳过，已经恢复了
-
-                    var target = Path.Combine(exeDir, file);
-                    if (File.Exists(target)) File.Delete(target);
-                }
-
-                // 删除配置名修改后的文件（version.dll/version.ini被重命名的情况）
-                var configNames = new[] { "dinput8", "d3d11", "winmm", "d3d9", "winhttp", "wininet",
-                    "dsound", "binkw64", "xinput1_3", "bink2w64", "xinput1_4", "xinputuap" };
-                foreach (var name in configNames)
-                {
-                    // 跳过dinput8，因为上面已经删了（高级模式本身就有dinput8.dll）
-                    if (name == "dinput8") continue;
-                    var dllPath = Path.Combine(exeDir, name + ".dll");
-                    var iniPath = Path.Combine(exeDir, name + ".ini");
-                    // 只有当备份目录里没有这个文件时，才说明是我们重命名的，删除
-                    bool isOriginal = false;
-                    foreach (var backupDir in backupDirs)
-                    {
-                        if (File.Exists(Path.Combine(backupDir, name + ".dll")))
-                        {
-                            isOriginal = true;
-                            break;
-                        }
-                    }
-                    if (!isOriginal)
-                    {
-                        if (File.Exists(dllPath)) File.Delete(dllPath);
-                        if (File.Exists(iniPath)) File.Delete(iniPath);
-                    }
-                }
-
-                // dxgi.dll被改成d3d12.dll的情况
-                var d3d12Path = Path.Combine(exeDir, "d3d12.dll");
-                bool d3d12IsOriginal = false;
-                foreach (var backupDir in backupDirs)
-                {
-                    if (File.Exists(Path.Combine(backupDir, "d3d12.dll")))
-                    {
-                        d3d12IsOriginal = true;
-                        break;
-                    }
-                }
-                if (!d3d12IsOriginal && File.Exists(d3d12Path))
-                {
-                    File.Delete(d3d12Path);
-                }
-
-                // 删除reshade-shaders目录
-                var shadersDir = Path.Combine(exeDir, "reshade-shaders");
-                if (Directory.Exists(shadersDir)) Directory.Delete(shadersDir, true);
-
-                // 删除runtime目录
-                var runtimeDir = Path.Combine(exeDir, "runtime");
-                if (Directory.Exists(runtimeDir)) Directory.Delete(runtimeDir, true);
-
-                // 恢复nvngx_dlssg.dll
-                var dlssgPath = FindNvngxDlssg(game.GamePath);
-                if (dlssgPath != null)
-                {
-                    foreach (var backupDir in backupDirs)
-                    {
-                        var backupDlssg = Path.Combine(backupDir, "nvngx_dlssg.dll");
-                        if (File.Exists(backupDlssg))
-                        {
-                            File.Copy(backupDlssg, dlssgPath, true);
-                            break;
+                            var fileName = Path.GetFileName(file);
+                            if (fileName == "backup_manifest.txt" || fileName == "game_path.txt" || fileName == "pre_install_snapshot.txt") continue;
+                            backedUpFileNames.Add(fileName);
+                            if (!backupFileMap.ContainsKey(fileName))
+                            {
+                                backupFileMap[fileName] = file;
+                            }
                         }
                     }
                 }
+
+                // 第二步：递归搜索游戏目录中所有文件，根据类型处理
+                // - 备份目录中有同名文件 → 被替换的文件 → 恢复备份的原生文件
+                // - 匹配"明确添加的补丁文件"模式 → 新增的文件 → 删除
+                // - 其他文件（游戏原生）→ 完全不动
+                var allGameFiles = GetFilesWithDepthLimit(searchRoot, "*", 8);
+                int restoredCount = 0;
+                int deletedCount = 0;
+
+                foreach (var gameFile in allGameFiles)
+                {
+                    try
+                    {
+                        if (gameFile.Contains(BackupBaseDir)) continue;
+
+                        var fileName = Path.GetFileName(gameFile);
+
+                        // 情况1：备份目录中有同名文件 → 被替换的文件 → 恢复备份的原生文件
+                        if (backedUpFileNames.Contains(fileName) && backupFileMap.TryGetValue(fileName, out var backupFilePath))
+                        {
+                            var originalPath = gameFile;
+                            foreach (var backupDir in backupDirs)
+                            {
+                                var manifestPath = GetOriginalPath(backupDir, fileName);
+                                if (manifestPath != null)
+                                {
+                                    originalPath = manifestPath;
+                                    break;
+                                }
+                            }
+
+                            var dir = Path.GetDirectoryName(originalPath);
+                            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                                Directory.CreateDirectory(dir);
+                            File.Copy(backupFilePath, originalPath, true);
+                            restoredCount++;
+                            continue;
+                        }
+
+                        // 情况2：匹配"明确添加的补丁文件"模式 → 新增的文件 → 删除
+                        // 注意：只删除明确是添加的文件，可能是游戏原生的文件（如nvngx_dlss.dll、sl.*等）不动
+                        if (IsAddedPatchFile(fileName))
+                        {
+                            File.Delete(gameFile);
+                            deletedCount++;
+                        }
+                    }
+                    catch { }
+                }
+
+                // 第三步：删除补丁安装时创建的目录
+                // 注意：不要删除plugins、Streamline、Fonts等可能是游戏原生的文件夹！
+                var dirsToDelete = new[] { "reshade-shaders", "runtime", "host64" };
+                foreach (var dirName in dirsToDelete)
+                {
+                    try
+                    {
+                        var foundDirs = GetDirectoriesWithDepthLimit(searchRoot, dirName, 8);
+                        foreach (var foundDir in foundDirs)
+                        {
+                            if (!foundDir.Contains(BackupBaseDir) && Directory.Exists(foundDir))
+                            {
+                                try { Directory.Delete(foundDir, true); } catch { }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                // 第四步：删除备份目录
+                try
+                {
+                    if (Directory.Exists(gameBackupRoot))
+                    {
+                        var fgBackupDirs = Directory.GetDirectories(gameBackupRoot)
+                            .Where(d => Path.GetFileName(d).Contains("FrameGen"))
+                            .ToList();
+                        foreach (var dir in fgBackupDirs)
+                        {
+                            try { Directory.Delete(dir, true); } catch { }
+                        }
+                        if (Directory.GetDirectories(gameBackupRoot).Length == 0 && 
+                            Directory.GetFiles(gameBackupRoot).Length == 0)
+                        {
+                            try { Directory.Delete(gameBackupRoot, true); } catch { }
+                        }
+                    }
+                }
+                catch { }
 
                 game.FrameGenEnabled = false;
                 game.FrameGenMode = "";
@@ -897,73 +1299,121 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             try
             {
                 var exeDir = GetExeDir(game);
-                var backupDirs = Directory.GetDirectories(Path.Combine(BackupBaseDir, game.Name))
-                    .Where(d => d.Contains("DLSS5"))
-                    .ToList();
+                var searchRoot = !string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath) 
+                    ? game.GamePath 
+                    : exeDir;
 
-                // 恢复备份文件
-                foreach (var backupDir in backupDirs)
-                {
-                    foreach (var file in Directory.GetFiles(backupDir))
-                    {
-                        var fileName = Path.GetFileName(file);
-                        var target = Path.Combine(exeDir, fileName);
-                        if (File.Exists(target)) File.Copy(file, target, true);
-                    }
-                }
+                // 第一步：收集备份目录中的所有文件名（这些是被替换的文件，需要恢复）
+                var gameBackupRoot = Path.Combine(BackupBaseDir, game.Name);
+                var backupDirs = new List<string>();
+                var backedUpFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var backupFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-                // 删除DLSS5添加的文件
-                var dlss5Files = new[] { "dxgi.dll", "ReShade.ini", "ReShade.log", "ReShadePreset.ini",
-                    "nvngx_dlssnr.dll", "renodx-dlss5.addon64", "dinput8.dll", "D3DCompiler_47.dll",
-                    "RE_DLSS5_Core.dll", "RE_DLSS5_Core_settings.json", "dlssnr_on_amd_setup.exe",
-                    "D3D9.dll", "dgVoodoo.conf", "dgVoodooCpl.exe", "dlss5-feed.addon32",
-                    "dlss5-feed.addon64", "nvngx_dlss.dll" };
-                foreach (var file in dlss5Files)
+                if (Directory.Exists(gameBackupRoot))
                 {
-                    var target = Path.Combine(exeDir, file);
-                    if (File.Exists(target)) File.Delete(target);
-                }
-                
-                // 递归搜索游戏目录中的dgvoodoo文件（替换dll后可能在其他目录）
-                var dgvoodooFiles = new[] { "D3D9.dll", "dgVoodoo.conf", "dgVoodooCpl.exe" };
-                try
-                {
-                    foreach (var file in dgvoodooFiles)
+                    backupDirs = Directory.GetDirectories(gameBackupRoot)
+                        .Where(d => Path.GetFileName(d).Contains("DLSS5") || Path.GetFileName(d).Contains("DX9DLSS5"))
+                        .ToList();
+
+                    foreach (var backupDir in backupDirs)
                     {
-                        var foundFiles = GetFilesWithDepthLimit(game.GamePath, file, 5);
-                        foreach (var foundFile in foundFiles)
+                        foreach (var file in Directory.GetFiles(backupDir))
                         {
-                            // 确保不是备份目录中的文件
-                            if (!foundFile.Contains(BackupBaseDir))
+                            var fileName = Path.GetFileName(file);
+                            if (fileName == "backup_manifest.txt" || fileName == "game_path.txt" || fileName == "pre_install_snapshot.txt") continue;
+                            backedUpFileNames.Add(fileName);
+                            if (!backupFileMap.ContainsKey(fileName))
                             {
-                                File.Delete(foundFile);
+                                backupFileMap[fileName] = file;
                             }
                         }
                     }
                 }
-                catch { }
 
-                // 删除目录
-                var dirsToDelete = new[] { "reshade-shaders", "host64", "plugins", "Fonts" };
+                // 第二步：递归搜索游戏目录中所有文件，根据类型处理
+                // - 备份目录中有同名文件 → 被替换的文件 → 恢复备份的原生文件
+                // - 匹配"明确添加的补丁文件"模式 → 新增的文件 → 删除
+                // - 其他文件（游戏原生）→ 完全不动
+                var allGameFiles = GetFilesWithDepthLimit(searchRoot, "*", 8);
+                int restoredCount = 0;
+                int deletedCount = 0;
+
+                foreach (var gameFile in allGameFiles)
+                {
+                    try
+                    {
+                        if (gameFile.Contains(BackupBaseDir)) continue;
+
+                        var fileName = Path.GetFileName(gameFile);
+
+                        // 情况1：备份目录中有同名文件 → 被替换的文件 → 恢复备份的原生文件
+                        if (backedUpFileNames.Contains(fileName) && backupFileMap.TryGetValue(fileName, out var backupFilePath))
+                        {
+                            var originalPath = gameFile;
+                            foreach (var backupDir in backupDirs)
+                            {
+                                var manifestPath = GetOriginalPath(backupDir, fileName);
+                                if (manifestPath != null)
+                                {
+                                    originalPath = manifestPath;
+                                    break;
+                                }
+                            }
+
+                            var dir = Path.GetDirectoryName(originalPath);
+                            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                                Directory.CreateDirectory(dir);
+                            File.Copy(backupFilePath, originalPath, true);
+                            restoredCount++;
+                            continue;
+                        }
+
+                        // 情况2：匹配"明确添加的补丁文件"模式 → 新增的文件 → 删除
+                        // 注意：只删除明确是添加的文件，可能是游戏原生的文件（如nvngx_dlss.dll、sl.*等）不动
+                        if (IsAddedPatchFile(fileName))
+                        {
+                            File.Delete(gameFile);
+                            deletedCount++;
+                        }
+                    }
+                    catch { }
+                }
+
+                // 第三步：删除补丁安装时创建的目录
+                // 注意：不要删除plugins、Streamline、Fonts等可能是游戏原生的文件夹！
+                var dirsToDelete = new[] { "reshade-shaders", "host64", "runtime" };
                 foreach (var dirName in dirsToDelete)
                 {
-                    var dir = Path.Combine(exeDir, dirName);
-                    if (Directory.Exists(dir)) Directory.Delete(dir, true);
-                }
-                
-                // 递归搜索游戏目录中的reshade-shaders和host64目录
-                try
-                {
-                    var dirsToSearch = new[] { "reshade-shaders", "host64" };
-                    foreach (var dirName in dirsToSearch)
+                    try
                     {
-                        var foundDirs = GetDirectoriesWithDepthLimit(game.GamePath, dirName, 5);
+                        var foundDirs = GetDirectoriesWithDepthLimit(searchRoot, dirName, 8);
                         foreach (var foundDir in foundDirs)
                         {
-                            if (!foundDir.Contains(BackupBaseDir))
+                            if (!foundDir.Contains(BackupBaseDir) && Directory.Exists(foundDir))
                             {
-                                Directory.Delete(foundDir, true);
+                                try { Directory.Delete(foundDir, true); } catch { }
                             }
+                        }
+                    }
+                    catch { }
+                }
+
+                // 第四步：删除备份目录
+                try
+                {
+                    if (Directory.Exists(gameBackupRoot))
+                    {
+                        var dlss5BackupDirs = Directory.GetDirectories(gameBackupRoot)
+                            .Where(d => Path.GetFileName(d).Contains("DLSS5") || Path.GetFileName(d).Contains("DX9DLSS5"))
+                            .ToList();
+                        foreach (var dir in dlss5BackupDirs)
+                        {
+                            try { Directory.Delete(dir, true); } catch { }
+                        }
+                        if (Directory.GetDirectories(gameBackupRoot).Length == 0 && 
+                            Directory.GetFiles(gameBackupRoot).Length == 0)
+                        {
+                            try { Directory.Delete(gameBackupRoot, true); } catch { }
                         }
                     }
                 }
@@ -1007,7 +1457,8 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                     if (File.Exists(target)) File.Delete(target);
                 }
 
-                var dirsToDelete = new[] { "reshade-shaders", "host64", "plugins", "runtime", "Streamline", "Fonts" };
+                // 注意：不要删除plugins、Streamline、Fonts等可能是游戏原生的文件夹！
+                var dirsToDelete = new[] { "reshade-shaders", "host64", "runtime" };
                 foreach (var dirName in dirsToDelete)
                 {
                     var dir = Path.Combine(exeDir, dirName);

@@ -16,7 +16,7 @@
 
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="AppNameText" Text="多帧生成+DLSS5开启工具" FontSize="18" FontWeight="Bold" />
-                    <TextBlock x:Name="VersionText" Text="版本：V1.12.5.2" />
+                    <TextBlock x:Name="VersionText" Text="版本：V1.13.0.0" />
                     <TextBlock x:Name="DevLangText" Text="开发语言：C# + WinUI 3" />
                     <TextBlock x:Name="OpenSourceText" Text="本软件已免费开源，欢迎Star和Fork！" TextWrapping="Wrap" />
                 </StackPanel>

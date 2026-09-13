@@ -80,7 +80,19 @@ namespace DLSSFrameGenEnabler_WinUI3
 
         public MainWindow()
         {
+            try
+            {
+                System.IO.File.AppendAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "startup.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] MainWindow构造函数开始\n", System.Text.Encoding.UTF8);
+            }
+            catch { }
+
             this.InitializeComponent();
+            try
+            {
+                System.IO.File.AppendAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "startup.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] InitializeComponent完成\n", System.Text.Encoding.UTF8);
+            }
+            catch { }
+
             // 应用语言设置
             Translator.CurrentLanguage = (AppLanguage)SettingsService.Instance.Language;
             Translator.LanguageChanged += UpdateLanguageTexts;
@@ -101,6 +113,38 @@ namespace DLSSFrameGenEnabler_WinUI3
                 System.Diagnostics.Debug.WriteLine($"设置窗口图标失败: {ex.Message}");
             }
 
+            // 设置窗口大小和最小大小（防止窗口太小看不见）
+            try
+            {
+                var appWindow = this.AppWindow;
+                // 设置最小窗口大小
+                appWindow.Resize(new Windows.Graphics.SizeInt32(900, 650));
+                
+                // 恢复上次的窗口大小（如果有保存）
+                int windowWidth = 900;
+                int windowHeight = 650;
+                if (SettingsService.Instance.WindowWidth > 900 && SettingsService.Instance.WindowHeight > 650)
+                {
+                    windowWidth = (int)SettingsService.Instance.WindowWidth;
+                    windowHeight = (int)SettingsService.Instance.WindowHeight;
+                    appWindow.Resize(new Windows.Graphics.SizeInt32(windowWidth, windowHeight));
+                }
+                
+                // 窗口居中显示
+                var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(appWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
+                if (displayArea != null)
+                {
+                    var centeredPos = new Windows.Graphics.PointInt32(
+                        (displayArea.WorkArea.Width - windowWidth) / 2,
+                        (displayArea.WorkArea.Height - windowHeight) / 2);
+                    appWindow.Move(centeredPos);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"设置窗口大小失败: {ex.Message}");
+            }
+
             NavListView.SelectedIndex = 0;
             NavFrame.Navigate(typeof(HomePage));
             SetNavigationAnimation(SettingsService.Instance.EnableAnimation);
@@ -110,10 +154,23 @@ namespace DLSSFrameGenEnabler_WinUI3
             // 获取窗口句柄
             _windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
+            // 确保窗口正常显示（防止窗口被最小化或隐藏）
+            try
+            {
+                ShowWindow(_windowHandle, 1); // SW_SHOWNORMAL
+            }
+            catch { }
+
             // 拖动性能优化：子类化窗口监听拖动开始/结束
             _wndProcDelegate = new WndProcDelegate(CustomWndProc);
             _oldWndProc = SetWindowLongPtr(_windowHandle, GWLP_WNDPROC,
                 System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(_wndProcDelegate));
+
+            try
+            {
+                System.IO.File.AppendAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "startup.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] MainWindow构造函数完成\n", System.Text.Encoding.UTF8);
+            }
+            catch { }
         }
 
         // 自定义窗口过程 - 监听拖动事件
@@ -143,6 +200,24 @@ namespace DLSSFrameGenEnabler_WinUI3
                 {
                     homePage.SaveGamesNow();
                 }
+                
+                // 关闭时保存窗口大小
+                try
+                {
+                    var appWindow = this.AppWindow;
+                    if (appWindow != null)
+                    {
+                        var size = appWindow.Size;
+                        // 只保存大于最小尺寸的窗口大小
+                        if (size.Width >= 900 && size.Height >= 650)
+                        {
+                            SettingsService.Instance.WindowWidth = size.Width;
+                            SettingsService.Instance.WindowHeight = size.Height;
+                            SettingsService.Instance.Save();
+                        }
+                    }
+                }
+                catch { }
             }
             catch { }
         }
@@ -600,7 +675,7 @@ namespace DLSSFrameGenEnabler_WinUI3
 
         private void UpdateLanguageTexts()
         {
-            Title = Translator.IsEnglish ? "Frame Gen + DLSS5 Enabler V1.12.5.2" : "多帧生成+DLSS5开启工具 V1.12.5.2";
+            Title = Translator.IsEnglish ? "Frame Gen + DLSS5 Enabler V1.13.0.0" : "多帧生成+DLSS5开启工具 V1.13.0.0";
             TitleText.Text = Translator.IsEnglish ? "Frame Gen + DLSS5" : "多帧生成+DLSS5";
             NavHomeText.Text = Translator.T("Nav_Home");
             NavUsageText.Text = Translator.T("Nav_Usage");
@@ -625,6 +700,13 @@ namespace DLSSFrameGenEnabler_WinUI3
             {
                 await System.Threading.Tasks.Task.Delay(500);
                 await ShowStartupDialog();
+            }
+
+            // 显示使用前说明弹窗
+            if (SettingsService.Instance.ShowUsageGuide)
+            {
+                await System.Threading.Tasks.Task.Delay(300);
+                await ShowUsageGuideDialog();
             }
 
             // 自动检查更新
@@ -753,7 +835,7 @@ namespace DLSSFrameGenEnabler_WinUI3
             directDownloadBtn.Click += async (s, e) => 
             {
                 dialog?.Hide(); // 先关闭当前对话框
-                await System.Threading.Tasks.Task.Delay(100); // 等待对话框关闭
+                await System.Threading.Tasks.Task.Delay(300); // 等待对话框完全关闭
                 await DownloadFromGitHubAsync();
             };
             panel.Children.Add(directDownloadBtn);
@@ -848,7 +930,7 @@ namespace DLSSFrameGenEnabler_WinUI3
                     RequestedTheme = theme,
                     XamlRoot = this.Content.XamlRoot
                 };
-                _ = loadingDialog.ShowAsync();
+                var loadingTask = loadingDialog.ShowAsync();
 
                 // 从GitHub API获取最新release的下载链接
                 using var client = new System.Net.Http.HttpClient();
@@ -861,6 +943,7 @@ namespace DLSSFrameGenEnabler_WinUI3
                 if (assets.GetArrayLength() == 0)
                 {
                     loadingDialog.Hide();
+                    await System.Threading.Tasks.Task.Delay(200);
                     var errDialog = new ContentDialog
                     {
                         Title = Translator.IsEnglish ? "Download Failed" : "下载失败",
@@ -885,6 +968,7 @@ namespace DLSSFrameGenEnabler_WinUI3
                 var changelog = doc.RootElement.TryGetProperty("body", out var body) ? body.GetString() : "";
 
                 loadingDialog.Hide();
+                await System.Threading.Tasks.Task.Delay(200);
 
                 // 显示更新内容对话框，让用户确认是否下载
                 var changelogPanel = new StackPanel { Spacing = 12 };
@@ -1486,6 +1570,83 @@ del ""%~f0"" 2>nul
             if (result == ContentDialogResult.Primary)
             {
                 SettingsService.Instance.ShowStartupDialog = false;
+                SettingsService.Instance.Save();
+            }
+        }
+
+        /// <summary>
+        /// 显示使用前说明弹窗
+        /// </summary>
+        private async System.Threading.Tasks.Task ShowUsageGuideDialog()
+        {
+            var panel = new Microsoft.UI.Xaml.Controls.StackPanel
+            {
+                Spacing = 12
+            };
+
+            // 标题说明
+            var introText = new Microsoft.UI.Xaml.Controls.TextBlock
+            {
+                Text = Translator.IsEnglish ?
+                    "Please read the following notes carefully before using this software:" :
+                    "使用本软件前，请仔细阅读以下注意事项：",
+                TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+            panel.Children.Add(introText);
+
+            // 注意事项列表
+            var notes = Translator.IsEnglish ? new[]
+            {
+                "⚠  Must enable DLSS/Frame Generation in game settings FIRST, then close the game, and finally install patches.",
+                "⚠  miHoYo games (Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, etc.) are NOT supported due to strict anti-cheat.",
+                "⚠  Ubisoft and EA games may not be fully compatible, please test by yourself.",
+                "⚠  Vulkan API games are NOT supported yet.",
+                "⚠  It is recommended to backup game files or verify game integrity after uninstalling patches.",
+                "⚠  Do not use this software in online games with anti-cheat, there may be a ban risk."
+            } : new[]
+            {
+                "⚠  必须先在游戏设置中开启DLSS/帧生成相关功能，然后关闭游戏，最后再安装补丁。",
+                "⚠  米哈游系列游戏（原神、崩坏：星穹铁道、绝区零等）因反作弊严苛，暂不支持。",
+                "⚠  育碧、EA等平台的游戏可能无法完全适配，是否生效请玩家自行测试。",
+                "⚠  Vulkan渲染的游戏暂未适配。",
+                "⚠  建议备份游戏文件，或在卸载补丁后验证游戏完整性。",
+                "⚠  不建议在有反作弊的网游中使用本软件，可能存在封号风险。"
+            };
+
+            foreach (var note in notes)
+            {
+                var noteText = new Microsoft.UI.Xaml.Controls.TextBlock
+                {
+                    Text = note,
+                    TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                    FontSize = 13
+                };
+                panel.Children.Add(noteText);
+            }
+
+            // 不再提示复选框
+            var dontShowAgain = new Microsoft.UI.Xaml.Controls.CheckBox
+            {
+                Content = Translator.IsEnglish ? "Don't show this again" : "不再显示此提示",
+                Margin = new Microsoft.UI.Xaml.Thickness(0, 8, 0, 0)
+            };
+            panel.Children.Add(dontShowAgain);
+
+            var dialog = new ContentDialog
+            {
+                Title = Translator.IsEnglish ? "Usage Notes" : "使用前说明",
+                Content = panel,
+                PrimaryButtonText = Translator.IsEnglish ? "I Understand" : "我知道了",
+                CloseButtonText = Translator.IsEnglish ? "Close" : "关闭",
+                XamlRoot = this.Content.XamlRoot,
+                RequestedTheme = SettingsService.Instance.DarkMode ? ElementTheme.Dark : ElementTheme.Light
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary && dontShowAgain.IsChecked == true)
+            {
+                SettingsService.Instance.ShowUsageGuide = false;
                 SettingsService.Instance.Save();
             }
         }

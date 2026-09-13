@@ -14,9 +14,9 @@
     <EnableMsixTooling>false</EnableMsixTooling>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>1.12.5.2</Version>
-    <AssemblyVersion>1.12.5.2</AssemblyVersion>
-    <FileVersion>1.12.5.2</FileVersion>
+    <Version>1.13.0.0</Version>
+    <AssemblyVersion>1.13.0.0</AssemblyVersion>
+    <FileVersion>1.13.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,5 +45,7 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
 </Project>

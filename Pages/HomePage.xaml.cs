@@ -177,6 +177,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             TroubleshootBtn.Content = Translator.T("Btn_Troubleshoot");
             RestoreBtn.Content = Translator.T("Btn_Restore");
             RefreshStatusBtn.Content = Translator.T("Btn_RefreshStatus");
+            DetectRunningBtn.Content = en ? "Detect Running Games" : "检测运行中游戏";
             DisclaimerText.Text = Translator.T("Disclaimer");
 
             // 更新ToolTip
@@ -192,6 +193,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             ToolTipService.SetToolTip(TroubleshootBtn, en ? "Replace sl. prefixed patch files for troubleshooting" : "替换sl.开头的补丁文件进行排错");
             ToolTipService.SetToolTip(RestoreBtn, en ? "Restore all installed patches" : "还原所有已安装的补丁");
             ToolTipService.SetToolTip(RefreshStatusBtn, en ? "Re-detect patch status for all games" : "重新检测所有游戏的补丁开启状态");
+            ToolTipService.SetToolTip(DetectRunningBtn, en ? "Detect currently running game processes, 100% accurate game exe identification" : "检测当前正在运行的游戏进程，100%准确识别游戏真正的exe");
 
             // 刷新所有游戏的状态显示
             foreach (var game in Games)
@@ -312,6 +314,163 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                     SaveGamesNow(); // 显式保存
                     ShowMessage(Translator.T("Dlg_Add_Success"));
                 }
+            }
+        }
+
+        // 检测运行中游戏按钮
+        private async void DetectRunningBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 直接检测进程（枚举进程很快，不需要异步）
+                List<ProcessDetector.GameProcessInfo> runningGames;
+                try
+                {
+                    runningGames = ProcessDetector.GetRunningGames();
+                }
+                catch (Exception ex)
+                {
+                    var errDialog = new ContentDialog
+                    {
+                        Title = Translator.IsEnglish ? "Error" : "错误",
+                        Content = Translator.IsEnglish ? $"Failed to detect processes: {ex.Message}" : $"检测进程失败：{ex.Message}",
+                        CloseButtonText = "OK",
+                        XamlRoot = this.Content.XamlRoot
+                    };
+                    await errDialog.ShowAsync();
+                    return;
+                }
+
+                // 如果没有检测到游戏
+                if (runningGames.Count == 0)
+                {
+                    var noGameDialog = new ContentDialog
+                    {
+                        Title = Translator.IsEnglish ? "No Games Found" : "未检测到游戏",
+                        Content = Translator.IsEnglish ?
+                            "No running games detected. Please start the game first and try again." :
+                            "未检测到正在运行的游戏。请先启动游戏，然后再点击此按钮。",
+                        CloseButtonText = "OK",
+                        XamlRoot = this.Content.XamlRoot
+                    };
+                    await noGameDialog.ShowAsync();
+                    return;
+                }
+
+                // 创建进程选择列表
+                var processList = new ListView
+                {
+                    SelectionMode = ListViewSelectionMode.Single,
+                    Height = 300
+                };
+
+                foreach (var proc in runningGames)
+                {
+                    var item = new ListViewItem
+                    {
+                        Tag = proc,
+                        Padding = new Microsoft.UI.Xaml.Thickness(4)
+                    };
+
+                    var container = new Microsoft.UI.Xaml.Controls.StackPanel
+                    {
+                        Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal,
+                        Spacing = 10
+                    };
+
+                    // 图标
+                    if (proc.Icon != null)
+                    {
+                        var iconImage = new Microsoft.UI.Xaml.Controls.Image
+                        {
+                            Source = proc.Icon,
+                            Width = 24,
+                            Height = 24,
+                            VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center
+                        };
+                        container.Children.Add(iconImage);
+                    }
+
+                    // 文字信息
+                    var textPanel = new Microsoft.UI.Xaml.Controls.StackPanel();
+                    var nameText = new Microsoft.UI.Xaml.Controls.TextBlock
+                    {
+                        Text = proc.ProcessName,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center
+                    };
+                    if (!string.IsNullOrEmpty(proc.WindowTitle))
+                    {
+                        nameText.Text = $"{proc.ProcessName} [{proc.WindowTitle}]";
+                    }
+                    textPanel.Children.Add(nameText);
+
+                    var pathText = new Microsoft.UI.Xaml.Controls.TextBlock
+                    {
+                        Text = $"{proc.MemoryMB} MB  -  {proc.ExePath}",
+                        FontSize = 11,
+                        Opacity = 0.7,
+                        TextTrimming = Microsoft.UI.Xaml.TextTrimming.CharacterEllipsis
+                    };
+                    textPanel.Children.Add(pathText);
+
+                    container.Children.Add(textPanel);
+                    item.Content = container;
+                    processList.Items.Add(item);
+                }
+
+                var selectDialog = new ContentDialog
+                {
+                    Title = Translator.IsEnglish ? "Select Running Game" : "选择正在运行的游戏",
+                    Content = processList,
+                    PrimaryButtonText = Translator.IsEnglish ? "Add Selected" : "添加选中",
+                    CloseButtonText = Translator.IsEnglish ? "Cancel" : "取消",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.Content.XamlRoot
+                };
+
+                var result = await selectDialog.ShowAsync();
+                if (result == ContentDialogResult.Primary && processList.SelectedItem is ListViewItem selectedItem &&
+                    selectedItem.Tag is ProcessDetector.GameProcessInfo selectedProc)
+                {
+                    // 检查游戏是否已经在列表中
+                    if (Games.Any(g => g.ExePath.Equals(selectedProc.ExePath, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ShowMessage(Translator.IsEnglish ? "Game already in list" : "该游戏已在列表中");
+                        return;
+                    }
+
+                    // 使用手动添加exe的方式添加游戏（DX9手动模式，因为我们已经知道确切的exe路径）
+                    var game = GameScanner.AddGameByExe(selectedProc.ExePath, isDx9Manual: true);
+                    if (game != null)
+                    {
+                        Games.Add(game);
+                        SetGameIcon(game);
+                        SaveGamesNow();
+
+                        // 提示用户游戏正在运行，安装补丁前请先关闭
+                        var warningDialog = new ContentDialog
+                        {
+                            Title = Translator.IsEnglish ? "Game is Running" : "游戏正在运行",
+                            Content = Translator.IsEnglish ?
+                                $"Detected game is currently running.\n\nGame: {game.Name}\nExe: {selectedProc.ExePath}\n\n⚠ Important: Please first enable DLSS/Frame Generation in game settings, then close the game before installing patches, otherwise files may be locked and installation may fail." :
+                                $"检测到游戏当前正在运行。\n\n游戏：{game.Name}\n路径：{selectedProc.ExePath}\n\n⚠ 重要提示：请先在游戏设置中开启DLSS/帧生成相关功能，然后再关闭游戏，最后再安装补丁，否则文件可能被占用导致安装失败。",
+                            CloseButtonText = "OK",
+                            XamlRoot = this.Content.XamlRoot
+                        };
+                        await warningDialog.ShowAsync();
+
+                        ShowMessage(Translator.T("Dlg_Add_Success"));
+                    }
+                    else
+                    {
+                        ShowMessage(Translator.IsEnglish ? "Failed to add game" : "添加游戏失败");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowMessage($"检测运行中游戏出错：{ex.Message}\n\n堆栈跟踪：\n{ex.StackTrace}");
             }
         }
 
@@ -537,8 +696,8 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
 
                 if (game.FrameGenEnabled)
                 {
-                    // 还原
-                    if (FilePatcher.RestoreFrameGen(game))
+                    // 还原（带确认）
+                    if (await ConfirmAndRestoreFrameGen(game))
                     {
                         ShowMessage(Translator.T("Dlg_FrameGen_Restored"));
                         UpdateButtonStates(game);
@@ -644,9 +803,11 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
 
             if (game.Dlss5Enabled)
             {
-                FilePatcher.RestoreDLSS5(game);
-                ShowMessage(Translator.T("Dlg_Dlss5_Restored"));
-                UpdateButtonStates(game);
+                if (await ConfirmAndRestoreDLSS5(game))
+                {
+                    ShowMessage(Translator.T("Dlg_Dlss5_Restored"));
+                    UpdateButtonStates(game);
+                }
                 return;
             }
 
@@ -754,9 +915,11 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 
                 if (result == 0)
                 {
-                    // 还原
-                    FilePatcher.RestoreDLSS5(game);
-                    ShowMessage(Translator.T("Dlg_Dx9_Restored"));
+                    // 还原（带确认）
+                    if (await ConfirmAndRestoreDLSS5(game))
+                    {
+                        ShowMessage(Translator.T("Dlg_Dx9_Restored"));
+                    }
                 }
                 else if (result == 1)
                 {
@@ -803,8 +966,10 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
 
             if (game.FrameGenEnabled)
             {
-                FilePatcher.RestoreFrameGen(game);
-                ShowMessage(Translator.T("Dlg_2077_Restored"));
+                if (await ConfirmAndRestoreFrameGen(game))
+                {
+                    ShowMessage(Translator.T("Dlg_2077_Restored"));
+                }
             }
             else
             {
@@ -1155,15 +1320,30 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
 
             if (FilePatcher.HasBackup(game))
             {
-                var dialog = new ContentDialog
-                {
-                    Title = Translator.T("Dlg_Restore_Title"),
-                    Content = Translator.T("Dlg_Restore_Confirm"),
-                    PrimaryButtonText = Translator.IsEnglish ? "Confirm Restore" : "确定还原",
-                    CloseButtonText = Translator.T("Common_Cancel"),
-                    XamlRoot = this.Content.XamlRoot
-                };
-                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                // 预览两个还原操作的文件并合并
+                var previewFrameGen = FilePatcher.PreviewRestoreFrameGen(game);
+                var previewDlss5 = FilePatcher.PreviewRestoreDLSS5(game);
+
+                var allFilesToDelete = previewFrameGen.filesToDelete
+                    .Concat(previewDlss5.filesToDelete)
+                    .Distinct()
+                    .ToList();
+                var allFilesToRestore = previewFrameGen.filesToRestore
+                    .Concat(previewDlss5.filesToRestore)
+                    .Distinct()
+                    .ToList();
+                var allDirsToDelete = previewFrameGen.dirsToDelete
+                    .Concat(previewDlss5.dirsToDelete)
+                    .Distinct()
+                    .ToList();
+
+                var confirmed = await ShowRestoreConfirmDialog(
+                    Translator.T("Dlg_Restore_Title"),
+                    allFilesToDelete,
+                    allFilesToRestore,
+                    allDirsToDelete);
+
+                if (confirmed)
                 {
                     FilePatcher.RestoreFrameGen(game);
                     FilePatcher.RestoreDLSS5(game);
@@ -1188,6 +1368,148 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                     UpdateButtonStates(game);
                 }
             }
+        }
+
+        // 显示还原确认对话框（列出会被删除和恢复的文件）
+        private async System.Threading.Tasks.Task<bool> ShowRestoreConfirmDialog(string title, List<string> filesToDelete, List<string> filesToRestore, List<string> dirsToDelete)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                PrimaryButtonText = Translator.IsEnglish ? "Confirm Restore" : "确定还原",
+                CloseButtonText = Translator.T("Common_Cancel"),
+                XamlRoot = this.Content.XamlRoot
+            };
+
+            var scrollViewer = new ScrollViewer
+            {
+                MaxHeight = 400,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+
+            var panel = new StackPanel { Spacing = 12 };
+
+            // 警告提示
+            var warnText = new TextBlock
+            {
+                Text = Translator.IsEnglish ? 
+                    "⚠️ Warning: This operation will delete the following files and restore original files. Please make sure these are not your personal mod files!" :
+                    "⚠️ 警告：此操作将删除以下文件并恢复原始文件，请确认这些不是您的个人mod文件！",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 150, 50))
+            };
+            panel.Children.Add(warnText);
+
+            // 会被恢复的文件
+            if (filesToRestore.Count > 0)
+            {
+                var restoreTitle = new TextBlock
+                {
+                    Text = Translator.IsEnglish ? $"📁 Files to be restored ({filesToRestore.Count}):" : $"📁 将被恢复的文件（{filesToRestore.Count}个）：",
+                    FontWeight = new Windows.UI.Text.FontWeight { Weight = 700 }
+                };
+                panel.Children.Add(restoreTitle);
+
+                var restorePanel = new StackPanel { Spacing = 2 };
+                foreach (var f in filesToRestore.Take(20))
+                {
+                    restorePanel.Children.Add(new TextBlock { Text = "  " + f, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+                }
+                if (filesToRestore.Count > 20)
+                {
+                    restorePanel.Children.Add(new TextBlock { Text = $"  ... and {filesToRestore.Count - 20} more files", FontSize = 11, Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 150, 150)) });
+                }
+                panel.Children.Add(restorePanel);
+            }
+
+            // 会被删除的文件
+            if (filesToDelete.Count > 0)
+            {
+                var deleteTitle = new TextBlock
+                {
+                    Text = Translator.IsEnglish ? $"🗑️ Files to be deleted ({filesToDelete.Count}):" : $"🗑️ 将被删除的文件（{filesToDelete.Count}个）：",
+                    FontWeight = new Windows.UI.Text.FontWeight { Weight = 700 }
+                };
+                panel.Children.Add(deleteTitle);
+
+                var deletePanel = new StackPanel { Spacing = 2 };
+                foreach (var f in filesToDelete.Take(20))
+                {
+                    deletePanel.Children.Add(new TextBlock { Text = "  " + f, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+                }
+                if (filesToDelete.Count > 20)
+                {
+                    deletePanel.Children.Add(new TextBlock { Text = $"  ... and {filesToDelete.Count - 20} more files", FontSize = 11, Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 150, 150)) });
+                }
+                panel.Children.Add(deletePanel);
+            }
+
+            // 会被删除的目录
+            if (dirsToDelete.Count > 0)
+            {
+                var dirTitle = new TextBlock
+                {
+                    Text = Translator.IsEnglish ? $"📂 Directories to be deleted ({dirsToDelete.Count}):" : $"📂 将被删除的目录（{dirsToDelete.Count}个）：",
+                    FontWeight = new Windows.UI.Text.FontWeight { Weight = 700 }
+                };
+                panel.Children.Add(dirTitle);
+
+                var dirPanel = new StackPanel { Spacing = 2 };
+                foreach (var d in dirsToDelete)
+                {
+                    dirPanel.Children.Add(new TextBlock { Text = "  " + d, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+                }
+                panel.Children.Add(dirPanel);
+            }
+
+            // 如果没有任何文件要处理
+            if (filesToDelete.Count == 0 && filesToRestore.Count == 0 && dirsToDelete.Count == 0)
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = Translator.IsEnglish ? "No patch files found. The game may already be in original state." : "未找到补丁文件，游戏可能已经是原始状态。",
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
+
+            scrollViewer.Content = panel;
+            dialog.Content = scrollViewer;
+
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+
+        // 确认并还原多帧生成
+        private async System.Threading.Tasks.Task<bool> ConfirmAndRestoreFrameGen(GameInfo game)
+        {
+            var preview = FilePatcher.PreviewRestoreFrameGen(game);
+            var confirmed = await ShowRestoreConfirmDialog(
+                Translator.IsEnglish ? "Restore Frame Generation" : "还原多帧生成",
+                preview.filesToDelete,
+                preview.filesToRestore,
+                preview.dirsToDelete);
+
+            if (confirmed)
+            {
+                return FilePatcher.RestoreFrameGen(game);
+            }
+            return false;
+        }
+
+        // 确认并还原DLSS5
+        private async System.Threading.Tasks.Task<bool> ConfirmAndRestoreDLSS5(GameInfo game)
+        {
+            var preview = FilePatcher.PreviewRestoreDLSS5(game);
+            var confirmed = await ShowRestoreConfirmDialog(
+                Translator.IsEnglish ? "Restore DLSS5" : "还原DLSS5",
+                preview.filesToDelete,
+                preview.filesToRestore,
+                preview.dirsToDelete);
+
+            if (confirmed)
+            {
+                return FilePatcher.RestoreDLSS5(game);
+            }
+            return false;
         }
 
         // 显示模式选择对话框

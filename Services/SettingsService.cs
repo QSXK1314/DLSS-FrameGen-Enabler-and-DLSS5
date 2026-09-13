@@ -31,6 +31,9 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         public string UpdateCheckUrl { get; set; } = "https://gist.githubusercontent.com/QSXK1314/a9595f510bc16c77051ee386e085f8f1/raw/version.json";
         public bool RememberGames { get; set; } = true; // 是否记住游戏列表
         public string SkipUpdateVersion { get; set; } = ""; // 用户选择不再提示的版本号
+        public double WindowWidth { get; set; } = 0; // 记忆的窗口宽度，0表示使用默认
+        public double WindowHeight { get; set; } = 0; // 记忆的窗口高度，0表示使用默认
+        public bool ShowUsageGuide { get; set; } = true; // 是否显示使用前说明弹窗
 
         private static SettingsService? _instance;
         public static SettingsService Instance => _instance ??= Load();
@@ -77,12 +80,17 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 File.WriteAllText(GamesPath, json, System.Text.Encoding.UTF8);
                 // 写入调试日志
                 var logPath = Path.Combine(Path.GetDirectoryName(GamesPath)!, "save_debug.log");
-                File.AppendAllText(logPath, $"[{DateTime.Now}] 保存游戏列表，数量：{games.Count}\n");
+                try { File.AppendAllText(logPath, $"[{DateTime.Now}] 保存游戏列表，数量：{games.Count}\n"); } catch { }
             }
             catch (Exception ex)
             {
-                var logPath = Path.Combine(Path.GetDirectoryName(GamesPath)!, "save_debug.log");
-                File.AppendAllText(logPath, $"[{DateTime.Now}] 保存失败：{ex.Message}\n{ex.StackTrace}\n");
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(GamesPath)!);
+                    var logPath = Path.Combine(Path.GetDirectoryName(GamesPath)!, "save_debug.log");
+                    File.AppendAllText(logPath, $"[{DateTime.Now}] 保存失败：{ex.Message}\n{ex.StackTrace}\n");
+                }
+                catch { }
             }
         }
 
@@ -91,20 +99,37 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         {
             try
             {
-                var logPath = Path.Combine(Path.GetDirectoryName(GamesPath)!, "save_debug.log");
+                // 确保目录存在（关键修复：新电脑上目录不存在会导致崩溃）
+                var gamesDir = Path.GetDirectoryName(GamesPath);
+                if (!string.IsNullOrEmpty(gamesDir))
+                {
+                    Directory.CreateDirectory(gamesDir);
+                }
+
+                var logPath = Path.Combine(gamesDir!, "save_debug.log");
                 if (File.Exists(GamesPath))
                 {
                     var json = File.ReadAllText(GamesPath, System.Text.Encoding.UTF8);
                     var result = JsonSerializer.Deserialize<List<GameInfo>>(json) ?? new List<GameInfo>();
-                    File.AppendAllText(logPath, $"[{DateTime.Now}] 加载游戏列表，数量：{result.Count}\n");
+                    try { File.AppendAllText(logPath, $"[{DateTime.Now}] 加载游戏列表，数量：{result.Count}\n"); } catch { }
                     return result;
                 }
-                File.AppendAllText(logPath, $"[{DateTime.Now}] 游戏列表文件不存在\n");
+                try { File.AppendAllText(logPath, $"[{DateTime.Now}] 游戏列表文件不存在\n"); } catch { }
             }
             catch (Exception ex)
             {
-                var logPath = Path.Combine(Path.GetDirectoryName(GamesPath)!, "save_debug.log");
-                File.AppendAllText(logPath, $"[{DateTime.Now}] 加载失败：{ex.Message}\n");
+                // 日志写入也要包在try-catch中，避免二次崩溃
+                try
+                {
+                    var gamesDir = Path.GetDirectoryName(GamesPath);
+                    if (!string.IsNullOrEmpty(gamesDir))
+                    {
+                        Directory.CreateDirectory(gamesDir);
+                    }
+                    var logPath = Path.Combine(gamesDir!, "save_debug.log");
+                    File.AppendAllText(logPath, $"[{DateTime.Now}] 加载失败：{ex.Message}\n");
+                }
+                catch { }
             }
             return new List<GameInfo>();
         }

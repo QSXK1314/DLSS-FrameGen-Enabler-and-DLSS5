@@ -9,12 +9,13 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
         {
             this.InitializeComponent();
             Translator.LanguageChanged += UpdateLanguageTexts;
-            UpdateLanguageTexts();
+            this.Loaded += (s, e) => UpdateLanguageTexts();
         }
 
         private void UpdateLanguageTexts()
         {
             bool en = Translator.IsEnglish;
+            if (TitleText == null) return; // XAML未完全加载时跳过
             TitleText.Text = en ? "Usage Guide" : "使用说明";
 
             ImportantTitle.Text = en ? "⚠️ Important Notice" : "⚠️ 重要声明";
@@ -91,10 +92,10 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 "Auto Scan: Automatically detects Steam, Epic, EA, Ubisoft, GOG game libraries. Only adds games with a real executable file (excludes uninstalled game folders and engine directories).\nManual Add: Select game folder, auto-detect game exe. Supports DX9 manual mode (select exe directly).\nRight-click menu: Enable/disable features, open game folder, remove from list." :
                 "自动扫描：自动检测Steam、Epic、EA、育碧、GOG游戏库。只添加有真正运行exe的游戏（排除已卸载的空文件夹和引擎目录）。\n手动添加：选择游戏文件夹，自动识别游戏exe。支持DX9手动模式（直接选择exe）。\n右键菜单：开启/关闭功能、打开游戏目录、移除列表。";
 
-            Section6Title.Text = en ? "6. Notes" : "六、注意事项";
+            Section6Title.Text = en ? "6. System Requirements & Notes" : "六、系统要求与注意事项";
             Section6Content.Text = en ?
-                "1. Backup game saves before use.\n2. Make sure the game is fully closed when patching or restoring.\n3. Not recommended for online games or games with anti-cheat.\n4. If patches fail after game update, re-apply them.\n5. RE Engine games: DLSS5 and built-in frame generation conflict, do not enable both.\n6. AMD DLSS5 only supports 7000 and 9000 series GPUs.\n7. DX9 games must use DX9 DLSS5, not general DLSS5 (DLSS5 requires DX11+)." :
-                "1. 使用前请备份游戏存档。\n2. 打补丁和还原时，请确保游戏已完全关闭。\n3. 不建议在网游和带反作弊的游戏上使用。\n4. 游戏更新后补丁失效，重新打补丁即可。\n5. RE引擎游戏：DLSS5和游戏自带帧生成冲突，不要同时开启。\n6. A卡DLSS5仅支持7000系和9000系显卡。\n7. DX9游戏必须使用DX9 DLSS5，不能使用通用DLSS5（DLSS5最低要求DX11）。";
+                "【System Requirements】\n1. Windows 10 (1809) or later (Windows 11 recommended)\n2. Visual C++ Redistributable (x64) - included in the package, run vc_redist.x64.exe if software won't launch\n3. NVIDIA RTX 20/30/40/50 series or AMD RX 7000/9000 series GPU\n4. Latest GPU drivers recommended\n\n【Notes】\n1. Backup game saves before use.\n2. Make sure the game is fully closed when patching or restoring.\n3. Not recommended for online games or games with anti-cheat.\n4. If patches fail after game update, re-apply them.\n5. RE Engine games: DLSS5 and built-in frame generation conflict, do not enable both.\n6. AMD DLSS5 only supports 7000 and 9000 series GPUs.\n7. DX9 games must use DX9 DLSS5, not general DLSS5 (DLSS5 requires DX11+).\n8. If the software won't launch, please run 「启动软件.bat」 or vc_redist.x64.exe first." :
+                "【系统要求】\n1. Windows 10 (1809) 或更高版本（推荐Windows 11）\n2. Visual C++ Redistributable (x64) - 已包含在软件包中，如果软件无法启动请运行 vc_redist.x64.exe\n3. NVIDIA RTX 20/30/40/50系 或 AMD RX 7000/9000系显卡\n4. 建议使用最新显卡驱动\n\n【注意事项】\n1. 使用前请备份游戏存档。\n2. 打补丁和还原时，请确保游戏已完全关闭。\n3. 不建议在网游和带反作弊的游戏上使用。\n4. 游戏更新后补丁失效，重新打补丁即可。\n5. RE引擎游戏：DLSS5和游戏自带帧生成冲突，不要同时开启。\n6. A卡DLSS5仅支持7000系和9000系显卡。\n7. DX9游戏必须使用DX9 DLSS5，不能使用通用DLSS5（DLSS5最低要求DX11）。\n8. 如果软件无法启动，请先运行「启动软件.bat」或 vc_redist.x64.exe 安装运行时。";
         }
     }
 }

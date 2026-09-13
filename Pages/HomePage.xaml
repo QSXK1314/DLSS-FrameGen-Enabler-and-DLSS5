@@ -23,6 +23,7 @@
             <Button x:Name="AutoScanBtn" Content="自动扫描" Click="AutoScanBtn_Click" ToolTipService.ToolTip="自动扫描Steam和Epic游戏库中的游戏" />
             <Button x:Name="ManualAddBtn" Content="手动添加" Click="ManualAddBtn_Click" ToolTipService.ToolTip="选择游戏文件夹，自动识别游戏运行exe" />
             <Button x:Name="ManualAddDx9Btn" Content="手动模式（自行选择游戏exe，支持dx9游戏）" Click="ManualAddDx9Btn_Click" ToolTipService.ToolTip="手动选择游戏exe文件，适用于DX9游戏或自动识别失败的游戏" />
+            <Button x:Name="DetectRunningBtn" Content="检测运行中游戏" Click="DetectRunningBtn_Click" ToolTipService.ToolTip="检测当前正在运行的游戏进程，100%准确识别游戏真正的exe" />
             <Button x:Name="RefreshStatusBtn" Content="刷新状态" Click="RefreshStatusBtn_Click" ToolTipService.ToolTip="重新检测所有游戏的补丁开启状态" />
         </StackPanel>
 

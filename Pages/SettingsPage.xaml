@@ -52,7 +52,7 @@
 
             <StackPanel Spacing="8">
                 <TextBlock x:Name="AboutText" Text="关于" FontWeight="SemiBold" FontSize="14" />
-                <TextBlock x:Name="VersionText" Text="版本：V1.12.5.2" />
+                <TextBlock x:Name="VersionText" Text="版本：V1.13.0.0" />
                 <TextBlock x:Name="DevLangText" Text="开发语言：C# + WinUI 3" />
             </StackPanel>
         </StackPanel>
