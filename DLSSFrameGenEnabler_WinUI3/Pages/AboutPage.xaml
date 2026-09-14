@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="DLSSFrameGenEnabler_WinUI3.Pages.AboutPage"
+    NavigationCacheMode="Required"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:DLSSFrameGenEnabler_WinUI3.Pages"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24,16,24,16">
+        <ScrollViewer>
+            <StackPanel Spacing="24">
+                <TextBlock x:Name="TitleText" Style="{StaticResource TitleTextBlockStyle}" Text="关于" />
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="AppNameText" Text="多帧生成+DLSS5开启工具" FontSize="18" FontWeight="Bold" />
+                    <TextBlock x:Name="VersionText" Text="版本：V1.14.0.0" />
+                    <TextBlock x:Name="DevLangText" Text="开发语言：C# + WinUI 3" />
+                    <TextBlock x:Name="OpenSourceText" Text="本软件已免费开源，欢迎Star和Fork！" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="AuthorLinksText" Text="作者链接" FontWeight="SemiBold" FontSize="14" />
+                    <HyperlinkButton x:Name="GithubProfileLink" NavigateUri="https://github.com/QSXK1314" Padding="0,4,0,4">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Image Source="ms-appx:///Assets/github.jpg" Width="20" Height="20" />
+                            <TextBlock x:Name="GithubProfileText" Text="GitHub 个人主页" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </HyperlinkButton>
+                    <HyperlinkButton x:Name="GithubRepoLink" NavigateUri="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5" Padding="0,4,0,4">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Image Source="ms-appx:///Assets/github.jpg" Width="20" Height="20" />
+                            <TextBlock x:Name="GithubRepoText" Text="GitHub 项目仓库" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </HyperlinkButton>
+                    <HyperlinkButton x:Name="BilibiliLink" NavigateUri="https://space.bilibili.com/414911649" Padding="0,4,0,4">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Image Source="ms-appx:///Assets/bilibili.png" Width="20" Height="20" />
+                            <TextBlock x:Name="BilibiliText" Text="哔哩哔哩" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </HyperlinkButton>
+                    <HyperlinkButton x:Name="XiaoheiheLink" NavigateUri="https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&amp;h_src=YXBwX3NoYXJl&amp;link_id=7c7772709af8&amp;new_post_share_style=true" Padding="0,4,0,4">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Image Source="ms-appx:///Assets/xiaoheihe.png" Width="20" Height="20" />
+                            <TextBlock x:Name="XiaoheiheText" Text="小黑盒" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </HyperlinkButton>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="ThanksText" Text="补丁致谢" FontWeight="SemiBold" FontSize="14" />
+                    <TextBlock x:Name="ThanksIntroText" Text="以下社区项目使本软件成为可能：" TextWrapping="Wrap" />
+                    <ScrollViewer MaxHeight="300">
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="Thanks1" Text="• NVIDIA DLSS / DLSS-G / DLSS-NR (NVIDIA Official)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks2" Text="• Universal RTX 40 MFG Unlock (Community)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks3" Text="• ReShade (Crosire)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks4" Text="• RenoDX DLSS5 Addon (Community)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks5" Text="• DLSS5 Feeder (Community)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks6" Text="• dgVoodoo2 (Dege)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks7" Text="• LumeniteFX (Community)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks8" Text="• RE Framework / DLSS5 on RE (Community)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks9" Text="• Cyber Engine Tweaks (Cyberpunk 2077)" TextWrapping="Wrap" />
+                            <TextBlock x:Name="Thanks10" Text="• RTX 20/30 Series Frame Gen Patch (Community)" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="DisclaimerTitleText" Text="免责声明" FontWeight="SemiBold" FontSize="14" />
+                    <TextBlock x:Name="DisclaimerContentText" Text="本软件仅供学习交流使用，请勿用于商业用途。不建议在网游上和带反作弊的游戏使用该软件，本质是修改文件，而修改文件则可能导致游戏封号，如果遇到游戏封号，本软件概不负责。" TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>
