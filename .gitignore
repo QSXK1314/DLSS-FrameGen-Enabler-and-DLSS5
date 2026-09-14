@@ -109,3 +109,21 @@ $RECYCLE.BIN/
 *.dll
 *.iso
 *.dmg
+
+# 资源文件（只保留源文件）
+DLSSFrameGenEnabler_WinUI3/Assets/
+DLSSFrameGenEnabler_WinUI3/Patches/
+DLSSFrameGenEnabler_WinUI3/*.ico
+DLSSFrameGenEnabler_WinUI3/app.manifest
+DLSSFrameGenEnabler_WinUI3/Package.appxmanifest
+
+# Launcher编译产物
+Launcher/publish/
+Launcher/*.ico
+
+# 根目录图片文件
+*.jpg
+*.png
+
+# 根目录脚本文件
+*.ps1
