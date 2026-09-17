@@ -15,6 +15,12 @@ public partial class App : Application
 {
     public static Window MainWindow { get; private set; } = null!;
 
+    // 版本号配置
+    public const bool IsBeta = false; // 测试版标志，发布正式版时改为 false
+    public const string StableVersion = "V1.14.1.0"; // 正式版版本号
+    public const string BetaVersion = "V1.15.2.0-Beta"; // 测试版版本号
+    public static string CurrentVersion => IsBeta ? BetaVersion : StableVersion;
+
     // Win32 MessageBox API
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);

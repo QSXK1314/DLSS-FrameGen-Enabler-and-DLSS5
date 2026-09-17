@@ -55,6 +55,12 @@
                 <TextBlock x:Name="VersionText" Text="版本：V1.14.0.0" />
                 <TextBlock x:Name="DevLangText" Text="开发语言：C# + WinUI 3" />
             </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Name="DebugText" Text="调试与支持" FontWeight="SemiBold" FontSize="14" />
+                <TextBlock x:Name="ExportLogTipText" Text="如果软件出现问题，可以导出日志文件发给开发者，帮助快速定位和解决问题" FontSize="12" Opacity="0.7" />
+                <Button x:Name="ExportLogBtn" Content="导出日志到桌面" Click="ExportLogBtn_Click" />
+            </StackPanel>
         </StackPanel>
         </ScrollViewer>
     </Grid>

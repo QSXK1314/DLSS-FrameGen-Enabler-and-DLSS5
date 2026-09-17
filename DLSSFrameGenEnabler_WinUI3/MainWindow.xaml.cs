@@ -675,7 +675,7 @@ namespace DLSSFrameGenEnabler_WinUI3
 
         private void UpdateLanguageTexts()
         {
-            Title = Translator.IsEnglish ? "Frame Gen + DLSS5 Enabler V1.14.0.0" : "多帧生成+DLSS5开启工具 V1.14.0.0";
+            Title = Translator.IsEnglish ? $"Frame Gen + DLSS5 Enabler {App.CurrentVersion}" : $"多帧生成+DLSS5开启工具 {App.CurrentVersion}";
             TitleText.Text = Translator.IsEnglish ? "Frame Gen + DLSS5" : "多帧生成+DLSS5";
             NavHomeText.Text = Translator.T("Nav_Home");
             NavUsageText.Text = Translator.T("Nav_Usage");
@@ -709,6 +709,13 @@ namespace DLSSFrameGenEnabler_WinUI3
                 await ShowUsageGuideDialog();
             }
 
+            // 显示测试版反馈提示弹窗（仅Beta版显示）
+            if (App.IsBeta && SettingsService.Instance.ShowBetaFeedback)
+            {
+                await System.Threading.Tasks.Task.Delay(300);
+                await ShowBetaFeedbackDialog();
+            }
+
             // 自动检查更新
             if (!_updateChecked)
             {
@@ -725,6 +732,13 @@ namespace DLSSFrameGenEnabler_WinUI3
                 // 去掉V前缀
                 remote = remote.TrimStart('V', 'v');
                 current = current.TrimStart('V', 'v');
+                
+                // 去掉后缀（如 -Beta、-alpha、-rc 等），只比较数字部分
+                int betaIndex = remote.IndexOf('-');
+                if (betaIndex > 0) remote = remote.Substring(0, betaIndex);
+                betaIndex = current.IndexOf('-');
+                if (betaIndex > 0) current = current.Substring(0, betaIndex);
+                
                 if (Version.TryParse(remote, out var remoteVer) && Version.TryParse(current, out var currentVer))
                 {
                     return remoteVer > currentVer;
@@ -747,16 +761,27 @@ namespace DLSSFrameGenEnabler_WinUI3
                 using var client = new System.Net.Http.HttpClient();
                 client.Timeout = TimeSpan.FromSeconds(10);
                 var json = await client.GetStringAsync(SettingsService.Instance.UpdateCheckUrl);
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                // 允许尾随逗号，避免用户的JSON格式不规范导致解析失败
+                var jsonOptions = new System.Text.Json.JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = System.Text.Json.JsonCommentHandling.Skip };
+                using var doc = System.Text.Json.JsonDocument.Parse(json, jsonOptions);
                 var root = doc.RootElement;
                 var latestVersion = root.GetProperty("version").GetString();
-                var currentVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.12.3.1";
+                var currentVersion = App.CurrentVersion; // 使用App中定义的版本号（支持Beta版本号）
 
-                // 解析下载链接
+                // 解析下载链接（同时支持平铺格式 downloadUrlXxx 和嵌套格式 downloadLinks.xxx）
                 string githubUrl = SettingsService.Instance.GithubUrl;
                 string kuakeUrl = root.TryGetProperty("downloadUrlKuake", out var k) ? k.GetString() : "";
                 string baiduUrl = root.TryGetProperty("downloadUrlBaidu", out var b) ? b.GetString() : "";
                 string pan123Url = root.TryGetProperty("downloadUrl123pan", out var l) ? l.GetString() : "";
+                
+                // 兼容嵌套格式 downloadLinks
+                if (root.TryGetProperty("downloadLinks", out var dl))
+                {
+                    if (string.IsNullOrEmpty(kuakeUrl) && dl.TryGetProperty("kuake", out var dk)) kuakeUrl = dk.GetString();
+                    if (string.IsNullOrEmpty(baiduUrl) && dl.TryGetProperty("baidu", out var db)) baiduUrl = db.GetString();
+                    if (string.IsNullOrEmpty(pan123Url) && dl.TryGetProperty("pan123", out var dl123)) pan123Url = dl123.GetString();
+                    if (dl.TryGetProperty("github", out var dgh)) githubUrl = dgh.GetString();
+                }
 
                 // 比较版本号 - 只有远程版本更高时才提示更新
                 if (!string.IsNullOrEmpty(latestVersion) &&
@@ -1647,6 +1672,110 @@ del ""%~f0"" 2>nul
             if (result == ContentDialogResult.Primary && dontShowAgain.IsChecked == true)
             {
                 SettingsService.Instance.ShowUsageGuide = false;
+                SettingsService.Instance.Save();
+            }
+        }
+
+        /// <summary>
+        /// 显示测试版反馈提示弹窗
+        /// </summary>
+        private async System.Threading.Tasks.Task ShowBetaFeedbackDialog()
+        {
+            var panel = new Microsoft.UI.Xaml.Controls.StackPanel
+            {
+                Spacing = 12
+            };
+
+            // 测试版标识
+            var betaBadge = new Microsoft.UI.Xaml.Controls.TextBlock
+            {
+                Text = Translator.IsEnglish ? "🔬 BETA VERSION" : "🔬 测试版本",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 140, 0))
+            };
+            panel.Children.Add(betaBadge);
+
+            // 主要提示内容
+            var mainText = new Microsoft.UI.Xaml.Controls.TextBlock
+            {
+                Text = Translator.IsEnglish ?
+                    "When you encounter any problems while using this software, please click \"Export Logs to Desktop\" in Settings, then describe the specific cause of the problem through various channels and send the exported log file to the developer, to help better fix the issues!" :
+                    "当你在使用软件过程中遇到任何问题，请在设置中点击「导出日志到桌面」，然后通过各种渠道说明问题出现的具体原因并将导出的日志文件发给开发者，以助于更好的修复问题！",
+                TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                FontSize = 14
+            };
+            panel.Children.Add(mainText);
+
+            // 操作步骤
+            var stepsTitle = new Microsoft.UI.Xaml.Controls.TextBlock
+            {
+                Text = Translator.IsEnglish ? "Steps:" : "操作步骤：",
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Margin = new Microsoft.UI.Xaml.Thickness(0, 8, 0, 0)
+            };
+            panel.Children.Add(stepsTitle);
+
+            var steps = Translator.IsEnglish ? new[]
+            {
+                "1. Open Settings page",
+                "2. Scroll to bottom, find \"Debug & Support\" section",
+                "3. Click \"Export Logs to Desktop\" button",
+                "4. Send the generated zip file to developer with problem description"
+            } : new[]
+            {
+                "1. 打开设置页面",
+                "2. 拉到最下面，找到「调试与支持」部分",
+                "3. 点击「导出日志到桌面」按钮",
+                "4. 将生成的zip文件连同问题描述一起发给开发者"
+            };
+
+            foreach (var step in steps)
+            {
+                var stepText = new Microsoft.UI.Xaml.Controls.TextBlock
+                {
+                    Text = step,
+                    TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                    FontSize = 13,
+                    Margin = new Microsoft.UI.Xaml.Thickness(12, 2, 0, 2)
+                };
+                panel.Children.Add(stepText);
+            }
+
+            // 联系方式提示
+            var contactText = new Microsoft.UI.Xaml.Controls.TextBlock
+            {
+                Text = Translator.IsEnglish ?
+                    "\nYou can contact the developer through GitHub Issues, Bilibili, or Xiaoheihe." :
+                    "\n你可以通过GitHub Issues、哔哩哔哩或小黑盒联系开发者。",
+                TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                FontSize = 12,
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128))
+            };
+            panel.Children.Add(contactText);
+
+            // 不再提示复选框
+            var dontShowAgain = new Microsoft.UI.Xaml.Controls.CheckBox
+            {
+                Content = Translator.IsEnglish ? "Don't show this again" : "不再显示此提示",
+                Margin = new Microsoft.UI.Xaml.Thickness(0, 8, 0, 0)
+            };
+            panel.Children.Add(dontShowAgain);
+
+            var dialog = new ContentDialog
+            {
+                Title = Translator.IsEnglish ? "Beta Version - Feedback Guide" : "测试版 - 反馈指引",
+                Content = panel,
+                PrimaryButtonText = Translator.IsEnglish ? "I Understand" : "我知道了",
+                CloseButtonText = Translator.IsEnglish ? "Close" : "关闭",
+                XamlRoot = this.Content.XamlRoot,
+                RequestedTheme = SettingsService.Instance.DarkMode ? ElementTheme.Dark : ElementTheme.Light
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary && dontShowAgain.IsChecked == true)
+            {
+                SettingsService.Instance.ShowBetaFeedback = false;
                 SettingsService.Instance.Save();
             }
         }

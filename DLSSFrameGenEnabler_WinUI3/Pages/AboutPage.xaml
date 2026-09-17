@@ -41,7 +41,7 @@
                             <TextBlock x:Name="BilibiliText" Text="哔哩哔哩" VerticalAlignment="Center" />
                         </StackPanel>
                     </HyperlinkButton>
-                    <HyperlinkButton x:Name="XiaoheiheLink" NavigateUri="https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&amp;h_src=YXBwX3NoYXJl&amp;link_id=7c7772709af8&amp;new_post_share_style=true" Padding="0,4,0,4">
+                    <HyperlinkButton x:Name="XiaoheiheLink" NavigateUri="https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&amp;h_src=YXBwX3NoYXJl&amp;link_id=f255727103c5&amp;new_post_share_style=true" Padding="0,4,0,4">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Image Source="ms-appx:///Assets/xiaoheihe.png" Width="20" Height="20" />
                             <TextBlock x:Name="XiaoheiheText" Text="小黑盒" VerticalAlignment="Center" />

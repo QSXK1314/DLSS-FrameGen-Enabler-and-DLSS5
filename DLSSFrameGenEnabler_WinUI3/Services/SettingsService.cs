@@ -25,15 +25,26 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         public int Language { get; set; } = 0; // 0=Auto, 1=Chinese, 2=English
         public int BackdropType { get; set; } = 0; // 0=默认, 1=Mica云母, 2=Acrylic亚克力, 4=自定义壁纸, 5=纯透明模糊
         public string CustomWallpaperPath { get; set; } = ""; // 自定义壁纸路径
-        public string XiaoheiheUrl { get; set; } = "https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&h_src=YXBwX3NoYXJl&link_id=7c7772709af8&new_post_share_style=true";
+        public string XiaoheiheUrl { get; set; } = "https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&h_src=YXBwX3NoYXJl&link_id=f255727103c5&new_post_share_style=true";
         public string GithubUrl { get; set; } = "https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5";
         public string BilibiliUrl { get; set; } = "https://space.bilibili.com/414911649";
-        public string UpdateCheckUrl { get; set; } = "https://gist.githubusercontent.com/QSXK1314/a9595f510bc16c77051ee386e085f8f1/raw/version.json";
+        
+        // 正式版和测试版使用不同的version URL（都是不带commit hash的永久链接，修改内容不会失效）
+        private const string StableUpdateUrl = "https://gist.githubusercontent.com/QSXK1314/a9595f510bc16c77051ee386e085f8f1/raw/version.json";
+        private const string BetaUpdateUrl = "https://gist.githubusercontent.com/QSXK1314/64d60ba126dc8ddabda2dfe39efe0970/raw/version-beta.json";
+        
+        // 动态返回对应版本的检查更新URL
+        public string UpdateCheckUrl 
+        { 
+            get => App.IsBeta ? BetaUpdateUrl : StableUpdateUrl;
+            set { /* 忽略set，URL由版本类型动态决定 */ } 
+        }
         public bool RememberGames { get; set; } = true; // 是否记住游戏列表
         public string SkipUpdateVersion { get; set; } = ""; // 用户选择不再提示的版本号
         public double WindowWidth { get; set; } = 0; // 记忆的窗口宽度，0表示使用默认
         public double WindowHeight { get; set; } = 0; // 记忆的窗口高度，0表示使用默认
         public bool ShowUsageGuide { get; set; } = true; // 是否显示使用前说明弹窗
+        public bool ShowBetaFeedback { get; set; } = true; // 是否显示测试版反馈提示弹窗
 
         private static SettingsService? _instance;
         public static SettingsService Instance => _instance ??= Load();
@@ -46,10 +57,11 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 {
                     var json = File.ReadAllText(SettingsPath);
                     var settings = JsonSerializer.Deserialize<SettingsService>(json) ?? new SettingsService();
-                    // 迁移旧的小黑盒链接
-                    if (settings.XiaoheiheUrl.Contains("link_id=0a86726d8f8b"))
+                    // 迁移旧的小黑盒链接（只要不是最新链接就都迁移）
+                    var latestXiaoheiheUrl = "https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&h_src=YXBwX3NoYXJl&link_id=f255727103c5&new_post_share_style=true";
+                    if (!string.IsNullOrEmpty(settings.XiaoheiheUrl) && !settings.XiaoheiheUrl.Contains("link_id=f255727103c5"))
                     {
-                        settings.XiaoheiheUrl = "https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&h_src=YXBwX3NoYXJl&link_id=7c7772709af8&new_post_share_style=true";
+                        settings.XiaoheiheUrl = latestXiaoheiheUrl;
                         settings.Save();
                     }
                     return settings;

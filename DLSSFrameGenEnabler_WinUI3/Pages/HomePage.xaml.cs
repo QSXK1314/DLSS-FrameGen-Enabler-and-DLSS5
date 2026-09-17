@@ -23,6 +23,15 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
         private GpuInfo? _gpuInfo;
         private GameInfo? _contextMenuGame;
 
+        // 框选相关变量
+        private bool _isDragSelecting = false;
+        private Windows.Foundation.Point _dragStartPoint;
+        private List<GameInfo> _preSelectedGames = new();
+
+        // 右键多选相关变量
+        private List<GameInfo> _rightClickSelectedGames = new();
+        private bool _isRightClicking = false;
+
         // 为游戏设置图标
         private void SetGameIcon(GameInfo game)
         {
@@ -220,7 +229,9 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
         // 自动扫描
         private async void AutoScanBtn_Click(object sender, RoutedEventArgs e)
         {
-            Games.Clear();
+            // 注意：不要调用 Games.Clear()，否则会把手动添加的游戏也清掉！
+            // 自动扫描结果会追加到现有游戏列表中，并自动去重
+            
             // 在后台线程执行扫描，避免UI卡死
             var scanResult = await System.Threading.Tasks.Task.Run(() =>
             {
@@ -228,19 +239,66 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 var epicGames = GameScanner.ScanEpicGames();
                 var gogGames = GameScanner.ScanGOGGames();
                 var ubisoftGames = GameScanner.ScanUbisoftGames();
-                return steamGames.Concat(epicGames).Concat(gogGames).Concat(ubisoftGames).ToList();
+                var allGames = steamGames.Concat(epicGames).Concat(gogGames).Concat(ubisoftGames).ToList();
+                
+                // 加强去重：规范化路径后比较，同时比较GamePath和ExePath
+                var uniqueGames = new List<GameInfo>();
+                var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var game in allGames)
+                {
+                    // 规范化路径：去掉结尾的斜杠，统一比较
+                    var normalizedGamePath = game.GamePath.TrimEnd('\\', '/').ToLowerInvariant();
+                    var normalizedExePath = !string.IsNullOrEmpty(game.ExePath) 
+                        ? game.ExePath.TrimEnd('\\', '/').ToLowerInvariant() 
+                        : "";
+                    
+                    // 如果GamePath或ExePath已经存在，就跳过（避免重复）
+                    if (seenPaths.Contains(normalizedGamePath) || 
+                        (!string.IsNullOrEmpty(normalizedExePath) && seenPaths.Contains(normalizedExePath)))
+                    {
+                        continue;
+                    }
+                    
+                    seenPaths.Add(normalizedGamePath);
+                    if (!string.IsNullOrEmpty(normalizedExePath))
+                    {
+                        seenPaths.Add(normalizedExePath);
+                    }
+                    uniqueGames.Add(game);
+                }
+                return uniqueGames;
             });
             
+            int addedCount = 0;
             foreach (var game in scanResult)
             {
-                if (!Games.Any(g => g.GamePath == game.GamePath))
+                // 再次检查（双重保险）：同时检查GamePath和ExePath，避免与现有游戏重复
+                var normalizedGamePath = game.GamePath.TrimEnd('\\', '/').ToLowerInvariant();
+                var normalizedExePath = !string.IsNullOrEmpty(game.ExePath) 
+                    ? game.ExePath.TrimEnd('\\', '/').ToLowerInvariant() 
+                    : "";
+                
+                bool alreadyExists = Games.Any(g => 
+                    g.GamePath.TrimEnd('\\', '/').ToLowerInvariant() == normalizedGamePath ||
+                    (!string.IsNullOrEmpty(normalizedExePath) && 
+                     !string.IsNullOrEmpty(g.ExePath) && 
+                     g.ExePath.TrimEnd('\\', '/').ToLowerInvariant() == normalizedExePath));
+                
+                if (!alreadyExists)
                 {
                     Games.Add(game);
                     SetGameIcon(game);
+                    addedCount++;
                 }
             }
             SaveGamesNow(); // 显式保存
-            ShowMessage(string.Format(Translator.T("Dlg_Scan_Done"), Games.Count));
+            
+            // 显示更详细的提示：新增了多少个，总共多少个
+            var totalCount = Games.Count;
+            var message = Translator.IsEnglish ? 
+                $"Scan complete! Added {addedCount} new games, total {totalCount} games in list." :
+                $"扫描完成！新增 {addedCount} 个游戏，列表中共有 {totalCount} 个游戏。";
+            ShowMessage(message);
         }
 
         // 刷新状态
@@ -283,7 +341,9 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             if (folder != null)
             {
                 var game = GameScanner.AddGameByDirectory(folder.Path);
-                if (game != null && !Games.Any(g => g.GamePath == game.GamePath))
+                // 加强去重：规范化路径后比较
+                var normalizedPath = folder.Path.TrimEnd('\\', '/').ToLowerInvariant();
+                if (game != null && !Games.Any(g => g.GamePath.TrimEnd('\\', '/').ToLowerInvariant() == normalizedPath))
                 {
                     Games.Add(game);
                     SetGameIcon(game);
@@ -311,7 +371,9 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 // 手动添加exe是保底选项，支持所有游戏（DX9/DX11/DX12）
                 // 不强制isDx9Manual，让AddGameByExe自动检测DX支持情况
                 var game = GameScanner.AddGameByExe(file.Path, isDx9Manual: false);
-                if (game != null && !Games.Any(g => g.ExePath == game.ExePath))
+                // 加强去重：规范化路径后比较ExePath
+                var normalizedExePath = file.Path.TrimEnd('\\', '/').ToLowerInvariant();
+                if (game != null && !Games.Any(g => !string.IsNullOrEmpty(g.ExePath) && g.ExePath.TrimEnd('\\', '/').ToLowerInvariant() == normalizedExePath))
                 {
                     Games.Add(game);
                     SetGameIcon(game);
@@ -503,13 +565,58 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             if (flyout.Target is FrameworkElement fe && fe.DataContext is GameInfo game)
             {
                 _contextMenuGame = game;
-                GameListView.SelectedItem = game;
+
+                // ===== 保留多选状态 =====
+                // 如果右键点击前有多个游戏被选中，并且右键点击的游戏也在选中列表中，保留多选
+                // 否则只选中右键点击的这个游戏
+                if (_rightClickSelectedGames.Count > 1 && _rightClickSelectedGames.Contains(game))
+                {
+                    // 恢复之前的多选状态（ListView可能已经把选择改成了单选）
+                    GameListView.SelectedItems.Clear();
+                    foreach (var g in _rightClickSelectedGames)
+                    {
+                        if (Games.Contains(g))
+                        {
+                            GameListView.SelectedItems.Add(g);
+                        }
+                    }
+                }
+                else
+                {
+                    // 只选中右键点击的这个游戏
+                    GameListView.SelectedItem = game;
+                }
+
+                // 判断是否是多选状态
+                bool isMultiSelect = _rightClickSelectedGames.Count > 1 && _rightClickSelectedGames.Contains(game);
 
                 // 动态更新菜单项
                 var items = flyout.Items;
                 if (items.Count >= 10)
                 {
                     bool en = Translator.IsEnglish;
+
+                    // ===== 多选状态：只保留"移除列表"可用，其他全部禁用 =====
+                    if (isMultiSelect)
+                    {
+                        for (int i = 0; i < items.Count; i++)
+                        {
+                            if (items[i] is MenuFlyoutItem mfi)
+                            {
+                                // 索引11是"移除列表"，其他全部禁用
+                                mfi.IsEnabled = (i == 11);
+                            }
+                        }
+                        // 更新移除列表的文字，显示选中数量
+                        if (items.Count > 11 && items[11] is MenuFlyoutItem removeItem)
+                        {
+                            removeItem.Text = en ? 
+                                $"Remove Selected ({_rightClickSelectedGames.Count})" : 
+                                $"移除所选游戏 ({_rightClickSelectedGames.Count})";
+                        }
+                        return; // 多选状态下不需要更新其他菜单项
+                    }
+
                     // 0: 多帧生成
                     var frameGenItem = (MenuFlyoutItem)items[0];
                     frameGenItem.Text = game.FrameGenEnabled ?
@@ -611,15 +718,42 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
         // 更新按钮状态
         private void UpdateButtonStates(GameInfo game)
         {
+            // ===== 多选状态：禁用所有下方功能按钮 =====
+            if (GameListView.SelectedItems.Count > 1)
+            {
+                FrameGenBtn.IsEnabled = false;
+                Dlss5Btn.IsEnabled = false;
+                Dx9Dlss5Btn.IsEnabled = false;
+                Cp2077Btn.IsEnabled = false;
+                ConfigBtn.IsEnabled = false;
+                ConfigNameBtn.IsEnabled = false;
+                TroubleshootBtn.IsEnabled = false;
+                RestoreBtn.IsEnabled = false;
+                
+                // 给按钮加上提示
+                var multiSelectTip = Translator.IsEnglish ? 
+                    "Multiple games selected. Only 'Remove from list' is available via right-click menu." : 
+                    "已选择多个游戏，仅可通过右键菜单使用「移除列表」功能。";
+                ToolTipService.SetToolTip(FrameGenBtn, multiSelectTip);
+                ToolTipService.SetToolTip(Dlss5Btn, multiSelectTip);
+                ToolTipService.SetToolTip(Dx9Dlss5Btn, multiSelectTip);
+                ToolTipService.SetToolTip(RestoreBtn, multiSelectTip);
+                return;
+            }
+            
             // 2077特殊处理
             if (game.Is2077)
             {
                 Cp2077Btn.Visibility = Visibility.Visible;
+                Cp2077Btn.IsEnabled = true; // 确保2077按钮可用（多选禁用后恢复）
                 FrameGenBtn.Visibility = Visibility.Collapsed;
                 Dlss5Btn.Visibility = Visibility.Visible;
                 Dx9Dlss5Btn.Visibility = Visibility.Collapsed;
                 ConfigBtn.IsEnabled = false;
                 ConfigNameBtn.IsEnabled = false;
+                
+                // 清除多选状态下的提示
+                ToolTipService.SetToolTip(Cp2077Btn, null);
 
                 // 2077按钮文字根据安装状态切换
                 Cp2077Btn.Content = game.FrameGenEnabled ?
@@ -632,14 +766,18 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 FrameGenBtn.Visibility = Visibility.Visible;
                 Dlss5Btn.Visibility = Visibility.Visible;
                 Dx9Dlss5Btn.Visibility = Visibility.Visible;
+                Dx9Dlss5Btn.IsEnabled = true; // 确保DX9 DLSS5按钮可用（多选禁用后恢复）
                 Cp2077Btn.Visibility = Visibility.Collapsed;
                 ConfigBtn.IsEnabled = game.FrameGenEnabled && game.FrameGenMode == "经典模式";
                 ConfigNameBtn.IsEnabled = game.FrameGenEnabled && game.FrameGenMode == "高级模式";
                 
-                // 给DX9 DLSS5按钮加上提示
+                // 清除多选状态下的提示，恢复正常提示
                 ToolTipService.SetToolTip(Dx9Dlss5Btn, Translator.IsEnglish ? 
                     "For older DX9 games, uses dgVoodoo to translate DX9 to DX11" : 
                     "适合老游戏（DX9游戏），通过dgVoodoo将DX9转译到DX11运行");
+                ToolTipService.SetToolTip(FrameGenBtn, null);
+                ToolTipService.SetToolTip(Dlss5Btn, null);
+                ToolTipService.SetToolTip(RestoreBtn, null);
             }
 
             // 多帧生成按钮文字
@@ -1595,9 +1733,79 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
         private void CtxOpenFolder_Click(object sender, RoutedEventArgs e)
         {
             var game = _contextMenuGame ?? SelectedGame;
-            if (game != null && Directory.Exists(game.GamePath))
+            if (game != null)
             {
-                System.Diagnostics.Process.Start("explorer.exe", game.GamePath);
+                try
+                {
+                    // 优先使用exe所在的目录（因为exe所在的目录通常就是游戏真正的运行目录）
+                    // 如果exe路径不存在，再使用GamePath
+                    string folderPath = "";
+                    
+                    if (!string.IsNullOrEmpty(game.ExePath) && File.Exists(game.ExePath))
+                    {
+                        folderPath = Path.GetDirectoryName(game.ExePath) ?? "";
+                    }
+                    
+                    // 如果exe路径不可用，使用GamePath
+                    if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
+                    {
+                        folderPath = game.GamePath;
+                        // 如果GamePath是一个文件，就打开它所在的目录
+                        if (File.Exists(folderPath))
+                        {
+                            folderPath = Path.GetDirectoryName(folderPath) ?? folderPath;
+                        }
+                    }
+                    
+                    // 确保路径是绝对路径
+                    if (!string.IsNullOrEmpty(folderPath) && !Path.IsPathRooted(folderPath))
+                    {
+                        folderPath = Path.GetFullPath(folderPath);
+                    }
+                    
+                    if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath))
+                    {
+                        // 方式1：直接用目录路径作为FileName，让系统自动打开资源管理器（最可靠）
+                        try
+                        {
+                            var psi = new System.Diagnostics.ProcessStartInfo
+                            {
+                                FileName = folderPath,
+                                UseShellExecute = true
+                            };
+                            System.Diagnostics.Process.Start(psi);
+                            return;
+                        }
+                        catch { }
+                        
+                        // 方式2：如果方式1失败，使用explorer.exe打开
+                        try
+                        {
+                            var psi2 = new System.Diagnostics.ProcessStartInfo
+                            {
+                                FileName = "explorer.exe",
+                                Arguments = $"\"{folderPath}\"",
+                                UseShellExecute = true
+                            };
+                            System.Diagnostics.Process.Start(psi2);
+                            return;
+                        }
+                        catch { }
+                        
+                        // 方式3：最后手段
+                        System.Diagnostics.Process.Start("explorer.exe", folderPath);
+                    }
+                    else
+                    {
+                        ShowMessage(Translator.IsEnglish ? 
+                            $"Game folder not found.\nGamePath: {game.GamePath}\nExePath: {game.ExePath}" : 
+                            $"游戏目录不存在。\nGamePath: {game.GamePath}\nExePath: {game.ExePath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ShowMessage(Translator.IsEnglish ? $"Failed to open folder: {ex.Message}" : $"打开目录失败：{ex.Message}");
+                }
             }
         }
 
@@ -1612,12 +1820,195 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
 
         private void CtxRemove_Click(object sender, RoutedEventArgs e)
         {
-            var game = _contextMenuGame ?? SelectedGame;
-            if (game != null)
+            // 批量移除：移除所有选中的游戏
+            var selectedGames = GameListView.SelectedItems.Cast<GameInfo>().ToList();
+            if (selectedGames.Count > 0)
             {
-                Games.Remove(game);
+                foreach (var game in selectedGames)
+                {
+                    Games.Remove(game);
+                }
                 SaveGamesNow(); // 显式保存
+                ShowMessage(Translator.IsEnglish ? 
+                    $"Removed {selectedGames.Count} games from list" : 
+                    $"已从列表中移除 {selectedGames.Count} 个游戏");
             }
+            else
+            {
+                // 如果没有选中的游戏，移除右键选中的游戏
+                var game = _contextMenuGame;
+                if (game != null)
+                {
+                    Games.Remove(game);
+                    SaveGamesNow();
+                }
+            }
+        }
+
+        // 一键清除游戏列表
+        private async void ClearAllBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (Games.Count == 0)
+            {
+                ShowMessage(Translator.IsEnglish ? "Game list is already empty" : "游戏列表已经是空的");
+                return;
+            }
+
+            var confirmDialog = new ContentDialog
+            {
+                Title = Translator.IsEnglish ? "Clear Game List" : "清除游戏列表",
+                Content = Translator.IsEnglish ? 
+                    $"Are you sure you want to clear all {Games.Count} games from the list? This action cannot be undone." :
+                    $"确定要清除列表中的所有 {Games.Count} 个游戏吗？此操作不可撤销。",
+                PrimaryButtonText = Translator.IsEnglish ? "Clear All" : "全部清除",
+                CloseButtonText = Translator.IsEnglish ? "Cancel" : "取消",
+                XamlRoot = this.Content.XamlRoot,
+                RequestedTheme = SettingsService.Instance.DarkMode ? ElementTheme.Dark : ElementTheme.Light
+            };
+
+            var result = await confirmDialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                Games.Clear();
+                SaveGamesNow();
+                ShowMessage(Translator.IsEnglish ? "Game list cleared" : "游戏列表已清除");
+            }
+        }
+
+        // ===== 框选功能 =====
+
+        private void GameListView_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            var pointerPoint = e.GetCurrentPoint(GameListView);
+
+            // ===== 右键按下：记录当前选中状态，防止右键点击取消多选 =====
+            if (pointerPoint.Properties.IsRightButtonPressed)
+            {
+                _isRightClicking = true;
+                // 记录右键点击前所有选中的游戏
+                _rightClickSelectedGames = GameListView.SelectedItems.Cast<GameInfo>().ToList();
+                return;
+            }
+
+            // ===== 左键按下：检查是否在空白区域，开始框选 =====
+            if (pointerPoint.Properties.IsLeftButtonPressed)
+            {
+                // 检查点击位置是否在某个ListViewItem上
+                var hitTest = VisualTreeHelper.FindElementsInHostCoordinates(pointerPoint.Position, GameListView);
+                bool isOnItem = false;
+                foreach (var elem in hitTest)
+                {
+                    if (elem is ListViewItem)
+                    {
+                        isOnItem = true;
+                        break;
+                    }
+                    // 向上查找父元素，看是否在ListViewItem内
+                    var parent = elem as DependencyObject;
+                    while (parent != null)
+                    {
+                        if (parent is ListViewItem)
+                        {
+                            isOnItem = true;
+                            break;
+                        }
+                        parent = VisualTreeHelper.GetParent(parent);
+                    }
+                    if (isOnItem) break;
+                }
+
+                // 检查Ctrl键是否按下
+                bool isCtrlPressed = (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+                // 如果在空白区域按下，开始框选
+                if (!isOnItem)
+                {
+                    _isDragSelecting = true;
+                    _dragStartPoint = pointerPoint.Position;
+                    // 记录之前选中的游戏（按住Ctrl时保留，否则清空选择）
+                    _preSelectedGames = GameListView.SelectedItems.Cast<GameInfo>().ToList();
+                    if (!isCtrlPressed)
+                    {
+                        GameListView.SelectedItems.Clear();
+                    }
+                    // 捕获指针，确保即使鼠标移出控件也能收到PointerReleased
+                    try { GameListView.CapturePointer(e.Pointer); } catch { }
+                }
+            }
+        }
+
+        private void GameListView_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_isDragSelecting) return;
+
+            var pointerPoint = e.GetCurrentPoint(GameListView);
+            var currentPoint = pointerPoint.Position;
+
+            // 计算框选矩形
+            double left = Math.Min(_dragStartPoint.X, currentPoint.X);
+            double top = Math.Min(_dragStartPoint.Y, currentPoint.Y);
+            double width = Math.Abs(currentPoint.X - _dragStartPoint.X);
+            double height = Math.Abs(currentPoint.Y - _dragStartPoint.Y);
+            var selectionRect = new Windows.Foundation.Rect(left, top, width, height);
+
+            // 遍历所有游戏，检查是否在框选矩形内
+            foreach (var game in Games)
+            {
+                var container = GameListView.ContainerFromItem(game) as ListViewItem;
+                if (container != null)
+                {
+                    // 获取item相对于GameListView的位置
+                    var transform = container.TransformToVisual(GameListView);
+                    var itemPosition = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+                    var itemRect = new Windows.Foundation.Rect(itemPosition.X, itemPosition.Y, container.ActualWidth, container.ActualHeight);
+
+                    // 检查是否相交（手动实现矩形相交检查）
+                    bool intersects = !(itemRect.Left > selectionRect.Right ||
+                                       itemRect.Right < selectionRect.Left ||
+                                       itemRect.Top > selectionRect.Bottom ||
+                                       itemRect.Bottom < selectionRect.Top);
+
+                    if (intersects)
+                    {
+                        if (!GameListView.SelectedItems.Contains(game))
+                        {
+                            GameListView.SelectedItems.Add(game);
+                        }
+                    }
+                    else
+                    {
+                        // 如果不是之前选中的（按住Ctrl的情况），就取消选中
+                        if (!_preSelectedGames.Contains(game))
+                        {
+                            GameListView.SelectedItems.Remove(game);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void GameListView_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            // 结束框选
+            if (_isDragSelecting)
+            {
+                _isDragSelecting = false;
+                _preSelectedGames.Clear();
+                try { GameListView.ReleasePointerCapture(e.Pointer); } catch { }
+            }
+            // 结束右键状态
+            if (_isRightClicking)
+            {
+                _isRightClicking = false;
+            }
+        }
+
+        private void GameListView_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+        {
+            // 指针捕获丢失时，确保框选状态正确结束
+            _isDragSelecting = false;
+            _preSelectedGames.Clear();
+            _isRightClicking = false;
         }
     }
 }

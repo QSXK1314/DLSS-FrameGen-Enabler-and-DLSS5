@@ -25,6 +25,66 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             CheckUpdateBtn.Content = en ? "Check Update" : "检查更新";
             DirectDownloadBtn.Content = en ? "Direct Download" : "直接下载最新版";
 
+            // ===== 更新内容（根据版本类型显示不同内容）=====
+            if (App.IsBeta)
+            {
+                // ===== Beta版：V1.15.2.0-Beta =====
+                V11520BetaTitle.Text = "V1.15.2.0-Beta";
+                V11520Beta_1.Text = en ?
+                    "🔬 BETA: This is a beta version for testing new features. Stable version remains V1.14.0.0. Beta features will be synced to stable version after testing." :
+                    "🔬 测试版：本版本为测试版，用于测试新功能。稳定版仍为V1.14.0.0。测试版功能经过测试后会同步到稳定版。";
+                V11520Beta_2.Text = en ?
+                    "NEW: Beta Feedback Guide dialog - Shows on startup after usage notes, guides users to export logs and send to developer when encountering issues, with 'Don't show again' checkbox" :
+                    "新增：测试版反馈指引弹窗 - 在使用前说明弹窗后显示，引导用户遇到问题时导出日志并发给开发者，支持'不再显示此提示'复选框";
+                V11520Beta_3.Text = en ?
+                    "NEW: Export Logs feature - In Settings page, 'Debug & Support' section, click 'Export Logs to Desktop' to collect startup.log, error.log, save_debug.log, settings.json, and auto-generated system_info.txt (OS info, software settings, GPU info), packaged as zip" :
+                    "新增：导出日志功能 - 在设置页面的「调试与支持」部分，点击「导出日志到桌面」，收集startup.log、error.log、save_debug.log、settings.json以及自动生成的system_info.txt（系统信息、软件设置、显卡信息），打包为zip";
+                V11520Beta_4.Text = en ?
+                    "NEW: Beta/Stable version separation - App.IsBeta flag controls version display. Beta shows V1.15.2.0-Beta, Stable shows V1.14.0.0. Easy to switch when publishing stable version." :
+                    "新增：测试版/正式版版本号分离 - 通过App.IsBeta标志控制版本号显示。测试版显示V1.15.2.0-Beta，正式版显示V1.14.0.0。发布正式版时只需修改一个标志即可切换。";
+                V11520Beta_5.Text = en ?
+                    "FIX: Game list duplicate display - Improved deduplication logic, normalized paths (TrimEnd slashes + ToLower) before comparison, double insurance: dedupe inside auto-scan AND when adding to list" :
+                    "修复：游戏列表重复显示 - 改进去重逻辑，规范化路径（去除结尾斜杠+转小写）后再比较，双重保险：自动扫描内部先去重，添加到列表时再次检查";
+                V11520Beta_6.Text = en ?
+                    "FIX: Uninstalled games still detected - Removed Retail folder special handling (was detecting games just because Retail folder exists), unified IsLikelyGameExe function for all 4 checkpoints, strengthened exclusion keywords (unins002, uninst, uninstaller, remove.exe, remover, installer etc.)" :
+                    "修复：已卸载游戏仍被识别 - 删除Retail目录特殊处理（之前只要Retail目录存在就认为有游戏），统一使用IsLikelyGameExe函数应用于所有4个检查点，加强排除关键词（unins002、uninst、uninstaller、remove.exe、remover、installer等）";
+                V11520Beta_7.Text = en ?
+                    "FIX: Normal games missed (like REPO) - Removed all file size thresholds completely, only use IsLikelyGameExe to judge, avoids small game exe being filtered out" :
+                    "修复：正常游戏被漏掉（如REPO） - 完全去掉所有文件大小阈值，只靠IsLikelyGameExe判断，避免小体积游戏exe被过滤掉";
+                V11520Beta_8.Text = en ?
+                    "UPDATED: Xiaoheihe link updated to latest version, with auto-migration for old links (any link not containing latest link_id will be automatically updated)" :
+                    "更新：小黑盒链接更新为最新版本，旧链接自动迁移（任何不包含最新link_id的链接都会自动更新）";
+            }
+            else
+            {
+                // ===== 正式版：V1.14.1.0（只显示通用功能更新和bug修复）=====
+                V11520BetaTitle.Text = "V1.14.1.0";
+                V11520Beta_1.Text = en ?
+                    "NEW: Export Logs feature - In Settings page, 'Debug & Support' section, click 'Export Logs to Desktop' to collect startup.log, error.log, save_debug.log, settings.json, and auto-generated system_info.txt (OS info, software settings, GPU info), packaged as zip" :
+                    "新增：导出日志功能 - 在设置页面的「调试与支持」部分，点击「导出日志到桌面」，收集startup.log、error.log、save_debug.log、settings.json以及自动生成的system_info.txt（系统信息、软件设置、显卡信息），打包为zip";
+                V11520Beta_2.Text = en ?
+                    "NEW: Game list multi-select - Drag to select multiple games, Ctrl+Click to select/deselect individually, batch remove selected games, clear all games button" :
+                    "新增：游戏列表多选功能 - 拖拽框选多个游戏，Ctrl+单击自行选择/取消选择，批量移除所选游戏，新增清除列表按钮";
+                V11520Beta_3.Text = en ?
+                    "IMPROVED: Auto-scan logic - Removed all file size thresholds, added loose mode for auto-scan, avoids missing normal games (like REPO), improved deduplication logic to prevent duplicate display" :
+                    "改进：自动扫描逻辑 - 完全去掉所有文件大小阈值，自动扫描使用宽松模式，避免漏掉正常游戏（如REPO），改进去重逻辑防止重复显示";
+                V11520Beta_4.Text = en ?
+                    "FIX: Open game folder opened Documents folder - Now prioritizes ExePath directory (more reliable than GamePath), tries 3 methods to open folder, shows detailed error message with both paths" :
+                    "修复：打开游戏目录打开的却是文档目录 - 现在优先使用ExePath所在目录（比GamePath更可靠），3种方式尝试打开目录，显示包含两个路径的详细错误提示";
+                V11520Beta_5.Text = en ?
+                    "FIX: Game list duplicate display - Improved deduplication logic, normalized paths (TrimEnd slashes + ToLower) before comparison, double insurance: dedupe inside auto-scan AND when adding to list" :
+                    "修复：游戏列表重复显示 - 改进去重逻辑，规范化路径（去除结尾斜杠+转小写）后再比较，双重保险：自动扫描内部先去重，添加到列表时再次检查";
+                V11520Beta_6.Text = en ?
+                    "FIX: Uninstalled games still detected - Removed Retail folder special handling, unified IsLikelyGameExe function for all 4 checkpoints, strengthened exclusion keywords (unins002, uninst, uninstaller, remove.exe, remover, installer etc.)" :
+                    "修复：已卸载游戏仍被识别 - 删除Retail目录特殊处理，统一使用IsLikelyGameExe函数应用于所有4个检查点，加强排除关键词（unins002、uninst、uninstaller、remove.exe、remover、installer等）";
+                V11520Beta_7.Text = en ?
+                    "FIX: Normal games missed (like REPO) - Removed all file size thresholds completely, only use IsLikelyGameExe to judge, avoids small game exe being filtered out" :
+                    "修复：正常游戏被漏掉（如REPO） - 完全去掉所有文件大小阈值，只靠IsLikelyGameExe判断，避免小体积游戏exe被过滤掉";
+                V11520Beta_8.Text = en ?
+                    "UPDATED: Xiaoheihe link updated to latest version, with auto-migration for old links (any link not containing latest link_id will be automatically updated)" :
+                    "更新：小黑盒链接更新为最新版本，旧链接自动迁移（任何不包含最新link_id的链接都会自动更新）";
+            }
+
             // ===== V1.14.0.0 =====
             V11400Title.Text = "V1.14.0.0";
             V11400_1.Text = en ?
@@ -271,16 +331,27 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 using var client = new HttpClient();
                 client.Timeout = TimeSpan.FromSeconds(10);
                 var json = await client.GetStringAsync(Services.SettingsService.Instance.UpdateCheckUrl);
-                using var doc = JsonDocument.Parse(json);
+                // 允许尾随逗号，避免用户的JSON格式不规范导致解析失败
+                var jsonOptions = new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
+                using var doc = JsonDocument.Parse(json, jsonOptions);
                 var root = doc.RootElement;
                 var latestVersion = root.GetProperty("version").GetString();
-                var currentVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.12.3.1";
+                var currentVersion = App.CurrentVersion; // 使用App中定义的版本号（支持Beta版本号）
 
-                // 解析下载链接
+                // 解析下载链接（同时支持平铺格式 downloadUrlXxx 和嵌套格式 downloadLinks.xxx）
                 string githubUrl = SettingsService.Instance.GithubUrl;
                 string kuakeUrl = root.TryGetProperty("downloadUrlKuake", out var k) ? k.GetString() : "";
                 string baiduUrl = root.TryGetProperty("downloadUrlBaidu", out var b) ? b.GetString() : "";
                 string pan123Url = root.TryGetProperty("downloadUrl123pan", out var l) ? l.GetString() : "";
+                
+                // 兼容嵌套格式 downloadLinks
+                if (root.TryGetProperty("downloadLinks", out var dl))
+                {
+                    if (string.IsNullOrEmpty(kuakeUrl) && dl.TryGetProperty("kuake", out var dk)) kuakeUrl = dk.GetString();
+                    if (string.IsNullOrEmpty(baiduUrl) && dl.TryGetProperty("baidu", out var db)) baiduUrl = db.GetString();
+                    if (string.IsNullOrEmpty(pan123Url) && dl.TryGetProperty("pan123", out var dl123)) pan123Url = dl123.GetString();
+                    if (dl.TryGetProperty("github", out var dgh)) githubUrl = dgh.GetString();
+                }
 
                 if (IsNewerVersion(latestVersion, currentVersion))
                 {
@@ -341,13 +412,21 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             }
         }
 
-        // 版本比较：判断remote是否比current新
+        // 版本比较：判断remote是否比current新（支持Beta版本号，如 V1.15.2.0-Beta）
         private static bool IsNewerVersion(string remote, string current)
         {
             try
             {
+                // 去掉开头的V/v
                 remote = remote.TrimStart('V', 'v');
                 current = current.TrimStart('V', 'v');
+                
+                // 去掉后缀（如 -Beta、-alpha、-rc 等），只比较数字部分
+                int betaIndex = remote.IndexOf('-');
+                if (betaIndex > 0) remote = remote.Substring(0, betaIndex);
+                betaIndex = current.IndexOf('-');
+                if (betaIndex > 0) current = current.Substring(0, betaIndex);
+                
                 if (Version.TryParse(remote, out var remoteVer) && Version.TryParse(current, out var currentVer))
                 {
                     return remoteVer > currentVer;
@@ -480,13 +559,61 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 var loadingTask = loadingDialog.ShowAsync();
 
                 // 从GitHub API获取最新release的下载链接
+                // 正式版使用 /releases/latest（只返回正式版，不包含pre-release）
+                // Beta版使用 /releases，然后筛选 prerelease=true 的最新版本
                 using var client = new System.Net.Http.HttpClient();
                 client.Timeout = TimeSpan.FromSeconds(30);
-                var apiUrl = "https://api.github.com/repos/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/latest";
                 client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) DLSSFrameGenEnabler");
-                var json = await client.GetStringAsync(apiUrl);
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
-                var assets = doc.RootElement.GetProperty("assets");
+                
+                System.Text.Json.JsonElement releaseElement = default;
+                if (App.IsBeta)
+                {
+                    // Beta版：获取所有releases，筛选最新的pre-release
+                    var apiUrlAll = "https://api.github.com/repos/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases?per_page=20";
+                    var jsonAll = await client.GetStringAsync(apiUrlAll);
+                    using var docAll = System.Text.Json.JsonDocument.Parse(jsonAll);
+                    var releases = docAll.RootElement;
+                    
+                    // 找到第一个 prerelease=true 的版本（按发布时间倒序，第一个就是最新的Beta版）
+                    bool foundBeta = false;
+                    foreach (var rel in releases.EnumerateArray())
+                    {
+                        if (rel.TryGetProperty("prerelease", out var pre) && pre.GetBoolean())
+                        {
+                            releaseElement = rel.Clone();
+                            foundBeta = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!foundBeta)
+                    {
+                        loadingDialog.Hide();
+                        await System.Threading.Tasks.Task.Delay(200);
+                        var errDialog = new ContentDialog
+                        {
+                            Title = Translator.IsEnglish ? "Download Failed" : "下载失败",
+                            Content = Translator.IsEnglish ?
+                                "No beta version found in GitHub releases.\n\nTip: Users in mainland China may need a VPN/accelerator to access GitHub." :
+                                "在GitHub releases中没有找到测试版。\n\n提示：中国大陆用户建议使用加速器后再使用直接下载功能。",
+                            CloseButtonText = "OK",
+                            RequestedTheme = theme,
+                            XamlRoot = this.Content.XamlRoot
+                        };
+                        await errDialog.ShowAsync();
+                        return;
+                    }
+                }
+                else
+                {
+                    // 正式版：获取latest release（不包含pre-release）
+                    var apiUrl = "https://api.github.com/repos/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/latest";
+                    var json = await client.GetStringAsync(apiUrl);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    releaseElement = doc.RootElement.Clone();
+                }
+                
+                var assets = releaseElement.GetProperty("assets");
                 if (assets.GetArrayLength() == 0)
                 {
                     loadingDialog.Hide();
@@ -511,8 +638,8 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 var fileSize = asset.GetProperty("size").GetInt64();
                 
                 // 读取更新内容
-                var version = doc.RootElement.TryGetProperty("tag_name", out var tag) ? tag.GetString() : "";
-                var changelog = doc.RootElement.TryGetProperty("body", out var body) ? body.GetString() : "";
+                var version = releaseElement.TryGetProperty("tag_name", out var tag) ? tag.GetString() : "";
+                var changelog = releaseElement.TryGetProperty("body", out var body) ? body.GetString() : "";
 
                 loadingDialog.Hide();
                 await System.Threading.Tasks.Task.Delay(200);

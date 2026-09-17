@@ -25,10 +25,17 @@
             <Button x:Name="ManualAddDx9Btn" Content="手动模式（自行选择游戏exe）" Click="ManualAddDx9Btn_Click" ToolTipService.ToolTip="手动选择游戏exe文件，适用于自动识别失败的游戏（支持DX9/DX11/DX12）" />
             <Button x:Name="DetectRunningBtn" Content="检测运行中游戏" Click="DetectRunningBtn_Click" ToolTipService.ToolTip="检测当前正在运行的游戏进程，100%准确识别游戏真正的exe" />
             <Button x:Name="RefreshStatusBtn" Content="刷新状态" Click="RefreshStatusBtn_Click" ToolTipService.ToolTip="重新检测所有游戏的补丁开启状态" />
+            <Button x:Name="ClearAllBtn" Content="清除列表" Click="ClearAllBtn_Click" ToolTipService.ToolTip="一键清除游戏列表中的所有游戏" />
         </StackPanel>
 
         <!-- 游戏列表 -->
-        <ListView x:Name="GameListView" Grid.Row="1" SelectionChanged="GameListView_SelectionChanged">
+        <ListView x:Name="GameListView" Grid.Row="1" 
+                  SelectionMode="Extended"
+                  SelectionChanged="GameListView_SelectionChanged"
+                  PointerPressed="GameListView_PointerPressed"
+                  PointerMoved="GameListView_PointerMoved"
+                  PointerReleased="GameListView_PointerReleased"
+                  PointerCaptureLost="GameListView_PointerCaptureLost">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:GameInfo">
                     <Grid Padding="8,4">

@@ -81,6 +81,68 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             catch { }
         }
 
+        // 判断一个exe是否可能是真正的游戏主程序（排除卸载程序、工具等）
+        private static bool IsLikelyGameExe(string filePath)
+        {
+            try
+            {
+                var fileName = Path.GetFileName(filePath).ToLowerInvariant();
+                string[] excludeKeywords = new[]
+                {
+                    // 卸载程序（包括各种变体）
+                    "unins000", "unins001", "unins002", "uninstall", "unins.exe", "unins",
+                    "uninst", "uninstaller", "remove.exe", "remover",
+                    // 安装/更新程序
+                    "setup.exe", "install.exe", "update.exe", "updater", "installer",
+                    // 启动器（但不排除游戏名中包含launcher的情况）
+                    "launcher.exe", "launcher_", "_launcher",
+                    // 崩溃报告/转储
+                    "crashreport", "crash_report", "crashhandler", "crash_handler", "crash report",
+                    "createdump", "crashdump", "dump.exe", "_dump",
+                    // 引擎编辑器
+                    "editor.exe", "unrealeditor", "ue4editor", "ue5editor",
+                    // 服务器/专用服务器
+                    "server.exe", "dedicated", "listen server",
+                    // 工具类
+                    "tool.exe", "tools.exe", "utility", "utilities", "benchmark",
+                    "source1import", "source2import", "import.exe", "exporter",
+                    "steamworksexample", "steamworks_example", "example.exe",
+                    // Source 2引擎工具
+                    "vrad3", "resourcecompiler", "resourcecopy", "resourceinfo",
+                    "dmxconvert", "cs_mdl_import", "cs2_build", "csgocfg", "vconsole2",
+                    "vpk.exe", "vtex.exe", "vmt.exe", "vbsp.exe", "vvis.exe",
+                    "vrad.exe", "vmpi", "vfont", "import_map", "legacy",
+                    // 运行库安装
+                    "vcredist", "dxwebsetup", "dotnetfx", "xnafx", "commonredist",
+                    "ndp48", "dotnet", "runtime",
+                    // 反作弊（通常不是主程序）
+                    "easyanticheat_setup", "battleye_setup", "anticheat_setup",
+                    // 其他
+                    "configtool", "configurationtool", "settingstool", "optionstool",
+                    "modmanager", "mod manager", "modloader", "mod_loader",
+                    "saveeditor", "save_editor", "savegame",
+                    "readme", "license", "eula", "documentation",
+                    "debug.exe", "test.exe", "preview.exe", "alpha.exe", "beta.exe",
+                    "steam_api", "steamclient", "steamworks",
+                    "report.exe", "feedback.exe", "support.exe", "help.exe",
+                    "patch.exe", "patcher.exe", "repair.exe", "verify.exe",
+                    "diagnostic", "check.exe", "compiler", "converter",
+                    "importer", "viewer", "manager.exe",
+                    "monitor.exe", "overlay.exe", "injector.exe", "loader.exe",
+                    "plugin", "plugins", "translator", "autotranslator",
+                    "ext.protocol", "executor.exe", "protocol.exe"
+                };
+                foreach (var keyword in excludeKeywords)
+                {
+                    if (fileName.Contains(keyword)) return false;
+                }
+                // 注意：不要排除以数字开头的exe！
+                // 因为有些游戏的exe文件名以数字开头，比如007FirstLight.exe
+                return true;
+            }
+            catch { return true; }
+        }
+
         // 扫描Steam库
         public static List<GameInfo> ScanSteamGames()
         {
@@ -97,7 +159,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
 
                     foreach (var gameDir in Directory.GetDirectories(commonPath))
                     {
-                        var game = AnalyzeGameDirectory(gameDir);
+                        var game = AnalyzeGameDirectory(gameDir, looseExeCheck: true);
                         if (game != null) games.Add(game);
                     }
                 }
@@ -204,7 +266,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                         var displayName = GetJsonValue(json, "DisplayName");
                         if (!string.IsNullOrEmpty(installLocation) && Directory.Exists(installLocation))
                         {
-                            var game = AnalyzeGameDirectory(installLocation, displayName);
+                            var game = AnalyzeGameDirectory(installLocation, displayName, looseExeCheck: true);
                             if (game != null) games.Add(game);
                         }
                     }
@@ -242,7 +304,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                     {
                         foreach (var gameDir in Directory.GetDirectories(gogPath))
                         {
-                            var game = AnalyzeGameDirectory(gameDir);
+                            var game = AnalyzeGameDirectory(gameDir, looseExeCheck: true);
                             if (game != null) games.Add(game);
                         }
                     }
@@ -278,7 +340,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 {
                     foreach (var gameDir in Directory.GetDirectories(ubiPath))
                     {
-                        var game = AnalyzeGameDirectory(gameDir);
+                        var game = AnalyzeGameDirectory(gameDir, looseExeCheck: true);
                         if (game != null) games.Add(game);
                     }
                 }
@@ -317,7 +379,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 IsREEngine = CheckREEngine(gameRoot),
                 Is2077 = gameName.Contains("Cyberpunk", StringComparison.OrdinalIgnoreCase),
                 IsYanYun = gameName.Contains("燕云", StringComparison.OrdinalIgnoreCase) || gameName.Contains("yysls", StringComparison.OrdinalIgnoreCase),
-                SupportsFrameGen = isDx9Manual ? false : supportsDX11
+                SupportsFrameGen = isDx9Manual ? false : (supportsDX11 && CheckNativeFrameGenSupport(gameRoot, exeDir))
             };
             
             // 燕云十六声特殊处理：已知支持多帧生成和DLSS5
@@ -349,7 +411,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
 
         // 分析游戏目录
         // skipExeCheck: 是否跳过hasRealGameExe检查（手动添加目录时为true，避免网络驱动器访问问题）
-        private static GameInfo? AnalyzeGameDirectory(string gamePath, string? overrideName = null, bool skipExeCheck = false)
+        private static GameInfo? AnalyzeGameDirectory(string gamePath, string? overrideName = null, bool skipExeCheck = false, bool looseExeCheck = false)
         {
             var gameName = overrideName ?? Path.GetFileName(gamePath);
 
@@ -371,32 +433,67 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             try
             {
                 // 已卸载游戏的核心特征：游戏主程序exe不在了
-                // 检查根目录和常见bin目录下是否有大于1MB的exe（游戏主程序通常较大）
                 bool hasRealGameExe = false;
                 
                 // 如果是手动添加目录（skipExeCheck=true），直接跳过hasRealGameExe检查
-                // 因为用户已经明确选择了这个目录，肯定是游戏目录
-                // 避免因为网络驱动器访问问题导致识别失败
                 if (skipExeCheck)
                 {
                     hasRealGameExe = true;
                 }
                 
-                // 特殊处理：如果目录下有Retail子目录，直接认为有真正的游戏exe
-                // 因为有些游戏（如007 First Light）的exe在Retail目录下
-                // 而且网络驱动器访问可能有问题，导致Directory.GetFiles失败
-                if (!hasRealGameExe)
+                // 宽松模式（自动扫描时使用）：只要目录下有任何exe（不被排除关键词排除的），就认为是游戏目录
+                // 这样可以避免因为exe在深层子目录或者文件名特殊而漏掉游戏
+                if (looseExeCheck && !hasRealGameExe)
                 {
                     try
                     {
-                        if (Directory.Exists(Path.Combine(gamePath, "Retail")) || 
-                            Directory.Exists(Path.Combine(gamePath, "retail")))
+                        // 递归搜索整个游戏目录（深度8层），只要找到任何一个可能的游戏exe就认为是游戏目录
+                        var allExes = GetFilesWithDepthLimit(gamePath, "*.exe", 8);
+                        foreach (var f in allExes)
                         {
-                            hasRealGameExe = true;
+                            try
+                            {
+                                // 宽松模式：只要不包含最明显的非游戏关键词就认为是游戏exe
+                                // 只排除卸载程序、安装程序等最明显的非游戏程序
+                                var fileName = Path.GetFileName(f).ToLowerInvariant();
+                                string[] strictExclude = new[]
+                                {
+                                    "unins000", "unins001", "unins002", "uninstall", "unins.exe", "unins",
+                                    "uninst", "uninstaller", "remove.exe", "remover",
+                                    "setup.exe", "install.exe", "update.exe", "updater", "installer",
+                                    "crashreport", "crash_report", "crashhandler", "crash_handler",
+                                    "createdump", "crashdump", "dump.exe", "_dump",
+                                    "editor.exe", "unrealeditor", "ue4editor", "ue5editor",
+                                    "server.exe", "dedicated",
+                                    "vcredist", "dxwebsetup", "dotnetfx", "commonredist",
+                                    "easyanticheat_setup", "battleye_setup", "anticheat_setup",
+                                    "steam_api", "steamclient", "steamworks",
+                                    "diagnostic", "check.exe", "compiler", "converter"
+                                };
+                                bool isExcluded = false;
+                                foreach (var keyword in strictExclude)
+                                {
+                                    if (fileName.Contains(keyword))
+                                    {
+                                        isExcluded = true;
+                                        break;
+                                    }
+                                }
+                                if (!isExcluded)
+                                {
+                                    hasRealGameExe = true;
+                                    break;
+                                }
+                            }
+                            catch { }
                         }
                     }
                     catch { }
                 }
+                
+                // 注意：不再使用"只要Retail目录存在就认为有游戏exe"的特殊处理
+                // 因为游戏卸载后Retail目录可能还残留着，导致误识别
+                // 后面的binDirs检查已经包含了Retail目录，并且会真正检查exe文件
                 
                 // 检查根目录（加上try-catch，避免因为权限问题导致整个检查失败）
                 if (!hasRealGameExe)
@@ -407,7 +504,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                         {
                             try
                             {
-                                if (new FileInfo(f).Length > 1024 * 1024) // 大于1MB
+                                if (IsLikelyGameExe(f))
                                 {
                                     hasRealGameExe = true;
                                     break;
@@ -430,8 +527,6 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                         {
                             try
                             {
-                                // 对于Retail目录，使用递归搜索（包括所有子目录）
-                                // 因为有些游戏的exe可能在Retail目录下的更深子目录里
                                 SearchOption searchOption = (binDir.Equals("Retail", StringComparison.OrdinalIgnoreCase) || binDir.Equals("retail", StringComparison.OrdinalIgnoreCase)) 
                                     ? SearchOption.AllDirectories 
                                     : SearchOption.TopDirectoryOnly;
@@ -440,7 +535,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                                 {
                                     try
                                     {
-                                        if (new FileInfo(f).Length > 1024 * 1024) // 大于1MB
+                                        if (IsLikelyGameExe(f))
                                         {
                                             hasRealGameExe = true;
                                             break;
@@ -476,7 +571,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                             {
                                 try
                                 {
-                                    if (new FileInfo(f).Length > 1024 * 1024)
+                                    if (IsLikelyGameExe(f))
                                     {
                                         hasRealGameExe = true;
                                         break;
@@ -490,9 +585,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                     catch { }
                 }
                 
-                // 最后手段：递归搜索整个游戏目录（深度8层），查找大于1MB的exe
-                // 注意：这里不排除任何关键词，只要大于1MB的exe就认为是游戏主程序
-                // 因为有些游戏的exe文件名可能包含launcher、tool等关键词
+                // 最后手段：递归搜索整个游戏目录（深度8层）
                 if (!hasRealGameExe)
                 {
                     try
@@ -502,8 +595,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                         {
                             try
                             {
-                                // 只要大于1MB的exe就认为是游戏主程序（不排除任何关键词）
-                                if (new FileInfo(f).Length > 1024 * 1024)
+                                if (IsLikelyGameExe(f))
                                 {
                                     hasRealGameExe = true;
                                     break;
@@ -539,46 +631,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 try
                 {
                     var allExes = GetFilesWithDepthLimit(gamePath, "*.exe", 4)
-                        .Where(e =>
-                        {
-                            var fileName = Path.GetFileName(e).ToLowerInvariant();
-                            string[] excludeKeywords = new[]
-                            {
-                                "unins000", "unins001", "uninstall", "unins.exe",
-                                "setup.exe", "install.exe", "update.exe", "updater",
-                                "launcher.exe", "launcher_", "_launcher",
-                                "crashreport", "crash_report", "crashhandler", "crash_handler",
-                                "createdump", "crashdump", "dump.exe", "_dump",
-                                "editor.exe", "unrealeditor", "ue4editor", "ue5editor",
-                                "server.exe", "dedicated", "tool.exe", "tools.exe",
-                                "source1import", "source2import", "import.exe",
-                                "steamworksexample", "example.exe",
-                                // Source 2引擎工具
-                                "vrad3", "resourcecompiler", "resourcecopy", "resourceinfo",
-                                "dmxconvert", "cs_mdl_import", "cs2_build", "csgocfg", "vconsole2",
-                                "vpk", "vtex", "vmt", "vbsp", "vvis", "vrad", "vmpi", "vfont",
-                                "import_map", "legacy",
-                                "vcredist", "dxwebsetup", "dotnetfx", "xnafx", "commonredist",
-                                "easyanticheat_setup", "battleye_setup",
-                                "configtool", "settingstool", "modmanager", "saveeditor",
-                                "debug.exe", "test.exe", "preview.exe",
-                                "steam_api", "steamclient", "steamworks",
-                                "patch.exe", "patcher.exe", "repair.exe", "verify.exe",
-                                "diagnostic", "compiler", "converter", "importer",
-                                "viewer", "manager.exe", "monitor.exe", "overlay.exe",
-                                "injector.exe", "loader.exe", "plugin", "plugins",
-                                "translator", "autotranslator", "ext.protocol", "executor.exe"
-                            };
-                            foreach (var keyword in excludeKeywords)
-                            {
-                                if (fileName.Contains(keyword)) return false;
-                            }
-                            // 注意：不要排除以数字开头的exe！
-                            // 因为有些游戏的exe文件名以数字开头，比如007FirstLight.exe
-                            // 原来的逻辑：if (char.IsDigit(fileName[0]) && !fileName.Contains("shipping")) return false;
-                            // 这会导致007FirstLight.exe被错误排除！
-                            return true;
-                        })
+                        .Where(e => IsLikelyGameExe(e)) // 使用统一的排除逻辑
                         .OrderByDescending(e => 
                         {
                             try { return new FileInfo(e).Length; }
@@ -693,8 +746,8 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
 
             // 检测DX支持情况
             var (supportsDX9, supportsDX11) = CheckDXSupport(exeDir, gamePath);
-            // 只要支持DX11/12就允许开启多帧生成，不依赖游戏目录中是否已有nvngx_dlssg.dll
-            var supportsFrameGen = supportsDX11;
+            // 只有游戏目录中有 nvngx_dlssg.dll 文件才允许开启多帧生成（游戏原生支持帧生成）
+            var supportsFrameGen = supportsDX11 && CheckNativeFrameGenSupport(gamePath, exeDir);
             
             // 燕云十六声特殊处理：已知支持多帧生成和DLSS5
             if (isYanYun)
@@ -890,36 +943,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             try
             {
                 var allExes = GetFilesWithDepthLimit(gamePath, "*.exe", 4)
-                    .Where(e =>
-                    {
-                        var fileName = Path.GetFileName(e).ToLowerInvariant();
-                        // 排除明显不是游戏主程序的exe
-                        string[] excludeKeywords = new[]
-                        {
-                            "unins000", "unins001", "uninstall", "setup.exe", "install.exe",
-                            "launcher.exe", "update.exe", "updater", "crashreport", "crash_handler",
-                            "createdump", "crashdump", "dump.exe",
-                            "editor.exe", "unrealeditor", "ue4editor", "ue5editor",
-                            "server.exe", "dedicated", "vcredist", "dxwebsetup", "dotnetfx",
-                            "easyanticheat_setup", "battleye_setup",
-                            "patch.exe", "patcher.exe", "repair.exe", "verify.exe",
-                            "steam_api", "steamclient", "steamworks", "overlay.exe", "injector.exe",
-                            "configtool", "settingstool", "modmanager", "saveeditor",
-                            "debug.exe", "test.exe", "tool.exe", "manager.exe", "monitor.exe",
-                            "source1import", "source2import", "import.exe", "steamworksexample",
-                            // Source 2引擎工具
-                            "vrad3", "resourcecompiler", "resourcecopy", "resourceinfo",
-                            "dmxconvert", "cs_mdl_import", "cs2_build", "csgocfg", "vconsole2",
-                            "vpk", "vtex", "vmt", "vbsp", "vvis", "vrad", "vmpi", "vfont",
-                            "import_map", "legacy", "plugin", "translator", "executor"
-                        };
-                        foreach (var keyword in excludeKeywords)
-                        {
-                            if (fileName.Contains(keyword)) return false;
-                        }
-                        if (char.IsDigit(fileName[0]) && !fileName.Contains("shipping")) return false;
-                        return true;
-                    })
+                    .Where(e => IsLikelyGameExe(e)) // 使用统一的排除逻辑
                     .ToList();
 
                 if (allExes.Count > 0)
@@ -968,66 +992,9 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         {
             if (!Directory.Exists(dir)) return null;
 
-            // 需要排除的关键词（这些通常不是游戏主程序）
-            // 注意：关键词要精确，避免误排除正常游戏exe
-            string[] excludeKeywords = new[]
-            {
-                // 卸载程序
-                "unins000", "unins001", "uninstall", "unins.exe",
-                // 安装/更新程序
-                "setup.exe", "install.exe", "update.exe", "updater",
-                // 启动器（但不排除游戏名中包含launcher的情况）
-                "launcher.exe", "launcher_", "_launcher",
-                // 崩溃报告/转储
-                "crashreport", "crash_report", "crashhandler", "crash_handler", "crash report",
-                "createdump", "crashdump", "dump.exe", "_dump",
-                // 引擎编辑器
-                "editor.exe", "unrealeditor", "ue4editor", "ue5editor",
-                // 服务器/专用服务器
-                "server.exe", "dedicated", "listen server",
-                // 工具类
-                "tool.exe", "tools.exe", "utility", "utilities", "benchmark",
-                "source1import", "source2import", "import.exe", "exporter",
-                "steamworksexample", "steamworks_example", "example.exe",
-                // Source 2引擎工具
-                "vrad3", "resourcecompiler", "resourcecopy", "resourceinfo",
-                "dmxconvert", "cs_mdl_import", "cs2_build", "csgocfg", "vconsole2",
-                "vpk.exe", "vtex.exe", "vmt.exe", "vbsp.exe", "vvis.exe",
-                "vrad.exe", "vmpi", "vfont", "import_map", "legacy",
-                // 运行库安装
-                "vcredist", "dxwebsetup", "dotnetfx", "xnafx", "commonredist",
-                "ndp48", "dotnet", "runtime",
-                // 反作弊（通常不是主程序）
-                "easyanticheat_setup", "battleye_setup", "anticheat_setup",
-                // 其他
-                "configtool", "configurationtool", "settingstool", "optionstool",
-                "modmanager", "mod manager", "modloader", "mod_loader",
-                "saveeditor", "save_editor", "savegame",
-                "readme", "license", "eula", "documentation",
-                "debug.exe", "test.exe", "preview.exe", "alpha.exe", "beta.exe",
-                "steam_api", "steamclient", "steamworks",
-                "report.exe", "feedback.exe", "support.exe", "help.exe",
-                "patch.exe", "patcher.exe", "repair.exe", "verify.exe",
-                "diagnostic", "check.exe", "compiler", "converter",
-                "importer", "viewer", "manager.exe",
-                "monitor.exe", "overlay.exe", "injector.exe", "loader.exe",
-                "plugin", "plugins", "translator", "autotranslator",
-                "ext.protocol", "executor.exe", "protocol.exe"
-            };
-
+            // 使用统一的IsLikelyGameExe函数来排除非游戏主程序
             var exes = Directory.GetFiles(dir, "*.exe")
-                .Where(e =>
-                {
-                    var fileName = Path.GetFileName(e).ToLowerInvariant();
-                    // 排除包含关键词的exe
-                    foreach (var keyword in excludeKeywords)
-                    {
-                        if (fileName.Contains(keyword)) return false;
-                    }
-                    // 排除以数字开头的exe（通常是补丁、更新程序，如 unins000 已被上面排除）
-                    if (char.IsDigit(fileName[0]) && !fileName.Contains("shipping")) return false;
-                    return true;
-                })
+                .Where(e => IsLikelyGameExe(e))
                 .ToList();
 
             if (exes.Count == 0) return null;
@@ -1273,6 +1240,56 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 }
                 // 旧版本备份没有game_path.txt，为了避免同名游戏误判，不判定
                 // 用户重新开启一次补丁后会生成新的带路径标记的备份
+                return false;
+            }
+            catch { return false; }
+        }
+
+        // 检测游戏是否原生支持多帧生成（游戏目录中是否有 nvngx_dlssg.dll 文件）
+        public static bool CheckNativeFrameGenSupport(string gamePath, string exeDir)
+        {
+            try
+            {
+                const string targetFile = "nvngx_dlssg.dll";
+                
+                // 1. 先检查exe目录下是否有 nvngx_dlssg.dll
+                if (File.Exists(Path.Combine(exeDir, targetFile)))
+                {
+                    return true;
+                }
+                
+                // 2. 检查exe目录的子目录（如plugins、bin等）
+                try
+                {
+                    var exeDirFiles = Directory.GetFiles(exeDir, targetFile, SearchOption.AllDirectories);
+                    if (exeDirFiles.Length > 0)
+                    {
+                        return true;
+                    }
+                }
+                catch { }
+                
+                // 3. 检查游戏根目录下的常见子目录（限制搜索深度，避免搜索太久）
+                if (!string.IsNullOrEmpty(gamePath) && Directory.Exists(gamePath))
+                {
+                    // 先检查游戏根目录下是否有
+                    if (File.Exists(Path.Combine(gamePath, targetFile)))
+                    {
+                        return true;
+                    }
+                    
+                    // 递归搜索游戏根目录（限制最大搜索文件数，避免搜索太久）
+                    try
+                    {
+                        var foundFiles = Directory.GetFiles(gamePath, targetFile, SearchOption.AllDirectories);
+                        if (foundFiles.Length > 0)
+                        {
+                            return true;
+                        }
+                    }
+                    catch { }
+                }
+                
                 return false;
             }
             catch { return false; }

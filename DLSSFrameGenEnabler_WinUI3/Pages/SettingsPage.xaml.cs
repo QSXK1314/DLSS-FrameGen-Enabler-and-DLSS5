@@ -82,8 +82,15 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             GpuTipText.Text = Translator.IsEnglish ? "If auto-detection fails, manually select GPU" : "如果自动检测出错，可以手动选择显卡";
             GpuComboBox.Header = Translator.T("Settings_GpuHeader");
             AboutText.Text = Translator.T("Settings_About");
-            VersionText.Text = Translator.IsEnglish ? "Version: V1.14.0.0" : "版本：V1.14.0.0";
+            VersionText.Text = Translator.IsEnglish ? $"Version: {App.CurrentVersion}" : $"版本：{App.CurrentVersion}";
             DevLangText.Text = Translator.T("About_DevLang");
+
+            // 调试与支持
+            DebugText.Text = Translator.IsEnglish ? "Debug & Support" : "调试与支持";
+            ExportLogTipText.Text = Translator.IsEnglish ? 
+                "If the software has issues, you can export log files and send them to the developer to help quickly locate and solve problems" :
+                "如果软件出现问题，可以导出日志文件发给开发者，帮助快速定位和解决问题";
+            ExportLogBtn.Content = Translator.IsEnglish ? "Export Logs to Desktop" : "导出日志到桌面";
 
             // 更新语言下拉框的选项文本
             if (LanguageCombo.Items.Count >= 3)
@@ -314,6 +321,151 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
                 mw.ApplyBackdrop(0);
             }
             BackdropCombo.SelectedIndex = 0;
+        }
+
+        // 导出日志到桌面
+        private async void ExportLogBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ExportLogBtn.IsEnabled = false;
+                ExportLogBtn.Content = Translator.IsEnglish ? "Exporting..." : "正在导出...";
+
+                var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var zipPath = Path.Combine(desktopPath, $"DLSS软件日志_{timestamp}.zip");
+                var tempFolder = Path.Combine(Path.GetTempPath(), $"DLSS_Logs_{timestamp}");
+
+                // 创建临时文件夹
+                Directory.CreateDirectory(tempFolder);
+
+                // 1. 收集软件目录下的日志文件
+                var appDir = AppContext.BaseDirectory;
+                var logFiles = new[] { "startup.log", "error.log" };
+                foreach (var logFile in logFiles)
+                {
+                    var srcPath = Path.Combine(appDir, logFile);
+                    if (File.Exists(srcPath))
+                    {
+                        // 如果日志文件太大，只复制最后1000行
+                        var fileInfo = new FileInfo(srcPath);
+                        if (fileInfo.Length > 5 * 1024 * 1024) // 大于5MB
+                        {
+                            var lines = File.ReadAllLines(srcPath);
+                            var lastLines = lines.Skip(Math.Max(0, lines.Length - 1000)).ToArray();
+                            File.WriteAllLines(Path.Combine(tempFolder, logFile), lastLines);
+                        }
+                        else
+                        {
+                            File.Copy(srcPath, Path.Combine(tempFolder, logFile), true);
+                        }
+                    }
+                }
+
+                // 2. 收集AppData里的save_debug.log
+                try
+                {
+                    var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DLSSFrameGenEnabler");
+                    if (Directory.Exists(appDataPath))
+                    {
+                        var saveDebugLog = Path.Combine(appDataPath, "save_debug.log");
+                        if (File.Exists(saveDebugLog))
+                        {
+                            File.Copy(saveDebugLog, Path.Combine(tempFolder, "save_debug.log"), true);
+                        }
+
+                        // 也复制settings.json
+                        var settingsFile = Path.Combine(appDataPath, "settings.json");
+                        if (File.Exists(settingsFile))
+                        {
+                            // 复制设置文件，但隐藏敏感信息（如果有的话）
+                            File.Copy(settingsFile, Path.Combine(tempFolder, "settings.json"), true);
+                        }
+                    }
+                }
+                catch { }
+
+                // 3. 生成系统信息报告
+                var systemInfo = new System.Text.StringBuilder();
+                systemInfo.AppendLine("=== 系统信息 / System Information ===");
+                systemInfo.AppendLine($"导出时间 / Export Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                systemInfo.AppendLine($"软件版本 / Software Version: {App.CurrentVersion}");
+                systemInfo.AppendLine();
+                systemInfo.AppendLine("--- 操作系统 / Operating System ---");
+                systemInfo.AppendLine($"操作系统 / OS: {Environment.OSVersion}");
+                systemInfo.AppendLine($"64位操作系统 / 64-bit OS: {Environment.Is64BitOperatingSystem}");
+                systemInfo.AppendLine($"64位进程 / 64-bit Process: {Environment.Is64BitProcess}");
+                systemInfo.AppendLine($".NET版本 / .NET Version: {Environment.Version}");
+                systemInfo.AppendLine($"处理器数量 / Processor Count: {Environment.ProcessorCount}");
+                systemInfo.AppendLine();
+                systemInfo.AppendLine("--- 软件设置 / Software Settings ---");
+                systemInfo.AppendLine($"深色模式 / Dark Mode: {SettingsService.Instance.DarkMode}");
+                systemInfo.AppendLine($"动画效果 / Animation: {SettingsService.Instance.EnableAnimation}");
+                systemInfo.AppendLine($"界面材质 / Backdrop Type: {SettingsService.Instance.BackdropType}");
+                systemInfo.AppendLine($"语言 / Language: {SettingsService.Instance.Language}");
+                systemInfo.AppendLine($"记住游戏列表 / Remember Games: {SettingsService.Instance.RememberGames}");
+                systemInfo.AppendLine($"启动弹窗 / Startup Dialog: {SettingsService.Instance.ShowStartupDialog}");
+                systemInfo.AppendLine();
+                systemInfo.AppendLine("--- 显卡信息 / GPU Information ---");
+                try
+                {
+                    // 尝试获取显卡信息
+                    using var searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
+                    foreach (var obj in searcher.Get())
+                    {
+                        systemInfo.AppendLine($"显卡名称 / GPU Name: {obj["Name"]}");
+                        systemInfo.AppendLine($"显存 / VRAM: {Math.Round(Convert.ToDouble(obj["AdapterRAM"]) / 1024 / 1024 / 1024, 2)} GB");
+                        systemInfo.AppendLine($"驱动版本 / Driver Version: {obj["DriverVersion"]}");
+                        systemInfo.AppendLine();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    systemInfo.AppendLine($"获取显卡信息失败 / Failed to get GPU info: {ex.Message}");
+                }
+
+                File.WriteAllText(Path.Combine(tempFolder, "system_info.txt"), systemInfo.ToString(), System.Text.Encoding.UTF8);
+
+                // 4. 打包成zip
+                if (File.Exists(zipPath))
+                {
+                    File.Delete(zipPath);
+                }
+                System.IO.Compression.ZipFile.CreateFromDirectory(tempFolder, zipPath);
+
+                // 清理临时文件夹
+                try { Directory.Delete(tempFolder, true); } catch { }
+
+                // 提示成功
+                var successDialog = new ContentDialog
+                {
+                    Title = Translator.IsEnglish ? "Export Successful" : "导出成功",
+                    Content = Translator.IsEnglish ? 
+                        $"Logs have been exported to desktop:\n{zipPath}\n\nPlease send this file to the developer." :
+                        $"日志已导出到桌面：\n{zipPath}\n\n请将此文件发送给开发者。",
+                    CloseButtonText = "OK",
+                    XamlRoot = this.Content.XamlRoot
+                };
+                await successDialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = Translator.IsEnglish ? "Export Failed" : "导出失败",
+                    Content = Translator.IsEnglish ? 
+                        $"Failed to export logs: {ex.Message}\n\nPlease check if you have write permission to the desktop." :
+                        $"导出日志失败：{ex.Message}\n\n请检查是否有桌面的写入权限。",
+                    CloseButtonText = "OK",
+                    XamlRoot = this.Content.XamlRoot
+                };
+                await errorDialog.ShowAsync();
+            }
+            finally
+            {
+                ExportLogBtn.IsEnabled = true;
+                ExportLogBtn.Content = Translator.IsEnglish ? "Export Logs to Desktop" : "导出日志到桌面";
+            }
         }
     }
 }

@@ -17,7 +17,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages
             bool en = Translator.IsEnglish;
             TitleText.Text = Translator.T("About_Title");
             AppNameText.Text = en ? "Frame Gen + DLSS5 Enabler" : "多帧生成+DLSS5开启工具";
-            VersionText.Text = en ? "Version: V1.14.0.0" : "版本：V1.14.0.0";
+            VersionText.Text = en ? $"Version: {App.CurrentVersion}" : $"版本：{App.CurrentVersion}";
             DevLangText.Text = Translator.T("About_DevLang");
             OpenSourceText.Text = en ? "This software is open source and free. Welcome to Star and Fork!" : "本软件已免费开源，欢迎Star和Fork！";
             AuthorLinksText.Text = en ? "Author Links" : "作者链接";
