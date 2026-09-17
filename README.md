@@ -1,7 +1,7 @@
 # DLSS Frame Gen Enabler and DLSS5
 # DLSS多帧生成开启工具
 
-2026-09-14最新版本（latest version）：V1.14.0.0
+2026-09-17最新版本（latest version）：V1.14.1.0
 
 A tool to enable DLSS5 and Frame Generation for games.
 一款用于给游戏开启DLSS5和多帧生成功能的工具。
