@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "DLSSFrameGenEnabler_WinUI3 (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "DLSSFrameGenEnabler_WinUI3 (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

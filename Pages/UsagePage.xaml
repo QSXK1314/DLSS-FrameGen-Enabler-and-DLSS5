@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="DLSSFrameGenEnabler_WinUI3.Pages.UsagePage"
+    NavigationCacheMode="Required"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:DLSSFrameGenEnabler_WinUI3.Pages"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24,16,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="TitleText" Style="{StaticResource TitleTextBlockStyle}" Text="使用说明" Margin="0,0,0,16" />
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="12">
+                <TextBlock x:Name="ImportantTitle" Text="⚠️ 重要声明" FontWeight="Bold" FontSize="16" />
+                <TextBlock x:Name="Important1" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="Important2" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="Important3" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="Important4" Text="" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="Section1Title" Text="" FontWeight="Bold" FontSize="16" Margin="0,16,0,0" />
+                <TextBlock x:Name="Section1Content" Text="" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="Section2Title" Text="" FontWeight="Bold" FontSize="16" Margin="0,16,0,0" />
+                <TextBlock x:Name="FgClassicTitle" Text="" FontWeight="Bold" />
+                <TextBlock x:Name="FgClassicContent" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="FgAdvancedTitle" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="FgAdvancedContent" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="Fg2030Title" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="Fg2030Content" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="FgRETitle" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="FgREContent" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="Fg2077Title" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="Fg2077Content" Text="" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="Section3Title" Text="" FontWeight="Bold" FontSize="16" Margin="0,16,0,0" />
+                <TextBlock x:Name="Dlss5GeneralTitle" Text="" FontWeight="Bold" />
+                <TextBlock x:Name="Dlss5GeneralContent" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="Dlss5RETitle" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="Dlss5REContent" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="Dlss5Dx9Title" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="Dlss5Dx9Content" Text="" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="Section4Title" Text="" FontWeight="Bold" FontSize="16" Margin="0,16,0,0" />
+                <TextBlock x:Name="OtherConfigNameTitle" Text="" FontWeight="Bold" />
+                <TextBlock x:Name="OtherConfigNameContent" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="OtherTroubleTitle" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="OtherTroubleContent" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="OtherRestoreTitle" Text="" FontWeight="Bold" Margin="0,8,0,0" />
+                <TextBlock x:Name="OtherRestoreContent" Text="" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="Section5Title" Text="" FontWeight="Bold" FontSize="16" Margin="0,16,0,0" />
+                <TextBlock x:Name="Section5Content" Text="" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="Section6Title" Text="" FontWeight="Bold" FontSize="16" Margin="0,16,0,0" />
+                <TextBlock x:Name="Section6Content" Text="" TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>
