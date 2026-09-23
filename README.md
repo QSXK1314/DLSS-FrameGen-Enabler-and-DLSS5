@@ -1,7 +1,7 @@
 # DLSS Frame Gen Enabler and DLSS5
 # DLSS多帧生成开启工具
 
-2026-09-17最新版本（latest version）：V1.14.1.0
+2026-09-23最新版本（latest version）：V1.14.2.0
 
 2026-09-21最新测试版本（latest version）：V1.15.4.0-beta
 
