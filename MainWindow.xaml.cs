@@ -693,11 +693,6 @@ public sealed partial class MainWindow : Window
 				await Task.Delay(300);
 				await ShowUsageGuideDialog();
 			}
-			if (SettingsService.Instance.ShowBetaFeedback)
-			{
-				await Task.Delay(300);
-				await ShowBetaFeedbackDialog();
-			}
 			if (!_updateChecked)
 			{
 				_updateChecked = true;

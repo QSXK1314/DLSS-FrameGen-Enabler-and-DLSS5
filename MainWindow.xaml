@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -7,7 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:Class="DLSSFrameGenEnabler_WinUI3.MainWindow"
     Title="多帧生成+DLSS5开启工具 V1.12.8.3">
-    <Grid x:Name="RootGrid" Background="#00FFFFFF">
+    <Grid x:Name="RootGrid" Background="Transparent">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="180" />
             <ColumnDefinition Width="*" />
@@ -43,7 +43,7 @@
                     Opacity="0"
                     Stretch="Uniform" />
             </Grid>
-            <ListView x:Name="NavListView" Grid.Row="1" IsItemClickEnabled="True" SelectionChanged="NavListView_SelectionChanged">
+            <ListView x:Name="NavListView" Grid.Row="1" IsItemClickEnabled="True" SelectionChanged="NavListView_SelectionChanged" Background="Transparent">
                 <ListViewItem Tag="home">
                     <Grid HorizontalAlignment="Left">
                         <Grid.ColumnDefinitions>
@@ -75,7 +75,7 @@
                     </Grid>
                 </ListViewItem>
             </ListView>
-            <ListView x:Name="FooterListView" Grid.Row="2" IsItemClickEnabled="True" SelectionChanged="FooterListView_SelectionChanged">
+            <ListView x:Name="FooterListView" Grid.Row="2" IsItemClickEnabled="True" SelectionChanged="FooterListView_SelectionChanged" Background="Transparent">
                 <ListViewItem Tag="settings">
                     <Grid HorizontalAlignment="Left">
                         <Grid.ColumnDefinitions>
@@ -103,7 +103,7 @@
                 Margin="0,4,0,4"
                 Padding="16,8,16,8"
                 HorizontalAlignment="Stretch"
-                Background="#00FFFFFF"
+                Background="Transparent"
                 BorderThickness="0,0,0,0"
                 HorizontalContentAlignment="Left"
                 Click="ToggleNavBtn_Click">
@@ -117,6 +117,6 @@
                 </Grid>
             </Button>
         </Grid>
-        <Frame x:Name="NavFrame" Grid.Column="1" CacheSize="5" Background="#00FFFFFF" />
+        <Frame x:Name="NavFrame" Grid.Column="1" CacheSize="5" Background="Transparent" />
     </Grid>
 </Window>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -47,13 +47,14 @@ public class SettingsService
 	{
 		get
 		{
-			return "https://gist.githubusercontent.com/QSXK1314/64d60ba126dc8ddabda2dfe39efe0970/raw/version-beta.json";
+			return StableUpdateUrl;
 		}
 		set
 		{
 		}
 	}
 
+	public bool UseBetaUpdate { get; set; } = false;
 	public bool RememberGames { get; set; } = true;
 
 	public string SkipUpdateVersion { get; set; } = "";
@@ -64,7 +65,7 @@ public class SettingsService
 
 	public bool ShowUsageGuide { get; set; } = true;
 
-	public bool ShowBetaFeedback { get; set; } = true;
+	public bool ShowBetaFeedback { get; set; } = false;
 
 	public bool AutoCheckUpdate { get; set; } = true;
 

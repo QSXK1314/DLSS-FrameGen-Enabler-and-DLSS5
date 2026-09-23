@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -13,7 +13,7 @@ public class FilePatcher
 
 	private static readonly string SharedPatchDir = Path.Combine(PatchesBaseDir, "_Shared");
 
-	private static readonly string BackupBaseDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DLSSFrameGenEnabler", "Backups");
+	private static readonly string BackupBaseDir = Path.Combine(AppContext.BaseDirectory, "backup");
 
 	private static readonly Dictionary<string, string[]> SharedFiles = new Dictionary<string, string[]>
 	{
@@ -193,19 +193,25 @@ public class FilePatcher
 	}
 
 	private static string GetBackupDir(GameInfo game, string feature)
-	{
-		string text = Path.Combine(BackupBaseDir, game.Name, feature);
-		Directory.CreateDirectory(text);
-		try
 		{
-			File.WriteAllText(Path.Combine(text, "game_path.txt"), game.GamePath);
+			string baseName = game.Name;
+			string dirName = baseName;
+			int ver = 2;
+			while(Directory.Exists(Path.Combine(BackupBaseDir, dirName, feature))) {
+				dirName = baseName + "V" + ver;
+				ver++;
+			}
+			string text = Path.Combine(BackupBaseDir, dirName, feature);
+			Directory.CreateDirectory(text);
+			try
+			{
+				File.WriteAllText(Path.Combine(text, "game_path.txt"), game.GamePath);
+			}
+			catch
+			{
+			}
+			return text;
 		}
-		catch
-		{
-		}
-		return text;
-	}
-
 	private static void CopyDirectory(string source, string dest, bool overwrite = true, bool includeSharedFiles = false, string? backupDir = null)
 	{
 		bool num = Directory.Exists(dest);
@@ -297,58 +303,42 @@ public class FilePatcher
 		}
 	}
 
-	private static void BackupFile(string sourceFile, string backupDir)
-	{
-		if (!File.Exists(sourceFile))
+		private static void BackupFile(string sourceFile, string backupDir)
 		{
-			return;
-		}
-		string fileName = Path.GetFileName(sourceFile);
-		string text = Path.Combine(backupDir, fileName);
-		if (!File.Exists(text))
-		{
-			File.Copy(sourceFile, text, overwrite: true);
-		}
-		try
-		{
-			string path = Path.Combine(backupDir, "backup_manifest.txt");
-			string item = fileName + "|" + sourceFile;
-			List<string> list = (File.Exists(path) ? File.ReadAllLines(path).ToList() : new List<string>());
-			if (!list.Any((string e) => e.StartsWith(fileName + "|")))
-			{
-				list.Add(item);
-				File.WriteAllLines(path, list);
-			}
-		}
-		catch
-		{
-		}
-		try
-		{
-			string text2 = Path.Combine(backupDir, "pre_install_snapshot.txt");
-			if (File.Exists(text2))
+			if (!File.Exists(sourceFile))
 			{
 				return;
 			}
-			string text3 = Path.GetDirectoryName(sourceFile);
-			while (!string.IsNullOrEmpty(text3) && Directory.GetFiles(text3, "*.exe").Length == 0)
+			string gameRoot = "";
+			string gamePathFile = Path.Combine(backupDir, "game_path.txt");
+			if(File.Exists(gamePathFile)) {
+				gameRoot = File.ReadAllText(gamePathFile).Trim();
+			}
+			string relPath = Path.GetFileName(sourceFile);
+			if(!string.IsNullOrEmpty(gameRoot) && sourceFile.StartsWith(gameRoot, StringComparison.OrdinalIgnoreCase)) {
+				relPath = sourceFile.Substring(gameRoot.Length).TrimStart(Path.DirectorySeparatorChar);
+			}
+			string text = Path.Combine(backupDir, relPath);
+			Directory.CreateDirectory(Path.GetDirectoryName(text));
+			if (!File.Exists(text))
 			{
-				DirectoryInfo parent = Directory.GetParent(text3);
-				if (parent == null)
+				File.Copy(sourceFile, text, overwrite: true);
+			}
+			try
+			{
+				string path = Path.Combine(backupDir, "backup_manifest.txt");
+				string item = relPath + "|" + sourceFile;
+				List<string> list = (File.Exists(path) ? File.ReadAllLines(path).ToList() : new List<string>());
+				if (!list.Any((string e) => e.EndsWith("|" + sourceFile, StringComparison.OrdinalIgnoreCase)))
 				{
-					break;
+					list.Add(item);
+					File.WriteAllLines(path, list);
 				}
-				text3 = parent.FullName;
 			}
-			if (!string.IsNullOrEmpty(text3) && Directory.Exists(text3))
+			catch
 			{
-				SaveDirectorySnapshot(text3, text2);
 			}
 		}
-		catch
-		{
-		}
-	}
 
 	private static void SaveDirectorySnapshot(string rootPath, string snapshotFile)
 	{
@@ -419,7 +409,7 @@ public class FilePatcher
 			for (int i = 0; i < array.Length; i++)
 			{
 				string[] array2 = array[i].Split('|', 2);
-				if (array2.Length == 2 && array2[0] == fileName)
+				if (array2.Length == 2 && array2[0].EndsWith(fileName, StringComparison.OrdinalIgnoreCase))
 				{
 					return array2[1];
 				}
@@ -669,6 +659,42 @@ public class FilePatcher
 			return null;
 		}
 	}
+	private static string? FindNvngxDlss(string gamePath, string exeDir)
+	{
+		try
+		{
+			string text = Path.Combine(exeDir, "nvngx_dlss.dll");
+			if (File.Exists(text))
+			{
+				return text;
+			}
+			string[] filesWithDepthLimit = GetFilesWithDepthLimit(gamePath, "nvngx_dlss.dll", 8);
+			if (filesWithDepthLimit.Length == 0)
+			{
+				return null;
+			}
+			string text2 = filesWithDepthLimit.FirstOrDefault((string f) => f.Contains("plugins", StringComparison.OrdinalIgnoreCase));
+			if (text2 != null)
+			{
+				return text2;
+			}
+			string text3 = filesWithDepthLimit.FirstOrDefault((string f) => f.Contains("Streamline", StringComparison.OrdinalIgnoreCase));
+			if (text3 != null)
+			{
+				return text3;
+			}
+			string text4 = filesWithDepthLimit.FirstOrDefault((string f) => Path.GetDirectoryName(f)?.Equals(exeDir, StringComparison.OrdinalIgnoreCase) ?? false);
+			if (text4 != null)
+			{
+				return text4;
+			}
+			return filesWithDepthLimit.FirstOrDefault();
+		}
+		catch
+		{
+			return null;
+		}
+	}
 
 	public static bool InstallClassicFrameGen(GameInfo game)
 	{
@@ -678,6 +704,19 @@ public class FilePatcher
 			string exeDir = GetExeDir(game);
 			string gamePath = ((!string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath)) ? game.GamePath : exeDir);
 			string backupDir = GetBackupDir(game, "FrameGen_Classic");
+				string debugPath = System.IO.Path.Combine(Windows.ApplicationModel.Package.Current.InstalledLocation.Path, "dlss_debug.txt");
+				System.IO.File.WriteAllText(debugPath, "gamePath=" + gamePath + "\r\nexeDir=" + exeDir + "\r\n");
+				var allDlss = System.IO.Directory.GetFiles(gamePath, "nvngx_dlss.dll", System.IO.SearchOption.AllDirectories);
+				System.IO.File.AppendAllText(debugPath, "Found " + allDlss.Length + " dlss files\r\n");
+				foreach(string dlssFile in allDlss) {
+					System.IO.File.AppendAllText(debugPath, dlssFile + "\r\n");
+					string dlssSrc = System.IO.Path.Combine(GetPatchDir("_Shared"), "nvngx_dlss.dll");
+					if(System.IO.File.Exists(dlssSrc)) {
+						BackupFile(dlssFile, backupDir);
+						System.IO.File.Copy(dlssSrc, dlssFile, true);
+						System.IO.File.AppendAllText(debugPath, "Replaced: " + dlssFile + "\r\n");
+					}
+				}
 			string text = FindNvngxDlssg(gamePath, exeDir);
 			string sourceFileName = Path.Combine(GetPatchDir("老驱动多帧生成\\核心"), "nvngx_dlssg.dll");
 			if (text != null)
@@ -693,6 +732,21 @@ public class FilePatcher
 				if (!num)
 				{
 					RecordAddedFile(backupDir, text2);
+				}
+			}
+			string dlssPath = FindNvngxDlss(gamePath, exeDir);
+			string dlssSource = Path.Combine(GetPatchDir("_Shared"), "nvngx_dlss.dll");
+			if(File.Exists(dlssSource)) {
+				if(dlssPath != null) {
+					BackupFile(dlssPath, backupDir);
+					File.Copy(dlssSource, dlssPath, overwrite: true);
+				} else {
+					string dlssExePath = Path.Combine(exeDir, "nvngx_dlss.dll");
+					bool dlssExists = File.Exists(dlssExePath);
+					File.Copy(dlssSource, dlssExePath, overwrite: true);
+					if(!dlssExists) {
+						RecordAddedFile(backupDir, dlssExePath);
+					}
 				}
 			}
 			string patchDir = GetPatchDir("老驱动多帧生成\\核心");
@@ -730,18 +784,34 @@ public class FilePatcher
 			string exeDir = GetExeDir(game);
 			string gamePath = ((!string.IsNullOrEmpty(game.GamePath) && Directory.Exists(game.GamePath)) ? game.GamePath : exeDir);
 			string backupDir = GetBackupDir(game, "FrameGen_Advanced");
+				// 递归备份替换所有sl.*.dll补丁文件
+				foreach(string slFile in System.IO.Directory.GetFiles(gamePath, "sl.*.dll", System.IO.SearchOption.AllDirectories)) {
+					string slPatchPath = System.IO.Path.Combine(GetPatchDir("_Shared"), System.IO.Path.GetFileName(slFile));
+					if(System.IO.File.Exists(slPatchPath)) {
+						BackupFile(slFile, backupDir);
+						System.IO.File.Copy(slPatchPath, slFile, true);
+					}
+				}
+				var allDlssAdv = System.IO.Directory.GetFiles(gamePath, "nvngx_dlss.dll", System.IO.SearchOption.AllDirectories);
+				foreach(string dlssFile in allDlssAdv) {
+					string dlssSrcAdv = System.IO.Path.Combine(GetPatchDir("_Shared"), "nvngx_dlss.dll");
+					if(System.IO.File.Exists(dlssSrcAdv)) {
+						BackupFile(dlssFile, backupDir);
+						System.IO.File.Copy(dlssSrcAdv, dlssFile, true);
+					}
+				}
 			string text = FindNvngxDlssg(gamePath, exeDir);
 			string sourceFileName = Path.Combine(GetPatchDir("40系原生多帧生成"), "nvngx_dlssg.dll");
 			if (text != null)
 			{
 				BackupFile(text, backupDir);
-				File.Copy(sourceFileName, text, overwrite: true);
+				try { File.Copy(sourceFileName, text, overwrite: true); } catch { }
 			}
 			else
 			{
 				string text2 = Path.Combine(exeDir, "nvngx_dlssg.dll");
 				bool num = File.Exists(text2);
-				File.Copy(sourceFileName, text2, overwrite: true);
+				try { File.Copy(sourceFileName, text2, overwrite: true); } catch { }
 				if (!num)
 				{
 					RecordAddedFile(backupDir, text2);
@@ -753,7 +823,7 @@ public class FilePatcher
 			{
 				BackupFile(text3, backupDir);
 			}
-			File.Copy(ResolvePatchFile(GetPatchDir("40系原生多帧生成\\排错"), "nvngx_dlss.dll"), text3, overwrite: true);
+				try { File.Copy(ResolvePatchFile(GetPatchDir("40系原生多帧生成\\排错"), "nvngx_dlss.dll"), text3, overwrite: true); } catch { }
 			if (!num2)
 			{
 				RecordAddedFile(backupDir, text3);
@@ -764,7 +834,7 @@ public class FilePatcher
 			{
 				BackupFile(text4, backupDir);
 			}
-			File.Copy(Path.Combine(GetPatchDir("40系原生多帧生成"), "version.dll"), text4, overwrite: true);
+				try { File.Copy(Path.Combine(GetPatchDir("40系原生多帧生成"), "version.dll"), text4, overwrite: true); } catch { }
 			if (!num3)
 			{
 				RecordAddedFile(backupDir, text4);
@@ -778,7 +848,7 @@ public class FilePatcher
 				{
 					BackupFile(text6, backupDir);
 				}
-				File.Copy(text5, text6, overwrite: true);
+				try { File.Copy(text5, text6, overwrite: true); } catch { }
 				if (!num4)
 				{
 					RecordAddedFile(backupDir, text6);
@@ -1472,6 +1542,23 @@ public class FilePatcher
 			HashSet<string> hashSet4 = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			string[] files;
 			if (Directory.Exists(path))
+				foreach(string subDir in Directory.GetDirectories(path, "*", SearchOption.AllDirectories)) {
+					string manifestPath = Path.Combine(subDir, "backup_manifest.txt");
+					if(File.Exists(manifestPath)) {
+						foreach(string line in File.ReadAllLines(manifestPath)) {
+							string[] parts = line.Split('|', 2);
+							if(parts.Length == 2) {
+								string originalPath = parts[1];
+								string relPath = parts[0];
+								string backupFile = Path.Combine(subDir, relPath);
+								if(File.Exists(backupFile)) {
+									Directory.CreateDirectory(Path.GetDirectoryName(originalPath));
+									File.Copy(backupFile, originalPath, overwrite: true);
+								}
+							}
+						}
+					}
+				}
 			{
 				foreach (string item2 in (from d in Directory.GetDirectories(path)
 					where Path.GetFileName(d).Contains("FrameGen")
@@ -1658,7 +1745,7 @@ public class FilePatcher
 					{
 						try
 						{
-							Directory.Delete(item7, recursive: true);
+							// Directory.Delete(item7, recursive: true);
 						}
 						catch
 						{
@@ -1668,7 +1755,7 @@ public class FilePatcher
 					{
 						try
 						{
-							Directory.Delete(path, recursive: true);
+							// Directory.Delete(path, recursive: true);
 						}
 						catch
 						{
@@ -1893,7 +1980,7 @@ public class FilePatcher
 					{
 						try
 						{
-							Directory.Delete(item7, recursive: true);
+							// Directory.Delete(item7, recursive: true);
 						}
 						catch
 						{
@@ -1903,7 +1990,7 @@ public class FilePatcher
 					{
 						try
 						{
-							Directory.Delete(path, recursive: true);
+							// Directory.Delete(path, recursive: true);
 						}
 						catch
 						{
@@ -1978,7 +2065,7 @@ public class FilePatcher
 	{
 		try
 		{
-			string[] filesWithDepthLimit = GetFilesWithDepthLimit(gameRoot, "sl.common.dll", 5);
+			string[] filesWithDepthLimit = GetFilesWithDepthLimit(gameRoot, "sl.*.dll", 15);
 			if (filesWithDepthLimit.Length != 0)
 			{
 				return Path.GetDirectoryName(filesWithDepthLimit[0]);

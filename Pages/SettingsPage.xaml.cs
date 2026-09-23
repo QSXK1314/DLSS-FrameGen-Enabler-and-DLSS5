@@ -27,6 +27,105 @@ public sealed partial class SettingsPage : Page
 
 	private bool _isDisposed;
 
+	        private void OpenBackupBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string backupDir = Path.Combine(AppContext.BaseDirectory, "backup");
+                Directory.CreateDirectory(backupDir);
+                Process.Start("explorer.exe", backupDir);
+                RefreshBackupSize();
+            }
+            catch { }
+        }
+
+        private async void ClearBackupBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string backupDir = Path.Combine(AppContext.BaseDirectory, "backup");
+                if(!Directory.Exists(backupDir))
+                {
+                    var noBackup = new ContentDialog
+                    {
+                        Title = "提示",
+                        Content = "当前没有任何备份",
+                        CloseButtonText = "确定",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await noBackup.ShowAsync();
+                    return;
+                }
+                var dirs = Directory.GetDirectories(backupDir).Select(Path.GetFileName).ToList();
+                if(dirs.Count == 0)
+                {
+                    var noBackup = new ContentDialog
+                    {
+                        Title = "提示",
+                        Content = "当前没有任何备份",
+                        CloseButtonText = "确定",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await noBackup.ShowAsync();
+                    return;
+                }
+                var stackPanel = new Microsoft.UI.Xaml.Controls.StackPanel();
+                var selectAll = new Microsoft.UI.Xaml.Controls.CheckBox { Content = "全选", IsChecked = false };
+                stackPanel.Children.Add(selectAll);
+                var listView = new Microsoft.UI.Xaml.Controls.ListView { Height = 300 };
+                var checkBoxes = new List<Microsoft.UI.Xaml.Controls.CheckBox>();
+                foreach(var dir in dirs)
+                {
+                    var cb = new Microsoft.UI.Xaml.Controls.CheckBox { Content = dir, IsChecked = false };
+                    checkBoxes.Add(cb);
+                    listView.Items.Add(cb);
+                }
+                selectAll.Checked += (s, a) => { foreach(var cb in checkBoxes) cb.IsChecked = true; };
+                selectAll.Unchecked += (s, a) => { foreach(var cb in checkBoxes) cb.IsChecked = false; };
+                stackPanel.Children.Add(listView);
+                var dialog = new ContentDialog
+                {
+                    Title = "选择要删除的备份",
+                    Content = stackPanel,
+                    PrimaryButtonText = "删除选中",
+                    CloseButtonText = "取消",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+                var result = await dialog.ShowAsync();
+                if(result == ContentDialogResult.Primary)
+                {
+                    var selected = checkBoxes.Where(cb => cb.IsChecked == true).Select(cb => cb.Content.ToString()).ToList();
+                    if(selected.Count > 0)
+                    {
+                        foreach(var dir in selected)
+                        {
+                            string dirPath = Path.Combine(backupDir, dir);
+                            if(Directory.Exists(dirPath)) Directory.Delete(dirPath, true);
+                        }
+                        RefreshBackupSize();
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void RefreshBackupSize()
+        {
+            try
+            {
+                string backupDir = Path.Combine(AppContext.BaseDirectory, "backup");
+                long size = 0;
+                if(Directory.Exists(backupDir))
+                {
+                    size = new DirectoryInfo(backupDir).GetFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
+                }
+                long mb = size / (1024 * 1024);
+                BackupSizeText.Text = (Translator.IsEnglish ? $"Backup Usage: ({mb}MB/1024MB)" : $"备份占用情况：({mb}MB/1024MB)");
+            }
+            catch { }
+        }
+
 	public SettingsPage()
 	{
 		InitializeComponent();
@@ -61,6 +160,7 @@ public sealed partial class SettingsPage : Page
 		Translator.LanguageChanged += UpdateLanguageTexts;
 		UpdateLanguageTexts();
 		_isLoaded = true;
+            RefreshBackupSize();
 		_isDisposed = false;
 	}
 
@@ -96,12 +196,16 @@ public sealed partial class SettingsPage : Page
 		GpuText.Text = Translator.T("Settings_Gpu");
 		GpuTipText.Text = (Translator.IsEnglish ? "If auto-detection fails, manually select GPU" : "如果自动检测出错，可以手动选择显卡");
 		GpuComboBox.Header = Translator.T("Settings_GpuHeader");
-		AboutText.Text = Translator.T("Settings_About");
-		VersionText.Text = (Translator.IsEnglish ? ("Version: " + App.CurrentVersion) : ("版本：" + App.CurrentVersion));
-		DevLangText.Text = Translator.T("About_DevLang");
 		DebugText.Text = (Translator.IsEnglish ? "Debug & Support" : "调试与支持");
 		ExportLogTipText.Text = (Translator.IsEnglish ? "If the software has issues, you can export log files and send them to the developer to help quickly locate and solve problems" : "如果软件出现问题，可以导出日志文件发给开发者，帮助快速定位和解决问题");
 		ExportLogBtn.Content = (Translator.IsEnglish ? "Export Logs to Desktop" : "导出日志到桌面");
+			BackupText.Text = (Translator.IsEnglish ? "Backup Management" : "备份管理");
+			AutoCheckUpdateToggle.Header = (Translator.IsEnglish ? "Auto Check Update on Startup" : "启动时自动检查更新");
+			AutoCheckUpdateToggle.OnContent = (Translator.IsEnglish ? "On" : "开启");
+			AutoCheckUpdateToggle.OffContent = (Translator.IsEnglish ? "Off" : "关闭");
+			OpenBackupBtn.Content = (Translator.IsEnglish ? "Open Backup Directory" : "打开备份目录");
+			ClearBackupBtn.Content = (Translator.IsEnglish ? "Delete Backup" : "删除备份");
+			RefreshBackupSize();
 		if (LanguageCombo.Items.Count >= 3)
 		{
 			((ComboBoxItem)LanguageCombo.Items[0]).Content = Translator.T("Settings_Lang_Auto");
@@ -547,7 +651,16 @@ public sealed partial class SettingsPage : Page
 		{
 			ExportLogBtn.IsEnabled = true;
 			ExportLogBtn.Content = (Translator.IsEnglish ? "Export Logs to Desktop" : "导出日志到桌面");
+			BackupText.Text = (Translator.IsEnglish ? "Backup Management" : "备份管理");
+			AutoCheckUpdateToggle.Header = (Translator.IsEnglish ? "Auto Check Update on Startup" : "启动时自动检查更新");
+			AutoCheckUpdateToggle.OnContent = (Translator.IsEnglish ? "On" : "开启");
+			AutoCheckUpdateToggle.OffContent = (Translator.IsEnglish ? "Off" : "关闭");
+			OpenBackupBtn.Content = (Translator.IsEnglish ? "Open Backup Directory" : "打开备份目录");
+			ClearBackupBtn.Content = (Translator.IsEnglish ? "Delete Backup" : "删除备份");
+			RefreshBackupSize();
 		}
 	}
 
 }
+
+

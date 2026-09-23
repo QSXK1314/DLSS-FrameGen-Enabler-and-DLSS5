@@ -826,8 +826,34 @@ public sealed partial class HomePage : Page
 		RestoreBtn.IsEnabled = game.FrameGenEnabled || game.Dlss5Enabled || game.Dx9Dlss5Enabled;
 	}
 
+        private async Task<bool> CheckBackupLimit()
+        {
+            try
+            {
+                string backupDir = Path.Combine(AppContext.BaseDirectory, "backup");
+                if(!Directory.Exists(backupDir)) return true;
+                long size = new DirectoryInfo(backupDir).GetFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
+                long mb = size / (1024 * 1024);
+                if(mb >= 1000)
+                {
+                    var dialog = new ContentDialog
+                    {
+                        Title = "备份空间不足",
+                        Content = $"当前备份目录已占用{mb}MB，安装补丁后会超过1024MB的上限。请先前往设置页面删除不需要的旧备份，再安装新补丁。",
+                        CloseButtonText = "确定",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await dialog.ShowAsync();
+                    return false;
+                }
+                return true;
+            }
+            catch { return true; }
+        }
+
 	private async void FrameGenBtn_Click(object sender, RoutedEventArgs e)
 	{
+			if(!await CheckBackupLimit()) return;
 		_ = 6;
 		try
 		{
@@ -939,6 +965,7 @@ public sealed partial class HomePage : Page
 
 	private async void Dlss5Btn_Click(object sender, RoutedEventArgs e)
 	{
+			if(!await CheckBackupLimit()) return;
 		GameInfo game = SelectedGame;
 		if (game == null)
 		{
@@ -1026,6 +1053,7 @@ public sealed partial class HomePage : Page
 
 	private async void Dx9Dlss5Btn_Click(object sender, RoutedEventArgs e)
 	{
+			if(!await CheckBackupLimit()) return;
 		GameInfo game = SelectedGame;
 		if (game == null)
 		{
@@ -1085,6 +1113,7 @@ public sealed partial class HomePage : Page
 
 	private async void Cp2077Btn_Click(object sender, RoutedEventArgs e)
 	{
+			if(!await CheckBackupLimit()) return;
 		GameInfo game = SelectedGame;
 		if (game == null)
 		{
@@ -1347,6 +1376,7 @@ public sealed partial class HomePage : Page
 
 	private async void TroubleshootBtn_Click(object sender, RoutedEventArgs e)
 	{
+			if(!await CheckBackupLimit()) return;
 		GameInfo game = SelectedGame;
 		if (game == null)
 		{

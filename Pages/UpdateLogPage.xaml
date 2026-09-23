@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <Page
     x:Class="DLSSFrameGenEnabler_WinUI3.Pages.UpdateLogPage"
     NavigationCacheMode="Required"
@@ -27,11 +27,7 @@
                 <TextBlock x:Name="V11520Beta_2" Text="" TextWrapping="Wrap" />
                 <TextBlock x:Name="V11520Beta_3" Text="" TextWrapping="Wrap" />
                 <TextBlock x:Name="V11520Beta_4" Text="" TextWrapping="Wrap" />
-                <TextBlock x:Name="V11520Beta_5" Text="" TextWrapping="Wrap" />
-                <TextBlock x:Name="V11520Beta_6" Text="" TextWrapping="Wrap" />
-                <TextBlock x:Name="V11520Beta_7" Text="" TextWrapping="Wrap" />
-                <TextBlock x:Name="V11520Beta_8" Text="" TextWrapping="Wrap" />
-
+                                                                
                 <!-- V1.14.0.0 -->
                 <TextBlock x:Name="V11400Title" Text="V1.14.0.0" FontWeight="Bold" FontSize="18" />
                 <TextBlock x:Name="V11400_1" Text="" TextWrapping="Wrap" />

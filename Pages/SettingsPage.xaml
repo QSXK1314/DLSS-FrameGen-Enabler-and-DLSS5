@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -52,9 +52,12 @@
                     <ComboBox x:Name="GpuComboBox" Header="选择显卡" SelectionChanged="GpuComboBox_SelectionChanged" />
                 </StackPanel>
                 <StackPanel Spacing="8">
-                    <TextBlock x:Name="AboutText" Text="关于" FontWeight="SemiBold" FontSize="14" />
-                    <TextBlock x:Name="VersionText" Text="版本：V1.14.0.0" />
-                    <TextBlock x:Name="DevLangText" Text="开发语言：C# + WinUI 3" />
+                    <TextBlock x:Name="BackupText" Text="备份管理" FontWeight="SemiBold" FontSize="14" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="OpenBackupBtn" Content="打开备份目录" Click="OpenBackupBtn_Click" />
+                        <Button x:Name="ClearBackupBtn" Content="删除备份" Click="ClearBackupBtn_Click" />
+                    </StackPanel>
+                    <TextBlock x:Name="BackupSizeText" Text="备份占用情况：(0MB/1024MB)" FontSize="12" Opacity="0.7" Margin="0,4,0,0" />
                 </StackPanel>
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="DebugText" Text="调试与支持" FontWeight="SemiBold" FontSize="14" />
