@@ -1,6 +1,6 @@
 # DLSS FrameGen Enabler & DLSS5
 
-2026-09-23最新版本更新（latest version）：V1.14.2.0
+2026-10-03最新版本更新（latest version）：V1.14.3.0
 
 2026-11-13测试版最新版本更新（Beta lastest version）：V1.31
 
