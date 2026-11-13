@@ -2,7 +2,7 @@
 
 2026-09-23最新版本更新（latest version）：V1.14.2.0
 
-2026-09-21测试版最新版本更新（Beta lastest version）：V1.15.3.0
+2026-11-13测试版最新版本更新（Beta lastest version）：V1.31
 
 一款用于开启游戏DLSS5和多帧生成（Frame Generation）功能的Windows桌面工具。
 A Windows desktop tool for enabling DLSS5 and Frame Generation in games.
