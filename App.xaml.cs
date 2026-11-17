@@ -16,9 +16,9 @@ public partial class App : Application
     public static Window MainWindow { get; private set; } = null!;
 
     // 版本号配置
-    public const bool IsBeta = true; // 测试版标志，发布正式版时改为 false
-    public const string StableVersion = "V1.14.1.0"; // 正式版版本号
-    public const string BetaVersion = "V1.14.2.0"; // 测试版版本号，括号里是更新计数
+    public const bool IsBeta = false; // 测试版标志，发布正式版时改为 false
+    public const string StableVersion = "V1.20"; // 正式版版本号
+    public const string BetaVersion = "V1.31-Beta"; // 测试版版本号
     public static string CurrentVersion => IsBeta ? BetaVersion : StableVersion;
 
     // Win32 MessageBox API
@@ -56,7 +56,6 @@ public partial class App : Application
         try
         {
             LogStartup("=== 软件启动开始 ===");
-            File.WriteAllText(@"C:\Users\Q\Desktop\sl_debug.txt", "软件启动了，版本: " + CurrentVersion + "\r\n");
             LogStartup($"当前目录: {AppContext.BaseDirectory}");
             LogStartup($"操作系统: {Environment.OSVersion}");
             LogStartup($"64位操作系统: {Environment.Is64BitOperatingSystem}");
@@ -260,6 +259,8 @@ public partial class App : Application
         }
     }
 }
+
+
 
 
 

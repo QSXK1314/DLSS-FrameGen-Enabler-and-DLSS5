@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -69,6 +69,9 @@ public sealed partial class HomePage : Page
 	private DispatcherTimer? _toastTimer;
 
 	private bool _isPageLoaded;
+
+	private Button? _gitcBtn;
+	private Dictionary<string, bool> _gitcEnabledGames = new Dictionary<string, bool>();
 
 	public ObservableCollection<GameInfo> Games { get; } = new ObservableCollection<GameInfo>();
 
@@ -143,7 +146,16 @@ public sealed partial class HomePage : Page
 	public HomePage()
 	{
 		InitializeComponent();
-		base.Loaded += delegate
+
+		// 动态创建GITC DLSS5按钮（避免XAML编译器bug）
+		_gitcBtn = new Button();
+		_gitcBtn.Content = "开启DLSS5";
+		_gitcBtn.Click += GitcDlss5Btn_Click;
+		// 插入到Dlss5Btn后面
+		int insertIndex = ActionPanel.Children.IndexOf(Dlss5Btn) + 1;
+		ActionPanel.Children.Insert(insertIndex, _gitcBtn);
+
+		base.Loaded += (s, e) =>
 		{
 			_isPageLoaded = true;
 		};
@@ -154,9 +166,11 @@ public sealed partial class HomePage : Page
 		{
 			foreach (GameInfo item in SettingsService.LoadGames())
 			{
-				if (item.IsREEngine && item.FrameGenEnabled && item.Dlss5Enabled)
+				// 多帧生成与GITC DLSS5已确认可以共存，不再做互斥处理。
+				// 启动时按实际安装状态重建GITC按钮状态（原来只存在内存，重启后会显示错误）。
+				if (item.Dlss5Enabled && FilePatcher.HasGitcBackup(item))
 				{
-					item.FrameGenEnabled = false;
+					_gitcEnabledGames[item.ExePath ?? ""] = true;
 				}
 				item.PropertyChanged += Game_PropertyChanged;
 				Games.Add(item);
@@ -197,6 +211,28 @@ public sealed partial class HomePage : Page
 		}
 	}
 
+	/// <summary>
+	/// 判断某个游戏的 GITC DLSS5 当前是否处于开启状态。
+	/// 先读内存缓存，缓存没有时用游戏持久化状态+备份目录兜底，避免重启后按钮显示错误。
+	/// </summary>
+	private bool IsGitcOn(string gameKey)
+	{
+		if (!string.IsNullOrEmpty(gameKey) && _gitcEnabledGames.TryGetValue(gameKey, out bool cached) && cached)
+		{
+			return true;
+		}
+		GameInfo? game = Games.FirstOrDefault(g => string.Equals(g.ExePath ?? "", gameKey, StringComparison.OrdinalIgnoreCase));
+		if (game != null && game.Dlss5Enabled && FilePatcher.HasGitcBackup(game))
+		{
+			if (!string.IsNullOrEmpty(gameKey))
+			{
+				_gitcEnabledGames[gameKey] = true;
+			}
+			return true;
+		}
+		return false;
+	}
+
 	protected override void OnNavigatedTo(NavigationEventArgs e)
 	{
 		base.OnNavigatedTo(e);
@@ -218,7 +254,6 @@ public sealed partial class HomePage : Page
 		ManualAddDx9Btn.Content = Translator.T("Btn_ManualDx9");
 		FrameGenBtn.Content = Translator.T("Btn_FrameGen");
 		Dlss5Btn.Content = Translator.T("Btn_Dlss5");
-		Dx9Dlss5Btn.Content = Translator.T("Btn_Dx9Dlss5");
 		Cp2077Btn.Content = Translator.T("Btn_2077");
 		ConfigBtn.Content = Translator.T("Btn_Config");
 		ConfigNameBtn.Content = Translator.T("Btn_ConfigName");
@@ -227,53 +262,22 @@ public sealed partial class HomePage : Page
 		RefreshStatusBtn.Content = Translator.T("Btn_RefreshStatus");
 		ClearAllBtn.Content = (isEnglish ? "Clear All" : "清除列表");
 		DetectRunningBtn.Content = (isEnglish ? "Detect Running Games" : "检测运行中游戏");
-		int selectedIndex = SortComboBox.SelectedIndex;
-		SortComboBox.Items.Clear();
-		if (isEnglish)
+		// GITC DLSS5按钮文字和提示
+		ToolTipService.SetToolTip(_gitcBtn, isEnglish ? "Enable/Disable DLSS5 for supported games" : "为支持的游戏开启/关闭DLSS5");
+		// 初始化按钮文字
+		if (SelectedGame != null)
 		{
-			SortComboBox.Items.Add(new ComboBoxItem
-			{
-				Content = "Default"
-			});
-			SortComboBox.Items.Add(new ComboBoxItem
-			{
-				Content = "Name A-Z"
-			});
-			SortComboBox.Items.Add(new ComboBoxItem
-			{
-				Content = "Name Z-A"
-			});
+			string gameKey = SelectedGame.ExePath ?? "";
+			bool isGitcOn = IsGitcOn(gameKey);
+			_gitcBtn.Content = isEnglish
+				? (isGitcOn ? "Disable DLSS5" : "Enable DLSS5")
+				: (isGitcOn ? "关闭DLSS5" : "开启DLSS5");
 		}
 		else
 		{
-			SortComboBox.Items.Add(new ComboBoxItem
-			{
-				Content = "默认排序"
-			});
-			SortComboBox.Items.Add(new ComboBoxItem
-			{
-				Content = "名称 A-Z"
-			});
-			SortComboBox.Items.Add(new ComboBoxItem
-			{
-				Content = "名称 Z-A"
-			});
+			_gitcBtn.Content = isEnglish ? "Enable DLSS5" : "开启DLSS5";
 		}
-		SortComboBox.SelectedIndex = ((selectedIndex >= 0) ? selectedIndex : 0);
 		DisclaimerText.Text = Translator.T("Disclaimer");
-		ToolTipService.SetToolTip(AutoScanBtn, isEnglish ? "Auto scan games in Steam and Epic libraries" : "自动扫描Steam和Epic游戏库中的游戏");
-		ToolTipService.SetToolTip(ManualAddBtn, isEnglish ? "Select game folder, auto-detect game exe" : "选择游戏文件夹，自动识别游戏运行exe");
-		ToolTipService.SetToolTip(ManualAddDx9Btn, isEnglish ? "Manually select game exe, for DX9 games or auto-detection failures" : "手动选择游戏exe文件，适用于DX9游戏或自动识别失败的游戏");
-		ToolTipService.SetToolTip(FrameGenBtn, isEnglish ? "Enable Frame Generation for selected game" : "为选中游戏开启多帧生成功能");
-		ToolTipService.SetToolTip(Dlss5Btn, isEnglish ? "Enable DLSS5 Super Resolution for selected game" : "为选中游戏开启DLSS5超分辨率");
-		ToolTipService.SetToolTip(Dx9Dlss5Btn, isEnglish ? "Enable DLSS5 for DX9 games (requires translation)" : "为DX9游戏开启DLSS5（需转译）");
-		ToolTipService.SetToolTip(Cp2077Btn, isEnglish ? "Cyberpunk 2077 exclusive frame gen patch" : "赛博朋克2077专用多帧生成补丁");
-		ToolTipService.SetToolTip(ConfigBtn, isEnglish ? "Edit frame gen config (Classic mode only)" : "编辑多帧生成配置文件（仅经典模式）");
-		ToolTipService.SetToolTip(ConfigNameBtn, isEnglish ? "Modify patch DLL config name (Advanced mode only)" : "修改补丁DLL配置名（仅高级模式）");
-		ToolTipService.SetToolTip(TroubleshootBtn, isEnglish ? "Replace sl. prefixed patch files for troubleshooting" : "替换sl.开头的补丁文件进行排错");
-		ToolTipService.SetToolTip(RestoreBtn, isEnglish ? "Restore all installed patches" : "还原所有已安装的补丁");
-		ToolTipService.SetToolTip(RefreshStatusBtn, isEnglish ? "Re-detect patch status for all games" : "重新检测所有游戏的补丁开启状态");
-		ToolTipService.SetToolTip(DetectRunningBtn, isEnglish ? "Detect currently running game processes, 100% accurate game exe identification" : "检测当前正在运行的游戏进程，100%准确识别游戏真正的exe");
 		foreach (GameInfo game in Games)
 		{
 			game.RefreshStatus();
@@ -290,6 +294,21 @@ public sealed partial class HomePage : Page
 		{
 			SettingsService.SaveGames(Games.ToList());
 		}
+	}
+
+	private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+	{
+		// 空函数，避免编译错误
+	}
+
+	private void CtxDx9Dlss5_Click(object sender, RoutedEventArgs e)
+	{
+		// 旧DX9 DLSS5功能已废弃，仅保留控件占位避免XAML连接错位
+	}
+
+	private void Dx9Dlss5Btn_Click(object sender, RoutedEventArgs e)
+	{
+		// 旧DX9 DLSS5功能已废弃，仅保留控件占位避免XAML连接错位
 	}
 
 	private async void AutoScanBtn_Click(object sender, RoutedEventArgs e)
@@ -316,6 +335,36 @@ public sealed partial class HomePage : Page
 					list2.Add(item2);
 				}
 			}
+			
+			// 影之刃零特殊处理：手动添加
+			var pbzPaths = new[]
+			{
+				@"D:\SteamLibrary\steamapps\common\PBZ",
+				@"C:\Program Files (x86)\Steam\steamapps\common\PBZ"
+			};
+			foreach (var pbzPath in pbzPaths)
+			{
+				var pbzExeDir = System.IO.Path.Combine(pbzPath, "platform", "steam");
+				var pbzExe = System.IO.Path.Combine(pbzExeDir, "PBZ.exe");
+				if (System.IO.File.Exists(pbzExe))
+				{
+					string item = pbzPath.TrimEnd(new char[2] { '\\', '/' }).ToLowerInvariant();
+					string text = pbzExe.TrimEnd(new char[2] { '\\', '/' }).ToLowerInvariant();
+					if (!hashSet.Contains(item) && !hashSet.Contains(text))
+					{
+						hashSet.Add(item);
+						hashSet.Add(text);
+						var game = new GameInfo();
+						game.Name = "影之刃零";
+						game.GamePath = pbzPath;
+						game.ExePath = pbzExe;
+						game.SupportsFrameGen = true;
+						list2.Add(game);
+					}
+					break;
+				}
+			}
+			
 			return list2;
 		});
 		int num = 0;
@@ -361,54 +410,55 @@ public sealed partial class HomePage : Page
 		ShowMessage(Translator.T("Dlg_Refresh_Done"));
 	}
 
-	private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-	{
-		if (!_isPageLoaded || SortComboBox.SelectedItem == null)
-		{
-			return;
-		}
-		ComboBoxItem comboBoxItem = SortComboBox.SelectedItem as ComboBoxItem;
-		if (comboBoxItem == null)
-		{
-			return;
-		}
-		string text = comboBoxItem.Content?.ToString() ?? "";
-		List<GameInfo> list = GameListView.SelectedItems.Cast<GameInfo>().ToList();
-		GameInfo selectedGame = SelectedGame;
-		List<GameInfo> list2 = Games.ToList();
-		switch (text)
-		{
-		case "名称 A-Z":
-		case "Name A-Z":
-			list2 = list2.OrderBy<GameInfo, string>((GameInfo g) => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
-			break;
-		case "名称 Z-A":
-		case "Name Z-A":
-			list2 = list2.OrderByDescending<GameInfo, string>((GameInfo g) => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
-			break;
-		case "状态优先":
-		case "Status First":
-			list2 = list2.OrderByDescending((GameInfo g) => g.FrameGenEnabled || g.Dlss5Enabled || g.Dx9Dlss5Enabled).ThenBy<GameInfo, string>((GameInfo g) => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
-			break;
-		}
-		Games.Clear();
-		foreach (GameInfo item in list2)
-		{
-			Games.Add(item);
-		}
-		if (selectedGame != null && Games.Contains(selectedGame))
-		{
-			GameListView.SelectedItem = selectedGame;
-		}
-		foreach (GameInfo item2 in list)
-		{
-			if (Games.Contains(item2) && !GameListView.SelectedItems.Contains(item2))
-			{
-				GameListView.SelectedItems.Add(item2);
-			}
-		}
-		SaveGamesNow();
-	}
+	// 临时禁用SortComboBox排序功能，解决XAML连接错误
+	//private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+	//{
+	//	if (!_isPageLoaded || SortComboBox.SelectedItem == null)
+	//	{
+	//		return;
+	//	}
+	//	ComboBoxItem comboBoxItem = SortComboBox.SelectedItem as ComboBoxItem;
+	//	if (comboBoxItem == null)
+	//	{
+	//		return;
+	//	}
+	//	string text = comboBoxItem.Content?.ToString() ?? "";
+	//	List<GameInfo> list = GameListView.SelectedItems.Cast<GameInfo>().ToList();
+	//	GameInfo selectedGame = SelectedGame;
+	//	List<GameInfo> list2 = Games.ToList();
+	//	switch (text)
+	//	{
+	//	case "名称 A-Z":
+	//	case "Name A-Z":
+	//		list2 = list2.OrderBy<GameInfo, string>((GameInfo g) => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+	//		break;
+	//	case "名称 Z-A":
+	//	case "Name Z-A":
+	//		list2 = list2.OrderByDescending<GameInfo, string>((GameInfo g) => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+	//		break;
+	//	case "状态优先":
+	//	case "Status First":
+	//		list2 = list2.OrderByDescending((GameInfo g) => g.FrameGenEnabled || g.Dlss5Enabled || g.Dx9Dlss5Enabled).ThenBy<GameInfo, string>((GameInfo g) => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+	//		break;
+	//	}
+	//	Games.Clear();
+	//	foreach (GameInfo item in list2)
+	//	{
+	//		Games.Add(item);
+	//	}
+	//	if (selectedGame != null && Games.Contains(selectedGame))
+	//	{
+	//		GameListView.SelectedItem = selectedGame;
+	//	}
+	//	foreach (GameInfo item2 in list)
+	//	{
+	//		if (Games.Contains(item2) && !GameListView.SelectedItems.Contains(item2))
+	//		{
+	//			GameListView.SelectedItems.Add(item2);
+	//		}
+	//	}
+	//	SaveGamesNow();
+	//}
 
 	private void HomePage_KeyDown(object sender, KeyRoutedEventArgs e)
 	{
@@ -628,6 +678,24 @@ public sealed partial class HomePage : Page
 		}
 		ActionPanel.Visibility = Visibility.Visible;
 		UpdateButtonStates(selectedGame);
+
+		// 恢复GITC DLSS5状态
+		string gameKey = selectedGame.ExePath ?? "";
+		if (IsGitcOn(gameKey))
+		{
+			RestoreBtn.IsEnabled = true;
+			if (_gitcBtn != null)
+			{
+				_gitcBtn.Content = Translator.IsEnglish ? "Disable DLSS5" : "关闭DLSS5";
+			}
+		}
+		else
+		{
+			if (_gitcBtn != null)
+			{
+				_gitcBtn.Content = Translator.IsEnglish ? "Enable DLSS5" : "开启DLSS5";
+			}
+		}
 	}
 
 	private void GameMenuFlyout_Opening(object sender, object e)
@@ -685,23 +753,12 @@ public sealed partial class HomePage : Page
 		menuFlyoutItem3.Text = ((!gameInfo.FrameGenEnabled) ? (isEnglish ? "Enable Frame Gen" : "一键开启多帧生成") : (isEnglish ? "Restore Frame Gen" : "一键还原多帧生成"));
 		menuFlyoutItem3.IsEnabled = gameInfo.SupportsFrameGen || gameInfo.FrameGenEnabled;
 		menuFlyoutItem3.Visibility = (gameInfo.Is2077 ? Visibility.Collapsed : Visibility.Visible);
-		if (gameInfo.IsREEngine && gameInfo.Dlss5Enabled && !gameInfo.FrameGenEnabled)
-		{
-			menuFlyoutItem3.IsEnabled = false;
-		}
 		MenuFlyoutItem menuFlyoutItem4 = (MenuFlyoutItem)items[1];
-		menuFlyoutItem4.Text = ((!gameInfo.Dlss5Enabled) ? (isEnglish ? "Enable DLSS5" : "开启DLSS5") : (isEnglish ? "Restore DLSS5" : "一键还原DLSS5"));
-		if (gameInfo.IsREEngine && gameInfo.FrameGenEnabled && !gameInfo.Dlss5Enabled)
-		{
-			menuFlyoutItem4.IsEnabled = false;
-		}
-		else
-		{
-			menuFlyoutItem4.IsEnabled = true;
-		}
+		// 旧版DLSS5功能已废弃，强制隐藏
+		menuFlyoutItem4.Visibility = Visibility.Collapsed;
 		MenuFlyoutItem obj = (MenuFlyoutItem)items[2];
-		obj.Text = ((!gameInfo.Dx9Dlss5Enabled) ? (isEnglish ? "Enable DX9 DLSS5 (for old games)" : "开启DX9 DLSS5（适合老游戏）") : (isEnglish ? "Restore DX9 DLSS5" : "一键还原DX9 DLSS5"));
-		obj.Visibility = (gameInfo.Is2077 ? Visibility.Collapsed : Visibility.Visible);
+		// 旧DX9 DLSS5功能已废弃，强制隐藏
+		obj.Visibility = Visibility.Collapsed;
 		MenuFlyoutItem obj2 = (MenuFlyoutItem)items[3];
 		obj2.Text = ((!gameInfo.FrameGenEnabled) ? (isEnglish ? "2077 Exclusive Patch" : "2077专用补丁") : (isEnglish ? "Restore 2077 Patch" : "还原2077补丁"));
 		obj2.Visibility = ((!gameInfo.Is2077) ? Visibility.Collapsed : Visibility.Visible);
@@ -753,11 +810,16 @@ public sealed partial class HomePage : Page
 
 	private void UpdateButtonStates(GameInfo game)
 	{
+		// 强制永远隐藏旧版DLSS5相关控件
+		Dx9Dlss5Btn.Visibility = Visibility.Collapsed;
+		SortComboBox.Visibility = Visibility.Collapsed;
+		Dlss5Btn.Visibility = Visibility.Collapsed;
 		if (GameListView.SelectedItems.Count > 1)
 		{
 			FrameGenBtn.IsEnabled = false;
 			Dlss5Btn.IsEnabled = false;
-			Dx9Dlss5Btn.IsEnabled = false;
+			//Dx9Dlss5Btn.IsEnabled = false;
+			//GitcDlss5Btn.IsEnabled = false;
 			Cp2077Btn.IsEnabled = false;
 			ConfigBtn.IsEnabled = false;
 			ConfigNameBtn.IsEnabled = false;
@@ -766,7 +828,8 @@ public sealed partial class HomePage : Page
 			string value = (Translator.IsEnglish ? "Multiple games selected. Only 'Remove from list' is available via right-click menu." : "已选择多个游戏，仅可通过右键菜单使用「移除列表」功能。");
 			ToolTipService.SetToolTip(FrameGenBtn, value);
 			ToolTipService.SetToolTip(Dlss5Btn, value);
-			ToolTipService.SetToolTip(Dx9Dlss5Btn, value);
+			//ToolTipService.SetToolTip(Dx9Dlss5Btn, value);
+			//ToolTipService.SetToolTip(GitcDlss5Btn, value);
 			ToolTipService.SetToolTip(RestoreBtn, value);
 			return;
 		}
@@ -775,8 +838,8 @@ public sealed partial class HomePage : Page
 			Cp2077Btn.Visibility = Visibility.Visible;
 			Cp2077Btn.IsEnabled = true;
 			FrameGenBtn.Visibility = Visibility.Collapsed;
-			Dlss5Btn.Visibility = Visibility.Visible;
-			Dx9Dlss5Btn.Visibility = Visibility.Collapsed;
+			Dlss5Btn.Visibility = Visibility.Collapsed;
+			//Dx9Dlss5Btn.Visibility = Visibility.Collapsed;
 			ConfigBtn.IsEnabled = false;
 			ConfigNameBtn.IsEnabled = false;
 			ToolTipService.SetToolTip(Cp2077Btn, null);
@@ -785,43 +848,36 @@ public sealed partial class HomePage : Page
 		else
 		{
 			FrameGenBtn.Visibility = Visibility.Visible;
-			Dlss5Btn.Visibility = Visibility.Visible;
-			Dx9Dlss5Btn.Visibility = Visibility.Visible;
-			Dx9Dlss5Btn.IsEnabled = true;
+			Dlss5Btn.Visibility = Visibility.Collapsed;
+			//Dx9Dlss5Btn.Visibility = Visibility.Collapsed;
 			Cp2077Btn.Visibility = Visibility.Collapsed;
 			ConfigBtn.IsEnabled = game.FrameGenEnabled && game.FrameGenMode == "经典模式";
 			ConfigNameBtn.IsEnabled = game.FrameGenEnabled && game.FrameGenMode == "高级模式";
-			ToolTipService.SetToolTip(Dx9Dlss5Btn, Translator.IsEnglish ? "For older DX9 games, uses dgVoodoo to translate DX9 to DX11" : "适合老游戏（DX9游戏），通过dgVoodoo将DX9转译到DX11运行");
 			ToolTipService.SetToolTip(FrameGenBtn, null);
 			ToolTipService.SetToolTip(Dlss5Btn, null);
 			ToolTipService.SetToolTip(RestoreBtn, null);
 		}
 		FrameGenBtn.Content = ((!game.FrameGenEnabled) ? Translator.T("Btn_FrameGen") : (Translator.IsEnglish ? "Restore Frame Gen" : "一键还原多帧生成"));
 		FrameGenBtn.IsEnabled = game.SupportsFrameGen || game.FrameGenEnabled;
-		if (game.IsREEngine)
-		{
-			if (game.Dlss5Enabled && !game.FrameGenEnabled)
-			{
-				FrameGenBtn.IsEnabled = false;
-				ToolTipService.SetToolTip(FrameGenBtn, Translator.IsEnglish ? "RE Engine games: DLSS5 conflicts with Frame Generation, cannot enable both" : "RE引擎游戏：DLSS5与多帧生成冲突，无法同时开启");
-			}
-			else if (game.FrameGenEnabled && !game.Dlss5Enabled)
-			{
-				Dlss5Btn.IsEnabled = false;
-				ToolTipService.SetToolTip(Dlss5Btn, Translator.IsEnglish ? "RE Engine games: DLSS5 conflicts with Frame Generation, cannot enable both" : "RE引擎游戏：DLSS5与多帧生成冲突，无法同时开启");
-			}
-			else
-			{
-				Dlss5Btn.IsEnabled = true;
-				ToolTipService.SetToolTip(Dlss5Btn, Translator.IsEnglish ? "Enable DLSS5 Super Resolution for selected game" : "为选中游戏开启DLSS5超分辨率");
-			}
-		}
-		else
-		{
-			Dlss5Btn.IsEnabled = true;
-		}
+		Dlss5Btn.IsEnabled = true;
+		ToolTipService.SetToolTip(Dlss5Btn, Translator.IsEnglish ? "Enable DLSS5 Super Resolution for selected game" : "为选中游戏开启DLSS5超分辨率画质");
 		Dlss5Btn.Content = ((!game.Dlss5Enabled) ? Translator.T("Btn_Dlss5") : (Translator.IsEnglish ? "Restore DLSS5" : "一键还原DLSS5"));
-		Dx9Dlss5Btn.Content = ((!game.Dx9Dlss5Enabled) ? Translator.T("Btn_Dx9Dlss5") : (Translator.IsEnglish ? "Restore DX9 DLSS5" : "一键还原DX9 DLSS5"));
+		//Dx9Dlss5Btn.Content = ((!game.Dx9Dlss5Enabled) ? Translator.T("Btn_Dx9Dlss5") : (Translator.IsEnglish ? "Restore DX9 DLSS5" : "一键还原DX9 DLSS5"));
+		// GITC DLSS5按钮文字切换
+		if (_gitcBtn != null)
+		{
+			string gameKey = game.ExePath ?? "";
+			bool isGitcOn = IsGitcOn(gameKey);
+			_gitcBtn.Content = Translator.IsEnglish
+				? (isGitcOn ? "Disable DLSS5" : "Enable DLSS5")
+				: (isGitcOn ? "关闭DLSS5" : "开启DLSS5");
+			_gitcBtn.IsEnabled = true;
+		}
+		//{
+		//	string gameKey = game.ExePath ?? "";
+		//	bool isGitcEnabled = _gitcEnabledGames.Contains(gameKey);
+		//	_gitcBtn.Content = isGitcEnabled ? (Translator.IsEnglish ? "Restore GITC DLSS5" : "还原GITC DLSS5") : "GITC DLSS5";
+		//}
 		TroubleshootBtn.IsEnabled = game.FrameGenEnabled;
 		RestoreBtn.IsEnabled = game.FrameGenEnabled || game.Dlss5Enabled || game.Dx9Dlss5Enabled;
 	}
@@ -834,7 +890,7 @@ public sealed partial class HomePage : Page
                 if(!Directory.Exists(backupDir)) return true;
                 long size = new DirectoryInfo(backupDir).GetFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
                 long mb = size / (1024 * 1024);
-                if(mb >= 1000)
+                if(mb >= 1024)
                 {
                     var dialog = new ContentDialog
                     {
@@ -862,6 +918,59 @@ public sealed partial class HomePage : Page
 			{
 				return;
 			}
+
+			// AMD显卡检测：直接弹NeuralHub引导窗
+			GpuInfo gpu = await GetGpuInfoAsync();
+			if (gpu.IsAmd)
+			{
+				string amdGuide = Translator.IsEnglish ?
+@"[AMD GPU DLSS Setup Guide]
+This software no longer supports AMD GPU patching. Please use the standalone NeuralHub tool to enable all DLSS features:
+
+1. Install NeuralHub: Run Patches\AMD方案\NeuralHub_v0.8.0_setup.exe. It will install to C:\Users\YourUsername\AppData\Local\Danielblnc\NeuralHub by default. Just click Next all the way until Finish.
+2. Initial Setup: After launching the tool, click Start first, then import the 4 DLL files one by one:
+   - Step 1: Click the red Import button and select nvngx_dlssnr.dll (DLSS5 Super Resolution)
+   - Step 2: Click the red Import button and select nvngx_dlss.dll (DLSS Super Resolution)
+   - Step 3: Click the red Import button and select nvngx_dlssd.dll (Ray Reconstruction)
+   - Step 4: Click the red Import button and select nvngx_dlssg.dll (Frame Generation)
+   Click Finish after all files are imported.
+3. Patch your game: Select the game you want to patch inside NeuralHub, click Install Mod Loader on the right, then follow the prompts to finish. Press End in-game to open the ReShade configuration menu.
+4. Uninstall patches: Back in NeuralHub, select the patched game, click the 3-dot button next to the Play button, select Edit Mod Loader, then click Remove.
+5. Enable Frame Gen / Ray Reconstruction: Set the NVIDIA GPU Spoof option to Streamline or All. This spoofs an NVIDIA GPU to unlock NVIDA-exclusive Frame Generation and Ray Reconstruction for AMD cards.
+
+All required files are in the AMD方案 folder that will open automatically." :
+@"【AMD显卡DLSS使用指南】
+本软件不再支持AMD显卡的补丁安装，请使用独立工具NeuralHub完成所有DLSS功能：
+
+1. 安装NeuralHub：运行Patches\AMD方案\NeuralHub_v0.8.0_setup.exe，默认会安装到C:\Users\你的用户名\AppData\Local\Danielblnc\NeuralHub，一路点Next直到Finish即可。
+2. 初始配置：打开软件后先点Start，然后依次导入4个文件：
+   - 第一步点红色Import按钮选择nvngx_dlssnr.dll（DLSS5超分）
+   - 第二步点红色Import按钮选择nvngx_dlss.dll（DLSS超分）
+   - 第三步点红色Import按钮选择nvngx_dlssd.dll（光线重构）
+   - 第四步点红色Import按钮选择nvngx_dlssg.dll（帧生成）
+   全部导入完成后点Finish。
+3. 给游戏打补丁：在NeuralHub软件内选中要安装的游戏，点击右侧Install Mod Loader，一路点Next即可完成安装，游戏内默认按End键打开ReShade配置菜单。
+4. 卸载补丁：回到NeuralHub选中对应游戏，点Play按钮旁边的三个点按钮，选择Edit Mod Loader，再点Remove即可卸载。
+5. 开启帧生成/光线重构：需要把NVIDIA GPU Spoof选项设置为Streamline或者All，这个功能是伪装成N卡，让游戏对AMD用户开放N卡专属的帧生成和光线重构功能。
+
+所有需要的文件都在打开的AMD方案文件夹里。";
+				await new ContentDialog
+				{
+					Title = Translator.IsEnglish ? "AMD GPU DLSS Setup Guide" : "AMD显卡DLSS使用指南",
+					Content = amdGuide,
+					PrimaryButtonText = Translator.IsEnglish ? "Open AMD Folder" : "打开AMD方案文件夹",
+					CloseButtonText = Translator.T("Common_Cancel"),
+					XamlRoot = this.Content.XamlRoot
+				}.ShowAsync();
+				try
+				{
+					var amdDir = Path.Combine(AppContext.BaseDirectory, "Patches", "AMD方案");
+					if (Directory.Exists(amdDir)) System.Diagnostics.Process.Start("explorer.exe", amdDir);
+				}
+				catch { }
+				return;
+			}
+
 			if (game.FrameGenEnabled)
 			{
 				if (await ConfirmAndRestoreFrameGen(game))
@@ -874,38 +983,17 @@ public sealed partial class HomePage : Page
 			}
 			if (game.IsREEngine)
 			{
-				if (game.Dlss5Enabled)
+				// 新的 GITC DLSS5 与多帧生成已确认可以共存，不再拦截。
+				switch (await ShowModeDialog(Translator.T("Dlg_FrameGen_Title"), new(string, string)[2]
 				{
-					await new ContentDialog
-					{
-						Title = Translator.T("Dlg_Title_Warning"),
-						Content = (Translator.IsEnglish ? "RE Engine games: DLSS5 conflicts with Frame Generation. Please restore DLSS5 first, then enable Frame Generation." : "RE引擎游戏：DLSS5与多帧生成冲突，请先还原DLSS5，再开启多帧生成。"),
-						CloseButtonText = Translator.T("Common_Close"),
-						XamlRoot = base.Content.XamlRoot
-					}.ShowAsync();
-					return;
-				}
-				switch (await ShowModeDialog(Translator.T("Dlg_FrameGen_Title"), new(string, string)[3]
-				{
-					(Translator.T("Dlg_FrameGen_RE"), Translator.IsEnglish ? "RE Engine exclusive patch (conflicts with DLSS5, cannot enable both)" : "RE引擎专属补丁（与DLSS5冲突，无法同时开启）"),
 					(Translator.T("Dlg_FrameGen_Classic"), Translator.T("Dlg_FrameGen_ClassicDesc")),
 					(Translator.T("Dlg_FrameGen_Advanced"), Translator.T("Dlg_FrameGen_AdvancedDesc"))
 				}))
 				{
 				case 0:
-					FilePatcher.InstallREEngineFrameGen(game);
-					await new ContentDialog
-					{
-						Title = Translator.T("Dlg_Title_Tip"),
-						Content = (Translator.IsEnglish ? "RE Engine Frame Generation enabled. Note: DLSS5 is now disabled due to conflict." : "RE引擎多帧生成已开启。注意：由于冲突，DLSS5功能已被禁用，无法同时开启。"),
-						CloseButtonText = Translator.T("Common_Close"),
-						XamlRoot = base.Content.XamlRoot
-					}.ShowAsync();
-					break;
-				case 1:
 					FilePatcher.InstallClassicFrameGen(game);
 					break;
-				case 2:
+				case 1:
 					FilePatcher.InstallAdvancedFrameGen(game);
 					break;
 				default:
@@ -926,31 +1014,21 @@ public sealed partial class HomePage : Page
 					}.ShowAsync();
 					return;
 				}
-				if (gpuInfo.Series == "RTX20")
+				// 20系、30系、40系现在都用统一的安装方法，不再单独识别显卡型号
+				switch (await ShowModeDialog(Translator.T("Dlg_FrameGen_Title"), new(string, string)[2]
 				{
-					FilePatcher.InstallRTX20FrameGen(game);
-				}
-				else if (gpuInfo.Series == "RTX30")
+					(Translator.T("Dlg_FrameGen_Classic"), Translator.T("Dlg_FrameGen_ClassicDesc")),
+					(Translator.T("Dlg_FrameGen_Advanced"), Translator.T("Dlg_FrameGen_AdvancedDesc"))
+				}))
 				{
-					FilePatcher.InstallRTX30FrameGen(game);
-				}
-				else
-				{
-					switch (await ShowModeDialog(Translator.T("Dlg_FrameGen_Title"), new(string, string)[2]
-					{
-						(Translator.T("Dlg_FrameGen_Classic"), Translator.T("Dlg_FrameGen_ClassicDesc")),
-						(Translator.T("Dlg_FrameGen_Advanced"), Translator.T("Dlg_FrameGen_AdvancedDesc"))
-					}))
-					{
-					case 0:
-						FilePatcher.InstallClassicFrameGen(game);
-						break;
-					case 1:
-						FilePatcher.InstallAdvancedFrameGen(game);
-						break;
-					default:
-						return;
-					}
+				case 0:
+					FilePatcher.InstallClassicFrameGen(game);
+					break;
+				case 1:
+					FilePatcher.InstallAdvancedFrameGen(game);
+					break;
+				default:
+					return;
 				}
 			}
 			ShowMessage(Translator.T("Dlg_FrameGen_Installed"));
@@ -989,60 +1067,33 @@ public sealed partial class HomePage : Page
 			UpdateButtonStates(game);
 			return;
 		}
-		if (game.IsREEngine)
-		{
-			if (game.FrameGenEnabled)
-			{
-				await new ContentDialog
-				{
-					Title = Translator.T("Dlg_Title_Warning"),
-					Content = (Translator.IsEnglish ? "RE Engine games: DLSS5 conflicts with Frame Generation. Please restore Frame Generation first, then enable DLSS5." : "RE引擎游戏：DLSS5与多帧生成冲突，请先还原多帧生成，再开启DLSS5。"),
-					CloseButtonText = Translator.T("Common_Close"),
-					XamlRoot = base.Content.XamlRoot
-				}.ShowAsync();
-				return;
-			}
-			if (await new ContentDialog
-			{
-				Title = Translator.T("Dlg_Title_Tip"),
-				Content = Translator.T("Dlg_Dlss5_REWarn"),
-				PrimaryButtonText = (Translator.IsEnglish ? "Continue" : "继续安装"),
-				CloseButtonText = Translator.T("Common_Cancel"),
-				XamlRoot = base.Content.XamlRoot
-			}.ShowAsync() == ContentDialogResult.Primary)
-			{
-				FilePatcher.InstallREEngineDLSS5(game);
-				await new ContentDialog
-				{
-					Title = Translator.T("Dlg_Title_Tip"),
-					Content = (Translator.IsEnglish ? "RE Engine DLSS5 enabled. Note: Frame Generation is now disabled due to conflict." : "RE引擎DLSS5已开启。注意：由于冲突，多帧生成功能已被禁用，无法同时开启。"),
-					CloseButtonText = Translator.T("Common_Close"),
-					XamlRoot = base.Content.XamlRoot
-				}.ShowAsync();
-			}
-			UpdateButtonStates(game);
-			return;
-		}
 		GpuInfo gpuInfo = await GetGpuInfoAsync();
 		if (gpuInfo.IsNvidia)
 		{
-			FilePatcher.InstallCommonDLSS5(game);
+			FilePatcher.InstallGITCDLSS5_Base(game, "dx12");
 			ShowMessage(Translator.T("Dlg_Dlss5_Installed"));
 		}
-		else if (gpuInfo.IsAmd && gpuInfo.SupportsDLSS5)
+		else if (gpuInfo.IsAmd)
 		{
-			if (await new ContentDialog
+			await new ContentDialog
 			{
-				Title = (Translator.IsEnglish ? "AMD GPU Notice" : "AMD显卡提示"),
-				Content = Translator.T("Dlg_Dlss5_AmdWarn"),
-				PrimaryButtonText = (Translator.IsEnglish ? "Continue" : "继续安装"),
+				Title = (Translator.IsEnglish ? "AMD GPU Transition Notice" : "AMD显卡过渡提示"),
+				Content = (Translator.IsEnglish
+					? "This software no longer supports AMD GPU DLSS patching.\n\nPlease open the Patches\\AMD方案 folder in the software directory, run NeuralHub_v0.8.0_setup.exe, and import the 4 DLL files in that folder to enable DLSS super resolution, ray reconstruction, frame generation and DLSS5 on AMD cards."
+					: "本软件不再支持AMD显卡的DLSS补丁安装。\n\n请打开软件目录下的 Patches\\AMD方案 文件夹，运行NeuralHub_v0.8.0_setup.exe，导入同目录下的四个dll文件，即可为AMD显卡开启DLSS超分、光线重构、帧生成和DLSS5功能。"),
+				PrimaryButtonText = (Translator.IsEnglish ? "Open Folder" : "打开AMD方案文件夹"),
 				CloseButtonText = Translator.T("Common_Cancel"),
 				XamlRoot = base.Content.XamlRoot
-			}.ShowAsync() == ContentDialogResult.Primary)
+			}.ShowAsync();
+			try
 			{
-				FilePatcher.InstallAmdDLSS5(game);
-				ShowMessage(Translator.T("Dlg_Dlss5_AmdSetup"));
+				var amdDir = Path.Combine(AppContext.BaseDirectory, "Patches", "AMD方案");
+				if (Directory.Exists(amdDir))
+				{
+					System.Diagnostics.Process.Start("explorer.exe", amdDir);
+				}
 			}
+			catch { }
 		}
 		else
 		{
@@ -1051,63 +1102,230 @@ public sealed partial class HomePage : Page
 		UpdateButtonStates(game);
 	}
 
-	private async void Dx9Dlss5Btn_Click(object sender, RoutedEventArgs e)
+	private async void GitcDlss5Btn_Click(object sender, RoutedEventArgs e)
 	{
-			if(!await CheckBackupLimit()) return;
+		if (!await CheckBackupLimit()) return;
 		GameInfo game = SelectedGame;
 		if (game == null)
 		{
 			return;
 		}
-		if (game.Dx9Dlss5Enabled)
+
+		// 如果已经开启了，就执行还原
+		string gameKey = game.ExePath ?? "";
+		if (IsGitcOn(gameKey))
 		{
-			switch (await ShowModeDialog(Translator.IsEnglish ? "DX9 DLSS5 Options" : "DX9 DLSS5 选项", new(string, string)[2]
+			DoRestoreGITC(game);
+			return;
+		}
+
+		// 安装逻辑全部拆到独立函数，避免触发XAML编译器bug
+		await DoInstallGITC(game);
+	}
+
+	private async Task DoInstallGITC(GameInfo game)
+	{
+		// AMD显卡检测：直接弹NeuralHub引导窗
+		GpuInfo gpu = await GetGpuInfoAsync();
+		if (gpu.IsAmd)
+		{
+			string amdGuide = Translator.IsEnglish ?
+@"[AMD GPU DLSS Setup Guide]
+This software no longer supports AMD GPU patching. Please use the standalone NeuralHub tool to enable all DLSS features:
+
+1. Install NeuralHub: Run Patches\AMD方案\NeuralHub_v0.8.0_setup.exe. It will install to C:\Users\YourUsername\AppData\Local\Danielblnc\NeuralHub by default. Just click Next all the way until Finish.
+2. Initial Setup: After launching the tool, click Start first, then import the 4 DLL files one by one:
+   - Step 1: Click the red Import button and select nvngx_dlssnr.dll (DLSS5 Super Resolution)
+   - Step 2: Click the red Import button and select nvngx_dlss.dll (DLSS Super Resolution)
+   - Step 3: Click the red Import button and select nvngx_dlssd.dll (Ray Reconstruction)
+   - Step 4: Click the red Import button and select nvngx_dlssg.dll (Frame Generation)
+   Click Finish after all files are imported.
+3. Patch your game: Select the game you want to patch inside NeuralHub, click Install Mod Loader on the right, then follow the prompts to finish. Press End in-game to open the ReShade configuration menu.
+4. Uninstall patches: Back in NeuralHub, select the patched game, click the 3-dot button next to the Play button, select Edit Mod Loader, then click Remove.
+5. Enable Frame Gen / Ray Reconstruction: Set the NVIDIA GPU Spoof option to Streamline or All. This spoofs an NVIDIA GPU to unlock NVIDA-exclusive Frame Generation and Ray Reconstruction for AMD cards.
+
+All required files are in the AMD方案 folder that will open automatically." :
+@"【AMD显卡DLSS使用指南】
+本软件不再支持AMD显卡的补丁安装，请使用独立工具NeuralHub完成所有DLSS功能：
+
+1. 安装NeuralHub：运行Patches\AMD方案\NeuralHub_v0.8.0_setup.exe，默认会安装到C:\Users\你的用户名\AppData\Local\Danielblnc\NeuralHub，一路点Next直到Finish即可。
+2. 初始配置：打开软件后先点Start，然后依次导入4个文件：
+   - 第一步点红色Import按钮选择nvngx_dlssnr.dll（DLSS5超分）
+   - 第二步点红色Import按钮选择nvngx_dlss.dll（DLSS超分）
+   - 第三步点红色Import按钮选择nvngx_dlssd.dll（光线重构）
+   - 第四步点红色Import按钮选择nvngx_dlssg.dll（帧生成）
+   全部导入完成后点Finish。
+3. 给游戏打补丁：在NeuralHub软件内选中要安装的游戏，点击右侧Install Mod Loader，一路点Next即可完成安装，游戏内默认按End键打开ReShade配置菜单。
+4. 卸载补丁：回到NeuralHub选中对应游戏，点Play按钮旁边的三个点按钮，选择Edit Mod Loader，再点Remove即可卸载。
+5. 开启帧生成/光线重构：需要把NVIDIA GPU Spoof选项设置为Streamline或者All，这个功能是伪装成N卡，让游戏对AMD用户开放N卡专属的帧生成和光线重构功能。
+
+所有需要的文件都在打开的AMD方案文件夹里。";
+			await new ContentDialog
 			{
-				(Translator.IsEnglish ? "Restore DX9 DLSS5" : "还原DX9 DLSS5", Translator.IsEnglish ? "Remove all DX9 DLSS5 patches" : "还原DX9 DLSS5（删除所有补丁）"),
-				(Translator.IsEnglish ? "Replace DLL" : "替换DLL", Translator.IsEnglish ? "Move dgVoodoo files to game's DLL directory (for games where patches don't work in exe directory)" : "替换dll（将dgVoodoo三个补丁移到游戏运行dll目录，适用于补丁不生效的情况）")
-			}))
+				Title = Translator.IsEnglish ? "AMD GPU DLSS Setup Guide" : "AMD显卡DLSS使用指南",
+				Content = amdGuide,
+				PrimaryButtonText = Translator.IsEnglish ? "Open AMD Folder" : "打开AMD方案文件夹",
+				CloseButtonText = Translator.T("Common_Cancel"),
+				XamlRoot = this.Content.XamlRoot
+			}.ShowAsync();
+			try
 			{
-			case 0:
-				if (await ConfirmAndRestoreDLSS5(game))
-				{
-					ShowMessage(Translator.T("Dlg_Dx9_Restored"));
-				}
-				break;
-			case 1:
-				if (FilePatcher.ReplaceDgvoodooDll(game))
-				{
-					ShowMessage(Translator.IsEnglish ? "dgVoodoo files moved to game's DLL directory. Please test the game again." : "已将dgVoodoo三个补丁移到游戏运行dll目录，请重新测试游戏是否生效。");
-				}
-				else
-				{
-					ShowMessage(Translator.IsEnglish ? "Could not find game's DLL directory." : "未找到游戏运行dll目录，替换失败。");
-				}
-				break;
-			default:
-				return;
+				var amdDir = Path.Combine(AppContext.BaseDirectory, "Patches", "AMD方案");
+				if (Directory.Exists(amdDir)) System.Diagnostics.Process.Start("explorer.exe", amdDir);
 			}
-			UpdateButtonStates(game);
+			catch { }
+			return;
+		}
+
+		// 第一步：选择渲染API模式
+		int apiChoice = await ShowModeDialog(
+			Translator.IsEnglish ? "Select GITC DLSS5 API Mode" : "选择GITC DLSS5渲染API模式",
+			new (string, string)[]
+			{
+				(Translator.IsEnglish ? "DX12" : "DX12", Translator.IsEnglish ? "For DX12 games (recommended)" : "适用于DX12游戏（推荐）"),
+				(Translator.IsEnglish ? "DX9" : "DX9", Translator.IsEnglish ? "For DX9 games" : "适用于DX9游戏"),
+				(Translator.IsEnglish ? "Vulkan" : "Vulkan", Translator.IsEnglish ? "For Vulkan games" : "适用于Vulkan游戏")
+			});
+
+		if (apiChoice == -1) return;
+
+		// 第二步：选择显卡型号
+		int gpuChoice = await ShowModeDialog(
+			Translator.IsEnglish ? "Select Your GPU Model" : "选择你的显卡型号",
+			new (string, string)[]
+			{
+				(Translator.IsEnglish ? "RTX 20/30 Series" : "RTX 20/30系", Translator.IsEnglish ? "For RTX 20 and 30 series cards" : "适用于RTX 20系和30系显卡"),
+				(Translator.IsEnglish ? "RTX 40 Series" : "RTX 40系", Translator.IsEnglish ? "For RTX 40 series cards" : "适用于RTX 40系显卡"),
+				(Translator.IsEnglish ? "RTX 50 Series" : "RTX 50系", Translator.IsEnglish ? "For RTX 50 series cards" : "适用于RTX 50系显卡")
+			});
+
+		if (gpuChoice == -1) return;
+
+		// 根据选择的API设置对应的dll名
+		string apiName = apiChoice switch
+		{
+			0 => "dx12",
+			1 => "dx9",
+			2 => "vulkan",
+			_ => "dx12"
+		};
+
+		// 如果是DX9模式，才需要选安装方式和游戏位数
+		string installSubDir = "";
+		bool is32bit = false;
+		if (apiName == "dx9")
+		{
+			// 第一个弹窗：选择安装方式
+			int installModeChoice = await ShowModeDialog(
+				Translator.IsEnglish ? "Please select installation mode:" : "请选择安装方式",
+				new (string, string)[]
+				{
+					(Translator.IsEnglish ? "Standard installation" : "通用安装", Translator.IsEnglish ? "Install to game exe directory" : "安装到游戏exe目录"),
+					(Translator.IsEnglish ? "Source Engine installation" : "起源引擎安装", Translator.IsEnglish ? "Install to bin subdirectory (like Half-Life 2)" : "安装到bin子目录（比如半条命2）")
+				});
+			if (installModeChoice == -1) return;
+			if (installModeChoice == 1)
+			{
+				installSubDir = "bin";
+			}
+
+			// 第二个弹窗：选择游戏位数
+			int bitChoice = await ShowModeDialog(
+				Translator.IsEnglish ? "Please select game bitness:" : "请选择游戏位数",
+				new (string, string)[]
+				{
+					(Translator.IsEnglish ? "32-bit game" : "32位游戏", Translator.IsEnglish ? "For old DX9 games" : "老DX9游戏选这个"),
+					(Translator.IsEnglish ? "64-bit game" : "64位游戏", Translator.IsEnglish ? "For modern games" : "现代游戏选这个")
+				});
+			if (bitChoice == -1) return;
+			is32bit = (bitChoice == 0);
+		}
+
+		// 安装基础文件
+		ShowMessage(Translator.IsEnglish ? $"Installing GITC DLSS5 {apiName.ToUpper()} base files..." : $"正在安装GITC DLSS5 {apiName.ToUpper()}基础文件...");
+		bool success = false;
+		string errorMsg = "";
+		try
+		{
+			success = FilePatcher.InstallGITCDLSS5_Base(game, apiName, installSubDir, is32bit);
+		}
+		catch (Exception ex)
+		{
+			errorMsg = ex.Message;
+			success = false;
+		}
+
+		if (!success)
+		{
+			ShowMessage(Translator.IsEnglish ? $"Failed to install base files: {errorMsg}" : $"基础文件安装失败：{errorMsg}");
+			return;
+		}
+
+		// 根据显卡型号安装对应的dlssnr.dll
+		string gpuType = gpuChoice switch
+		{
+			0 => "2030",
+			1 => "40",
+			2 => "50",
+			_ => "40"
+		};
+
+		ShowMessage(Translator.IsEnglish ? "Installing DLSS NR model for your GPU..." : "正在安装对应显卡的DLSS NR模型...");
+		success = FilePatcher.InstallGITCDLSS5_DLSSNR(game, gpuType, installSubDir);
+
+		if (success)
+		{
+			_gitcEnabledGames[game.ExePath ?? ""] = true;
+			// 合并到现有DLSS5状态显示，不用加新标签
+			game.Dlss5Enabled = true;
+			ShowMessage(Translator.IsEnglish ? "GITC DLSS5 installed successfully! Press Home in game to open the menu." : "GITC DLSS5安装成功！进入游戏后按Home键打开菜单。");
 		}
 		else
 		{
-			switch (await ShowModeDialog(Translator.IsEnglish ? "Select DX9 DLSS5 Mode" : "选择DX9 DLSS5模式", new(string, string)[2]
+			ShowMessage(Translator.IsEnglish ? "Failed to install DLSS NR model." : "DLSS NR模型安装失败。");
+		}
+
+		UpdateButtonStates(game);
+		// 安装成功后，在UpdateButtonStates之后再点亮还原按钮
+		if (success)
+		{
+			RestoreBtn.IsEnabled = true;
+			if (_gitcBtn != null)
 			{
-				(Translator.IsEnglish ? "32-bit" : "32位", Translator.IsEnglish ? "For 32-bit DX9 games" : "适用于32位DX9游戏"),
-				(Translator.IsEnglish ? "64-bit" : "64位", Translator.IsEnglish ? "For 64-bit DX9 games" : "适用于64位DX9游戏")
-			}))
-			{
-			case 0:
-				FilePatcher.InstallDX9DLSS5_32(game);
-				break;
-			case 1:
-				FilePatcher.InstallDX9DLSS5_64(game);
-				break;
-			default:
-				return;
+				_gitcBtn.Content = Translator.IsEnglish ? "Disable DLSS5" : "关闭DLSS5";
 			}
-			ShowMessage(Translator.T("Dlg_Dx9_Installed"));
-			game.Dx9Dlss5Enabled = true;
-			UpdateButtonStates(game);
+		}
+	}
+
+	private async void DoRestoreGITC(GameInfo game)
+	{
+		// 确认弹窗
+		var dialog = new ContentDialog
+		{
+			Title = Translator.IsEnglish ? "Restore GITC DLSS5" : "还原GITC DLSS5",
+			Content = Translator.IsEnglish ? "Are you sure you want to restore GITC DLSS5? This will delete all GITC related files." : "确定要还原GITC DLSS5吗？将删除所有GITC相关文件。",
+			PrimaryButtonText = Translator.IsEnglish ? "Yes" : "确定",
+			CloseButtonText = Translator.IsEnglish ? "Cancel" : "取消",
+			XamlRoot = Content.XamlRoot
+		};
+		var result = await dialog.ShowAsync();
+		if (result != ContentDialogResult.Primary) return;
+
+		bool success = FilePatcher.RestoreGITCDLSS5(game);
+		if (success)
+		{
+			_gitcEnabledGames.Remove(game.ExePath ?? "");
+			// 清除合并的DLSS5状态显示
+			game.Dlss5Enabled = false;
+			if (_gitcBtn != null)
+			{
+				_gitcBtn.Content = Translator.IsEnglish ? "Enable DLSS5" : "开启DLSS5";
+			}
+			ShowMessage(Translator.IsEnglish ? "DLSS5 restored successfully." : "DLSS5已还原。");
+		}
+		else
+		{
+			ShowMessage(Translator.IsEnglish ? "Failed to restore DLSS5." : "DLSS5还原失败。");
 		}
 	}
 
@@ -1282,56 +1500,26 @@ public sealed partial class HomePage : Page
 		{
 			return;
 		}
-		string[] configNames = new string[12]
+		// MFGUnlocker v1.7.0 支持的配置名列表
+		string[] configNames = new string[]
 		{
-			"dinput8", "d3d11", "winmm", "d3d9", "winhttp", "wininet", "dsound", "binkw64", "xinput1_3", "bink2w64",
-			"xinput1_4", "xinputuap"
+			"dinput8", "winmm", "d3d9", "d3d10", "d3d11", "d3d12", 
+			"dxgi", "dsound", "wininet", "winhttp", "binkw64", "bink2w64",
+			"xinput1_1", "xinput1_2", "xinput1_3", "xinput1_4", "xinput9_1_0", "xinputuap"
 		};
 		ComboBox nameCombo = new ComboBox
 		{
 			Header = Translator.T("Dlg_ConfigName_SelectName")
 		};
-		string[] array = configNames;
-		foreach (string item in array)
+		foreach (string item in configNames)
 		{
 			nameCombo.Items.Add(item);
 		}
 		nameCombo.SelectedIndex = 0;
-		ContentDialog dialog = null;
-		Button button = new Button
-		{
-			Content = (Translator.IsEnglish ? "Rename dxgi.dll → d3d12.dll (click to execute)" : "修改dxgi.dll → d3d12.dll（单独操作，点击即执行）"),
-			Margin = new Thickness(0.0, 8.0, 0.0, 0.0)
-		};
-		button.Click += delegate
-		{
-			dialog?.Hide();
-			string text = Path.Combine(exeDir, "dxgi.dll");
-			string text2 = Path.Combine(exeDir, "d3d12.dll");
-			if (!File.Exists(text))
-			{
-				ShowMessage(Translator.T("Dlg_ConfigName_DxgiNotFound"));
-			}
-			else if (File.Exists(text2))
-			{
-				ShowMessage(Translator.T("Dlg_ConfigName_DxgiConflict"));
-			}
-			else
-			{
-				File.Move(text, text2);
-				ShowMessage(Translator.T("Dlg_ConfigName_DxgiDone"));
-			}
-		};
-		StackPanel stackPanel = new StackPanel
-		{
-			Spacing = 12.0
-		};
-		stackPanel.Children.Add(nameCombo);
-		stackPanel.Children.Add(button);
-		dialog = new ContentDialog
+		ContentDialog dialog = new ContentDialog
 		{
 			Title = Translator.T("Dlg_ConfigName_Title"),
-			Content = stackPanel,
+			Content = nameCombo,
 			PrimaryButtonText = Translator.T("Dlg_ConfigName_ModifyVersion"),
 			CloseButtonText = Translator.T("Common_Close"),
 			XamlRoot = base.Content.XamlRoot
@@ -1342,14 +1530,12 @@ public sealed partial class HomePage : Page
 		}
 		string newName = configNames[nameCombo.SelectedIndex];
 		string versionDll = Path.Combine(exeDir, "version.dll");
-		string versionIni = Path.Combine(exeDir, "version.ini");
 		string newDll = Path.Combine(exeDir, newName + ".dll");
-		string newIni = Path.Combine(exeDir, newName + ".ini");
-		if (!File.Exists(versionDll) && !File.Exists(versionIni))
+		if (!File.Exists(versionDll))
 		{
 			ShowMessage(Translator.T("Dlg_ConfigName_NotFound"));
 		}
-		else if (File.Exists(newDll) || File.Exists(newIni))
+		else if (File.Exists(newDll))
 		{
 			ShowMessage(string.Format(Translator.T("Dlg_ConfigName_Conflict"), newName));
 		}
@@ -1362,14 +1548,8 @@ public sealed partial class HomePage : Page
 			XamlRoot = base.Content.XamlRoot
 		}.ShowAsync() == ContentDialogResult.Primary)
 		{
-			if (File.Exists(versionDll))
-			{
-				File.Move(versionDll, newDll);
-			}
-			if (File.Exists(versionIni))
-			{
-				File.Move(versionIni, newIni);
-			}
+			File.Move(versionDll, newDll);
+			FilePatcher.RecordConfigNameRename(selectedGame, versionDll, newDll);
 			ShowMessage(string.Format(Translator.T("Dlg_ConfigName_Done"), newName));
 		}
 	}
@@ -1512,13 +1692,31 @@ public sealed partial class HomePage : Page
 			List<string> dirsToDelete = tuple.dirsToDelete.Concat(tuple2.Item3).Distinct().ToList();
 			if (await ShowRestoreConfirmDialog(Translator.T("Dlg_Restore_Title"), filesToDelete, filesToRestore, dirsToDelete))
 			{
-				FilePatcher.RestoreFrameGen(game);
-				FilePatcher.RestoreDLSS5(game);
+				// 按实际开启的功能分别还原，没装的功能不再跟着跑一遍
+				string gameKey = game.ExePath ?? "";
+				bool gitcOn = IsGitcOn(gameKey);
+				if (game.FrameGenEnabled)
+				{
+					FilePatcher.RestoreFrameGen(game);
+				}
+				if (gitcOn)
+				{
+					FilePatcher.RestoreGITCDLSS5(game);
+				}
+				else if (game.Dlss5Enabled)
+				{
+					FilePatcher.RestoreDLSS5(game);
+				}
+				_gitcEnabledGames.Remove(game.ExePath ?? "");
 				ShowMessage(Translator.T("Dlg_Restore_Done"));
 				game.FrameGenEnabled = false;
 				game.Dlss5Enabled = false;
 				game.Dx9Dlss5Enabled = false;
 				UpdateButtonStates(game);
+				if (_gitcBtn != null)
+				{
+					_gitcBtn.Content = Translator.IsEnglish ? "Enable DLSS5" : "开启DLSS5";
+				}
 			}
 		}
 		else if (await new ContentDialog
@@ -1531,11 +1729,17 @@ public sealed partial class HomePage : Page
 		}.ShowAsync() == ContentDialogResult.Primary)
 		{
 			FilePatcher.ForceClean(game);
+			FilePatcher.RestoreGITCDLSS5(game);
+			_gitcEnabledGames.Remove(game.ExePath ?? "");
 			ShowMessage(Translator.T("Dlg_Restore_NoResp_Done"));
 			game.FrameGenEnabled = false;
 			game.Dlss5Enabled = false;
 			game.Dx9Dlss5Enabled = false;
 			UpdateButtonStates(game);
+			if (_gitcBtn != null)
+			{
+				_gitcBtn.Content = Translator.IsEnglish ? "Enable DLSS5" : "开启DLSS5";
+			}
 		}
 	}
 
@@ -1778,10 +1982,122 @@ public sealed partial class HomePage : Page
 		Dlss5Btn_Click(sender, e);
 	}
 
-	private void CtxDx9Dlss5_Click(object sender, RoutedEventArgs e)
+	private async void CtxGitcDlss5_Click(object sender, RoutedEventArgs e)
 	{
 		EnsureContextGame();
-		Dx9Dlss5Btn_Click(sender, e);
+		if (!await CheckBackupLimit()) return;
+		GameInfo game = SelectedGame;
+		if (game == null)
+		{
+			return;
+		}
+
+		// 第一步：选择渲染API模式
+		int apiChoice = await ShowModeDialog(
+			Translator.IsEnglish ? "Select GITC DLSS5 API Mode" : "选择GITC DLSS5渲染API模式",
+			new (string, string)[]
+			{
+				(Translator.IsEnglish ? "DX12" : "DX12", Translator.IsEnglish ? "For DX12 games (recommended)" : "适用于DX12游戏（推荐）"),
+				(Translator.IsEnglish ? "DX9" : "DX9", Translator.IsEnglish ? "For DX9 games" : "适用于DX9游戏"),
+				(Translator.IsEnglish ? "Vulkan" : "Vulkan", Translator.IsEnglish ? "For Vulkan games" : "适用于Vulkan游戏")
+			});
+
+		if (apiChoice == -1) return;
+
+		// 第二步：选择显卡型号
+		int gpuChoice = await ShowModeDialog(
+			Translator.IsEnglish ? "Select Your GPU Model" : "选择你的显卡型号",
+			new (string, string)[]
+			{
+				(Translator.IsEnglish ? "RTX 20/30 Series" : "RTX 20/30系", Translator.IsEnglish ? "For RTX 20 and 30 series cards" : "适用于RTX 20系和30系显卡"),
+				(Translator.IsEnglish ? "RTX 40 Series" : "RTX 40系", Translator.IsEnglish ? "For RTX 40 series cards" : "适用于RTX 40系显卡"),
+				(Translator.IsEnglish ? "RTX 50 Series" : "RTX 50系", Translator.IsEnglish ? "For RTX 50 series cards" : "适用于RTX 50系显卡")
+			});
+
+		if (gpuChoice == -1) return;
+
+		// 根据选择的API设置对应的dll名
+		string apiName = apiChoice switch
+		{
+			0 => "dx12",
+			1 => "dx9",
+			2 => "vulkan",
+			_ => "dx12"
+		};
+
+		// 如果是DX9模式，才需要选安装方式和游戏位数
+		string installSubDir = "";
+		bool is32bit = false;
+		if (apiName == "dx9")
+		{
+			// 第一个弹窗：选择安装方式
+			int installModeChoice = await ShowModeDialog(
+				Translator.IsEnglish ? "Please select installation mode:" : "请选择安装方式",
+				new (string, string)[]
+				{
+					(Translator.IsEnglish ? "Standard installation" : "通用安装", Translator.IsEnglish ? "Install to game exe directory" : "安装到游戏exe目录"),
+					(Translator.IsEnglish ? "Source Engine installation" : "起源引擎安装", Translator.IsEnglish ? "Install to bin subdirectory (like Half-Life 2)" : "安装到bin子目录（比如半条命2）")
+				});
+			if (installModeChoice == -1) return;
+			if (installModeChoice == 1)
+			{
+				installSubDir = "bin";
+			}
+
+			// 第二个弹窗：选择游戏位数
+			int bitChoice = await ShowModeDialog(
+				Translator.IsEnglish ? "Please select game bitness:" : "请选择游戏位数",
+				new (string, string)[]
+				{
+					(Translator.IsEnglish ? "32-bit game" : "32位游戏", Translator.IsEnglish ? "For old DX9 games" : "老DX9游戏选这个"),
+					(Translator.IsEnglish ? "64-bit game" : "64位游戏", Translator.IsEnglish ? "For modern games" : "现代游戏选这个")
+				});
+			if (bitChoice == -1) return;
+			is32bit = (bitChoice == 0);
+		}
+
+		// 安装基础文件
+		ShowMessage(Translator.IsEnglish ? $"Installing GITC DLSS5 {apiName.ToUpper()} base files..." : $"正在安装GITC DLSS5 {apiName.ToUpper()}基础文件...");
+		bool success = false;
+		string errorMsg = "";
+		try
+		{
+			success = FilePatcher.InstallGITCDLSS5_Base(game, apiName, installSubDir, is32bit);
+		}
+		catch (Exception ex)
+		{
+			errorMsg = ex.Message;
+			success = false;
+		}
+
+		if (!success)
+		{
+			ShowMessage(Translator.IsEnglish ? $"Failed to install base files: {errorMsg}" : $"基础文件安装失败：{errorMsg}");
+			return;
+		}
+
+		// 根据显卡型号安装对应的dlssnr.dll
+		string gpuType = gpuChoice switch
+		{
+			0 => "2030",
+			1 => "40",
+			2 => "50",
+			_ => "40"
+		};
+
+		ShowMessage(Translator.IsEnglish ? "Installing DLSS NR model for your GPU..." : "正在安装对应显卡的DLSS NR模型...");
+		success = FilePatcher.InstallGITCDLSS5_DLSSNR(game, gpuType, installSubDir);
+
+		if (success)
+		{
+			ShowMessage(Translator.IsEnglish ? "GITC DLSS5 installed successfully! Press Home in game to open the menu." : "GITC DLSS5安装成功！进入游戏后按Home键打开菜单。");
+		}
+		else
+		{
+			ShowMessage(Translator.IsEnglish ? "Failed to install DLSS NR model." : "DLSS NR模型安装失败。");
+		}
+
+		UpdateButtonStates(game);
 	}
 
 	private void Ctx2077_Click(object sender, RoutedEventArgs e)

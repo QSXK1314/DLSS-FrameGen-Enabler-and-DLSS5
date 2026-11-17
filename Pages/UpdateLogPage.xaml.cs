@@ -25,6 +25,12 @@ namespace DLSSFrameGenEnabler_WinUI3.Pages;
 
 public sealed partial class UpdateLogPage : Page
 {
+	private bool _v13Inserted = false;
+	private TextBlock? _v13Title;
+	private TextBlock[]? _v13Items;
+	private bool _v131Inserted = false;
+	private TextBlock? _v131Title;
+	private TextBlock[]? _v131Items;
 
 	public UpdateLogPage()
 	{
@@ -39,11 +45,98 @@ public sealed partial class UpdateLogPage : Page
 		TitleText.Text = (isEnglish ? "Update Log" : "更新内容");
 		CheckUpdateBtn.Content = (isEnglish ? "Check Update" : "检查更新");
 		DirectDownloadBtn.Content = (isEnglish ? "Direct Download" : "直接下载最新版");
-		V11520BetaTitle.Text = "V1.14.2.0";
-		V11520Beta_1.Text = "";
+
+		// 动态在最前面插入V1.30更新条目（只插入一次，切换语言时更新文字）
+		if (!_v13Inserted)
+		{
+			_v13Inserted = true;
+			int insertPos = 0;
+			_v13Title = new TextBlock { FontWeight = Microsoft.UI.Text.FontWeights.Bold, FontSize = 18, Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.ForestGreen), Margin = new Thickness(0,0,0,8) };
+			ContentStack.Children.Insert(insertPos++, _v13Title);
+			_v13Items = new TextBlock[6];
+			for (int i = 0; i < 6; i++)
+			{
+				_v13Items[i] = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,0,0,4) };
+				ContentStack.Children.Insert(insertPos++, _v13Items[i]);
+			}
+		}
+		// 更新V1.30条目的文字
+		_v13Title.Text = App.IsBeta ? "V1.30-Beta" : "V1.18";
+		string[] v13Texts = new string[] {
+			isEnglish ? "DLSS5 fully replaced with GITC unified solution, dlssnr updated to v310.9.16.0, supports both new and old AI models" : "①DLSS 5全面替换成GITC方案，dlssnr版本更新到最新版的310.9.16.0，该版本支持新模型和旧模型",
+			isEnglish ? "Added Vulkan API support for DLSS5, DX9 legacy game branch support (currently only supports generic install and Source engine install, more game-specific adapters will be added based on user feedback)" : "②更新DLSS 5对Vulkan游戏的支持，dx9的老游戏进行分支支持（目前仍然只支持普通安装与起源引擎安装，如有其他游戏需求，经过反馈后会更新）",
+			isEnglish ? "Updated RE Engine and Where Winds Meet (Yan Yun) support for new Frame Gen and GITC DLSS5 install method. Yan Yun support is still in testing, official DLSS5 support will launch end of November, future updates may remove built-in Yan Yun DLSS5 support." : "③更新RE引擎游戏与燕云十六声适配新版的多帧生成安装方案与GITC DLSS 5安装方案（目前燕云十六声仍处于测试阶段，并且由于官方将在11月底适配DLSS 5，所以本软件以后可能会取消对燕云十六声对DLSS 5的支持）",
+			isEnglish ? "Removed built-in AMD GPU support, as NeuralHub v0.8.0 provides much better AMD DLSS experience. AMD users can still use this software: we bundle the full NeuralHub v0.8.0 toolkit, and show a detailed step-by-step guide when AMD GPU is detected, with one-click open to the toolkit folder." : "④由于NeuralHub v0.8.0功能对于AMD显卡的支持更为强大，所以本软件取消对AMD显卡的支持，不过AMD显卡用户依旧可以下载本软件，因为本软件会给予AMD显卡玩家过渡方案NeuralHub v0.8.0 的安装包，当AMD用户使用本软件的时候，会详细提示AMD用户操作方法，本软件整合了所有NeuralHub v0.8.0所需的文件，只需要打开本软件弹出的文件夹并打开文件夹里的NeuralHub v0.8.0_setup.exe进行安装即可，剩余步骤本软件的提示弹窗会详细告诉您！",
+			isEnglish ? "Cleaned up all old code and deprecated patch files to reduce package size (partially offset by bundled AMD toolkit files)." : "⑤删除旧代码与废弃补丁以节省体积（虽然被AMD显卡的所需补丁给占了回来）",
+			""
+		};
+		for (int i = 0; i < 6; i++)
+		{
+			_v13Items[i].Text = v13Texts[i];
+		}
+
+		// 动态在最前面插入V1.31更新条目（只插入一次，切换语言时更新文字）
+		if (!_v131Inserted)
+		{
+			_v131Inserted = true;
+			int insertPos2 = 0;
+			_v131Title = new TextBlock { FontWeight = Microsoft.UI.Text.FontWeights.Bold, FontSize = 18, Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.OrangeRed), Margin = new Thickness(0, 0, 0, 8) };
+			ContentStack.Children.Insert(insertPos2++, _v131Title);
+			_v131Items = new TextBlock[8];
+			for (int i = 0; i < 8; i++)
+			{
+				_v131Items[i] = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 4) };
+				ContentStack.Children.Insert(insertPos2++, _v131Items[i]);
+			}
+		}
+		if (_v131Title != null && _v131Items != null)
+		{
+			_v131Title.Text = App.IsBeta ? "V1.31-Beta" : "V1.20";
+			string[] v131Texts = new string[] {
+				isEnglish ? "Fixed: GITC DLSS5 restore no longer deletes game native files. The old hard-coded deletion of dxgi.dll / d3d9.dll / vulkan.dll / dinput8.dll / ReShade.ini and the whole Fonts folder has been removed; restore now follows the install backup manifest and only removes what the installer actually added." : "①修复：GITC 版 DLSS5 还原不再误删游戏原生文件——删除了原来固定删除 dxgi.dll / d3d9.dll / vulkan.dll / dinput8.dll / ReShade.ini 和整个 Fonts 目录的逻辑，改为按安装时的备份清单精确还原，只删本软件真正新增的内容",
+				isEnglish ? "Fixed: One-click restore no longer runs all three restore routines blindly. It now only restores the features actually enabled (Frame Gen / GITC DLSS5), so untouched patches are left alone." : "②修复：一键还原不再无差别执行三种还原——现在只还原实际已开启的功能（多帧生成 / GITC DLSS5），未安装的补丁不会被误动",
+				isEnglish ? "Fixed: GITC install now backs up existing files before overwriting them, so the original files can be fully recovered on restore." : "③修复：GITC 安装覆盖已存在的文件前会先备份，还原时可以完整恢复游戏原生文件，而不是直接删掉",
+				isEnglish ? "Fixed: Removed the forced 'DLSS5 and Frame Gen are mutually exclusive' rule on startup. RE Engine games can now enable Multi Frame Generation and GITC DLSS5 at the same time." : "④修复：启动时不再强制「DLSS5 与多帧生成只能开其一」，RE 引擎游戏现在可以同时开启多帧生成和 GITC DLSS5",
+				isEnglish ? "Fixed: GITC button state now persists after restart. No more button showing 'Enable DLSS5' while the list says enabled, and no more duplicate installs creating V2/V3 backups." : "⑤修复：GITC 按钮状态重启后保持，不再出现按钮显示「开启DLSS5」而列表显示已开启的情况，也不会重复安装生成 V2/V3 备份",
+				isEnglish ? "Fixed: GITC-Uplift folder (including nvngx_dlssnr.dll) is now removed when restoring GITC DLSS5. Residual folders from older installs are cleaned up too." : "⑥修复：GITC DLSS5 还原后 GITC-Uplift 文件夹残留（含 nvngx_dlssnr.dll）的问题，旧版本装过的残留也会一并清理",
+				isEnglish ? "Fixed: Status column no longer incorrectly shows 'DLSS5 only' when both Multi Frame Generation and DLSS5 are enabled on RE Engine games." : "⑦修复：RE 引擎游戏同时开启多帧生成和 DLSS5 时，状态列错误显示为「只开启 DLSS5」的问题",
+				isEnglish ? "Misc: Backup limit hint and actual threshold are now both 1024MB; removed outdated 'RE Engine conflict' and 'AMD 7000/9000 series support' notes from the usage guide." : "⑧其他：备份上限提示与实际阈值统一为 1024MB；使用说明删除已过时的「RE 引擎两者冲突」和「A 卡 7000/9000 系支持」描述",
+			};
+			for (int i = 0; i < 8; i++)
+			{
+				_v131Items[i].Text = v131Texts[i];
+			}
+		}
+
+		V11550BetaTitle.Text = App.IsBeta ? "V1.21-Beta" : "V1.14.3.0";
+		V11550Beta_1.Text = (isEnglish ? "MAJOR UPDATE: Unified Installation for RTX 20/30/40/50 Series - All NVIDIA GPUs now use the same MFGUnlocker v1.7.0 single-file method. Removed old separate patches for RTX 20 and 30 series, reducing package size by ~30MB." : "重大更新：RTX 20/30/40/50系统一安装方法 - 所有N卡现在都使用相同的MFGUnlocker v1.7.0单文件方法。删除旧的RTX 20系和30系专属补丁，安装包体积减少约30MB。");
+		V11550Beta_2.Text = (isEnglish ? "IMPROVED: Simplified Code Structure - Removed GPU model detection branches and separate installation functions for RTX 20/30 series. All N cards now go through the same Classic/Advanced mode selection flow." : "优化：简化代码结构 - 删除RTX 20/30系显卡型号识别分支和独立安装函数。所有N卡统一走经典/高级模式选择流程。");
+		V11550Beta_3.Text = (isEnglish ? "FIXED: Restore Logic Bug - Fixed issue where restore would delete game native directories along with patch files. Now only delete files, not directories, to prevent accidental data loss." : "修复：还原逻辑Bug - 修复还原时会连同游戏原生目录一起删除的问题。现在只删文件不删目录，防止误删游戏文件。");
+		V11550Beta_4.Text = (isEnglish ? "CONTINUED: MFGUnlocker v1.7.0 Single File Architecture - Installation simplified to only 3 files: version.dll, nvngx_dlssg.dll, nvngx_dlss.dll. HOME key menu hotkey. Auto-generated config files." : "延续：MFGUnlocker v1.7.0单文件架构 - 安装简化为只需3个文件：version.dll、nvngx_dlssg.dll、nvngx_dlss.dll。HOME键呼出菜单。自动生成配置文件。");
+		V11550Beta_5.Text = (isEnglish ? "FIXED: Phantom Blade Zero Auto-Scan - Fixed issue where Phantom Blade Zero (PBZ) could not be detected by auto-scan." : "修复：影之刃零自动扫描 - 修复影之刃零（PBZ）无法被自动扫描识别的问题。");
+		V11520BetaTitle.Text = "V1.15.4.0-Beta(7)";
+		V11520Beta_1.Text = (isEnglish ? "\ud83d\udd2c BETA: This is a beta version for testing new features. Stable version remains V1.14.1.0. Beta features will be synced to stable version after testing." : "\ud83d\udd2c 测试版：本版本为测试版，用于测试新功能。稳定版仍为V1.14.1.0。测试版功能经过测试后会同步到稳定版。");
 		V11520Beta_2.Text = (isEnglish ? "IMPROVED & FIXED: Enhanced patch installation logic, fixed issue where some patches could not be replaced correctly" : "改进和修复：增强安装补丁逻辑，修复部分补丁无法正确替换的问题");
 		V11520Beta_3.Text = (isEnglish ? "REWRITTEN RESTORE LOGIC: Backup directory moved from C drive to software directory, added 'Open Backup Directory' and 'Delete Backup' functions, backup files are stored according to original game path, backup size limit set to 1024MB" : "还原逻辑重写：备份目录从C盘移植到软件目录下，新增打开备份目录和删除备份功能，同时备份的文件会根据游戏原路径存放，现在备份目录会有1024MB的上限");
 		V11520Beta_4.Text = (isEnglish ? "FIXED: Fix repair function could not detect patches issue" : "修复排错修复功能无法识别到补丁的问题");
+
+			// 稳定版隐藏测试版专属更新内容
+			if (!App.IsBeta)
+			{
+				V11520BetaTitle.Visibility = Visibility.Collapsed;
+				V11520Beta_1.Visibility = Visibility.Collapsed;
+				V11520Beta_2.Visibility = Visibility.Collapsed;
+				V11520Beta_3.Visibility = Visibility.Collapsed;
+				V11520Beta_4.Visibility = Visibility.Collapsed;
+			}
+			else
+			{
+				V11520BetaTitle.Visibility = Visibility.Visible;
+				V11520Beta_1.Visibility = Visibility.Visible;
+				V11520Beta_2.Visibility = Visibility.Visible;
+				V11520Beta_3.Visibility = Visibility.Visible;
+				V11520Beta_4.Visibility = Visibility.Visible;
+			}
 										V11400Title.Text = "V1.14.0.0";
 		V11400_1.Text = (isEnglish ? "NEW: Manual Add Exe now supports ALL games (DX9/DX11/DX12), no longer forced to DX9 only. Detect Running Games also supports all games" : "新增：手动添加exe现在支持所有游戏（DX9/DX11/DX12），不再强制只支持DX9。检测运行中游戏也支持所有游戏");
 		V11400_2.Text = (isEnglish ? "NEW: Manual Add Directory skips hasRealGameExe check for network drives - users explicitly select the folder, so it must be a game folder, avoids Directory.Exists/GetFiles failures on network drives" : "新增：手动添加目录跳过hasRealGameExe检查（针对网络驱动器）- 用户明确选择了文件夹，肯定是游戏目录，避免网络驱动器上Directory.Exists/GetFiles失败");
@@ -381,7 +474,7 @@ public sealed partial class UpdateLogPage : Page
 				bool flag = false;
 				foreach (JsonElement item2 in rootElement.EnumerateArray())
 				{
-					if (item2.TryGetProperty("prerelease", out var value) && value.GetBoolean())
+					if (item2.TryGetProperty("prerelease", out var value) && value.GetBoolean() == App.IsBeta)
 					{
 						releaseElement = item2.Clone();
 						flag = true;
@@ -395,7 +488,7 @@ public sealed partial class UpdateLogPage : Page
 					await new ContentDialog
 					{
 						Title = (Translator.IsEnglish ? "Download Failed" : "下载失败"),
-						Content = (Translator.IsEnglish ? "No beta version found in GitHub releases.\n\nTip: Users in mainland China may need a VPN/accelerator to access GitHub." : "在GitHub releases中没有找到测试版。\n\n提示：中国大陆用户建议使用加速器后再使用直接下载功能。"),
+						Content = (Translator.IsEnglish ? "No matching version found in GitHub releases.\n\nTip: Users in mainland China may need a VPN/accelerator to access GitHub." : "在GitHub releases中没有找到对应版本。\n\n提示：中国大陆用户建议使用加速器后再使用直接下载功能。"),
 						CloseButtonText = "OK",
 						RequestedTheme = theme,
 						XamlRoot = base.Content.XamlRoot
@@ -855,3 +948,5 @@ public sealed partial class UpdateLogPage : Page
 	}
 
 }
+
+

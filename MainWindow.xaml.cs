@@ -693,6 +693,11 @@ public sealed partial class MainWindow : Window
 				await Task.Delay(300);
 				await ShowUsageGuideDialog();
 			}
+			if (App.IsBeta && SettingsService.Instance.ShowBetaFeedback)
+			{
+				await Task.Delay(300);
+				await ShowBetaFeedbackDialog();
+			}
 			if (!_updateChecked)
 			{
 				_updateChecked = true;
@@ -929,7 +934,7 @@ public sealed partial class MainWindow : Window
 				bool flag = false;
 				foreach (JsonElement item2 in rootElement.EnumerateArray())
 				{
-					if (item2.TryGetProperty("prerelease", out var value) && value.GetBoolean())
+					if (item2.TryGetProperty("prerelease", out var value) && value.GetBoolean() == App.IsBeta)
 					{
 						releaseElement = item2.Clone();
 						flag = true;

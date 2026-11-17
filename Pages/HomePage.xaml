@@ -23,10 +23,8 @@
             <Button x:Name="DetectRunningBtn" Content="检测运行中游戏" ToolTipService.ToolTip="检测当前正在运行的游戏进程，100%准确识别游戏真正的exe" Click="DetectRunningBtn_Click" />
             <Button x:Name="RefreshStatusBtn" Content="刷新状态" ToolTipService.ToolTip="重新检测所有游戏的补丁开启状态" Click="RefreshStatusBtn_Click" />
             <Button x:Name="ClearAllBtn" Content="清除列表" ToolTipService.ToolTip="一键清除游戏列表中的所有游戏" Click="ClearAllBtn_Click" />
-            <ComboBox x:Name="SortComboBox" Width="120" ToolTipService.ToolTip="排序方式" SelectionChanged="SortComboBox_SelectionChanged">
+            <ComboBox x:Name="SortComboBox" Width="0" Visibility="Collapsed" IsHitTestVisible="False" SelectionChanged="SortComboBox_SelectionChanged">
                 <ComboBoxItem Content="默认排序" IsSelected="True" />
-                <ComboBoxItem Content="名称 A-Z" />
-                <ComboBoxItem Content="名称 Z-A" />
             </ComboBox>
         </StackPanel>
         <ListView
@@ -45,7 +43,7 @@
                             <MenuFlyout Opening="GameMenuFlyout_Opening">
                                 <MenuFlyoutItem Text="一键开启多帧生成" Click="CtxFrameGen_Click" />
                                 <MenuFlyoutItem Text="开启DLSS5" Click="CtxDlss5_Click" />
-                                <MenuFlyoutItem Text="开启DX9 DLSS5" Click="CtxDx9Dlss5_Click" />
+                                <MenuFlyoutItem Text="开启DX9 DLSS5" Visibility="Collapsed" IsHitTestVisible="False" Click="CtxDx9Dlss5_Click" />
                                 <MenuFlyoutItem Text="2077专用补丁" Click="Ctx2077_Click" />
                                 <MenuFlyoutSeparator />
                                 <MenuFlyoutItem Text="配置多帧生成" Click="CtxConfig_Click" />
@@ -100,8 +98,8 @@
             Margin="0,12,0,0"
             Visibility="Collapsed">
             <Button x:Name="FrameGenBtn" Content="一键开启多帧生成" ToolTipService.ToolTip="为选中游戏开启多帧生成功能" Click="FrameGenBtn_Click" />
-            <Button x:Name="Dlss5Btn" Content="开启DLSS5" ToolTipService.ToolTip="为选中游戏开启DLSS5超分辨率" Click="Dlss5Btn_Click" />
-            <Button x:Name="Dx9Dlss5Btn" Content="开启DX9 DLSS5" Visibility="Collapsed" ToolTipService.ToolTip="为DX9游戏开启DLSS5（需转译）" Click="Dx9Dlss5Btn_Click" />
+            <Button x:Name="Dlss5Btn" Content="开启DLSS5" Visibility="Collapsed" IsHitTestVisible="False" ToolTipService.ToolTip="为选中游戏开启DLSS5超分辨率" Click="Dlss5Btn_Click" />
+            <Button x:Name="Dx9Dlss5Btn" Content="开启DX9 DLSS5" Visibility="Collapsed" IsHitTestVisible="False" Click="Dx9Dlss5Btn_Click" />
             <Button x:Name="Cp2077Btn" Content="2077专用补丁" Visibility="Collapsed" ToolTipService.ToolTip="赛博朋克2077专用多帧生成补丁" Click="Cp2077Btn_Click" />
             <Button x:Name="ConfigBtn" Content="配置多帧生成" ToolTipService.ToolTip="编辑多帧生成配置文件（仅经典模式）" Click="ConfigBtn_Click" />
             <Button x:Name="ConfigNameBtn" Content="配置名修改" ToolTipService.ToolTip="修改补丁DLL配置名（仅高级模式）" Click="ConfigNameBtn_Click" />

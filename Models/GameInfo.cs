@@ -95,10 +95,6 @@ public class GameInfo : INotifyPropertyChanged
 				}
 				return Translator.T("Status_All");
 			}
-			if (IsREEngine && FrameGenEnabled && Dlss5Enabled)
-			{
-				return Translator.T("Status_Dlss5");
-			}
 			if (FrameGenEnabled && Dlss5Enabled)
 			{
 				return Translator.T("Status_All");

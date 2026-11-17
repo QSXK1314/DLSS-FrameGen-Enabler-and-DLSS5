@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -366,6 +366,18 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             var gameRoot = FindGameRoot(exeDir);
             var gameName = Path.GetFileNameWithoutExtension(exePath);
             
+            // 【游戏名称识别】从数据库中查找真正的游戏名称
+            string? dbGameName = GameNameDatabase.GetGameName(exePath, Translator.IsEnglish);
+            if (!string.IsNullOrEmpty(dbGameName)) {
+                gameName = dbGameName;
+            } else {
+                // 数据库中没有，尝试从exe文件版本信息中获取产品名称
+                string? productName = GameNameDatabase.GetProductNameFromExe(exePath);
+                if (!string.IsNullOrEmpty(productName)) {
+                    gameName = productName;
+                }
+            }
+            
             // 检测DX支持情况
             var (supportsDX9, supportsDX11) = CheckDXSupport(exeDir, gameRoot);
             
@@ -384,6 +396,18 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             
             // 燕云十六声特殊处理：已知支持多帧生成和DLSS5
             if (game.IsYanYun)
+            {
+                game.SupportsFrameGen = true;
+                game.IsDX9 = false;
+                game.SupportsDX11 = true;
+            }
+
+            // 影之刃零特殊处理：UE5游戏，原生支持DLSS 4.5和多帧生成，即使目录里没有独立dlssg文件也强制识别
+            if (gameName.Contains("影之刃零", StringComparison.OrdinalIgnoreCase) 
+                || gameName.Contains("Phantom Blade Zero", StringComparison.OrdinalIgnoreCase) 
+                || gameName.Contains("PBZ", StringComparison.OrdinalIgnoreCase)
+                || gameRoot.Contains("PBZ", StringComparison.OrdinalIgnoreCase)
+                || exeDir.Contains("PBZ", StringComparison.OrdinalIgnoreCase))
             {
                 game.SupportsFrameGen = true;
                 game.IsDX9 = false;
@@ -757,6 +781,20 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 supportsDX11 = true;
             }
 
+            
+            // 【游戏名称识别】根据找到的真正exe路径，从数据库中查找真正的游戏名称
+            if (!string.IsNullOrEmpty(exeFile) && File.Exists(exeFile)) {
+                string? dbGameName2 = GameNameDatabase.GetGameName(exeFile, Translator.IsEnglish);
+                if (!string.IsNullOrEmpty(dbGameName2)) {
+                    gameName = dbGameName2;
+                } else {
+                    // 数据库中没有，尝试从exe文件版本信息中获取产品名称
+                    string? productName2 = GameNameDatabase.GetProductNameFromExe(exeFile);
+                    if (!string.IsNullOrEmpty(productName2)) {
+                        gameName = productName2;
+                    }
+                }
+            }
             var game = new GameInfo
             {
                 Name = gameName,
@@ -769,6 +807,18 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 IsYanYun = isYanYun,
                 SupportsFrameGen = supportsFrameGen
             };
+
+            // 影之刃零特殊处理：UE5游戏，原生支持DLSS 4.5和多帧生成，即使目录里没有独立dlssg文件也强制识别
+            if (gameName.Contains("影之刃零", StringComparison.OrdinalIgnoreCase) 
+                || gameName.Contains("Phantom Blade Zero", StringComparison.OrdinalIgnoreCase) 
+                || gameName.Contains("PBZ", StringComparison.OrdinalIgnoreCase)
+                || gamePath.Contains("PBZ", StringComparison.OrdinalIgnoreCase)
+                || exeDir.Contains("PBZ", StringComparison.OrdinalIgnoreCase))
+            {
+                game.SupportsFrameGen = true;
+                game.IsDX9 = false;
+                game.SupportsDX11 = true;
+            }
 
             // 自动检测游戏是否已开启补丁
             if (!supportsDX11)
@@ -1246,6 +1296,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         }
 
         // 检测游戏是否原生支持多帧生成（游戏目录中是否有 nvngx_dlssg.dll 文件）
+        // 检测游戏是否原生支持多帧生成（游戏目录中是否有 nvngx_dlssg.dll 文件）
         public static bool CheckNativeFrameGenSupport(string gamePath, string exeDir)
         {
             try
@@ -1253,41 +1304,73 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 const string targetFile = "nvngx_dlssg.dll";
                 
                 // 1. 先检查exe目录下是否有 nvngx_dlssg.dll
-                if (File.Exists(Path.Combine(exeDir, targetFile)))
+                if (!string.IsNullOrEmpty(exeDir) && Directory.Exists(exeDir))
                 {
-                    return true;
-                }
-                
-                // 2. 检查exe目录的子目录（如plugins、bin等）
-                try
-                {
-                    var exeDirFiles = Directory.GetFiles(exeDir, targetFile, SearchOption.AllDirectories);
-                    if (exeDirFiles.Length > 0)
+                    if (File.Exists(Path.Combine(exeDir, targetFile)))
                     {
                         return true;
                     }
                 }
-                catch { }
                 
-                // 3. 检查游戏根目录下的常见子目录（限制搜索深度，避免搜索太久）
+                // 2. 精准判断游戏最根目录
+                string rootDir = exeDir;
+                // 优先使用gamePath（用户手动指定的游戏根目录）
                 if (!string.IsNullOrEmpty(gamePath) && Directory.Exists(gamePath))
                 {
-                    // 先检查游戏根目录下是否有
-                    if (File.Exists(Path.Combine(gamePath, targetFile)))
+                    rootDir = gamePath;
+                }
+                else if (!string.IsNullOrEmpty(exeDir) && Directory.Exists(exeDir))
+                {
+                    // 从exe目录往上找，精准判断游戏最根目录
+                    string checkDir = exeDir;
+                    string bestRoot = exeDir;
+                    for (int i = 0; i < 8; i++) // 最多往上找8层
                     {
-                        return true;
-                    }
-                    
-                    // 递归搜索游戏根目录（限制最大搜索文件数，避免搜索太久）
-                    try
-                    {
-                        var foundFiles = Directory.GetFiles(gamePath, targetFile, SearchOption.AllDirectories);
-                        if (foundFiles.Length > 0)
+                        var parent = Directory.GetParent(checkDir);
+                        if (parent == null || parent.FullName == checkDir) break;
+                        // 检查是否是盘符根目录，如果是就停止（不能回到盘符）
+                        if (parent.FullName.Length <= 3) break;
+                        checkDir = parent.FullName;
+                        // 判断是否是游戏最根目录：包含Engine目录（UE引擎游戏）
+                        if (Directory.Exists(Path.Combine(checkDir, "Engine")))
                         {
-                            return true;
+                            bestRoot = checkDir;
+                            break;
                         }
+                        // 或者包含多个游戏特征目录（Content、Data、Binaries等）
+                        int featureCount = 0;
+                        string[] gameFeatures = { "Content", "content", "Data", "data", "Binaries", "binaries", "Retail", "retail", "Game", "game" };
+                        foreach (var feature in gameFeatures)
+                        {
+                            if (Directory.Exists(Path.Combine(checkDir, feature))) featureCount++;
+                        }
+                        if (featureCount >= 2)
+                        {
+                            bestRoot = checkDir;
+                            break;
+                        }
+                        // 或者有大于5MB的exe（游戏启动器通常在根目录）
+                        try
+                        {
+                            foreach (var f in Directory.GetFiles(checkDir, "*.exe", SearchOption.TopDirectoryOnly))
+                            {
+                                if (new FileInfo(f).Length > 5 * 1024 * 1024)
+                                {
+                                    bestRoot = checkDir;
+                                    break;
+                                }
+                            }
+                        }
+                        catch { }
                     }
-                    catch { }
+                    rootDir = bestRoot;
+                }
+                
+                // 3. 在游戏最根目录下搜索，深度15层
+                var found = GetFilesWithDepthLimit(rootDir, targetFile, 15);
+                if (found.Length > 0)
+                {
+                    return true;
                 }
                 
                 return false;
@@ -1555,4 +1638,5 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         }
     }
 }
+
 

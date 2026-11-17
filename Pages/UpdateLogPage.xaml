@@ -21,6 +21,14 @@
         </StackPanel>
         <ScrollViewer Grid.Row="1">
             <StackPanel Spacing="8" x:Name="ContentStack">
+                <!-- V1.21-Beta -->
+                <TextBlock x:Name="V11550BetaTitle" Text="V1.21-Beta" FontWeight="Bold" FontSize="18" Foreground="#FF8C00" />
+                <TextBlock x:Name="V11550Beta_1" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11550Beta_2" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11550Beta_3" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11550Beta_4" Text="" TextWrapping="Wrap" />
+                <TextBlock x:Name="V11550Beta_5" Text="" TextWrapping="Wrap" />
+                                                                
                 <!-- V1.15.2.0-Beta -->
                 <TextBlock x:Name="V11520BetaTitle" Text="V1.15.2.0-Beta" FontWeight="Bold" FontSize="18" Foreground="#FF8C00" />
                 <TextBlock x:Name="V11520Beta_1" Text="" TextWrapping="Wrap" />
@@ -155,3 +163,5 @@
         </ScrollViewer>
     </Grid>
 </Page>
+
+

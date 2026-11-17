@@ -47,14 +47,21 @@ public class SettingsService
 	{
 		get
 		{
-			return StableUpdateUrl;
+			if (App.IsBeta)
+			{
+				return "https://gist.githubusercontent.com/QSXK1314/64d60ba126dc8ddabda2dfe39efe0970/raw/version-beta.json";
+			}
+
+			{
+				return "https://gist.githubusercontent.com/QSXK1314/a9595f510bc16c77051ee386e085f8f1/raw/version.json";
+			}
 		}
 		set
 		{
 		}
 	}
 
-	public bool UseBetaUpdate { get; set; } = false;
+	public bool UseBetaUpdate { get; set; } = true;
 	public bool RememberGames { get; set; } = true;
 
 	public string SkipUpdateVersion { get; set; } = "";
@@ -65,7 +72,7 @@ public class SettingsService
 
 	public bool ShowUsageGuide { get; set; } = true;
 
-	public bool ShowBetaFeedback { get; set; } = false;
+	public bool ShowBetaFeedback { get; set; } = true;
 
 	public bool AutoCheckUpdate { get; set; } = true;
 
