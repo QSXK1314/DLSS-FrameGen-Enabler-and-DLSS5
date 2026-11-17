@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-backdrop="0">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>多帧生成+DLSS5开启工具</title>
+<link rel="stylesheet" href="app.css?v=1.50.0" />
+</head>
+<body>
+<div id="app">
+
+  <header id="titlebar">
+    <div id="dragzone" class="tb-left">
+      <img class="tb-logo" src="app-icon.png" alt="" draggable="false" />
+      <div class="tb-text">
+        <div class="tb-brand" data-i18n="app.brand">多帧生成+DLSS5开启工具</div>
+        <div class="tb-sub" data-i18n="app.sub">V1.50-Beta</div>
+      </div>
+    </div>
+    <div class="tb-right">
+      <button class="win-btn" data-win="minimize" data-i18n-title="win.min" data-title-zh="最小化" title="最小化">&#x2014;</button>
+      <button class="win-btn" data-win="maximize" data-i18n-title="win.max" data-title-zh="最大化" title="最大化">
+        <svg class="win-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <button class="win-btn close" data-win="close" data-i18n-title="win.close" data-title-zh="关闭" title="关闭">&#x2715;</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-name">DLSS Toolbox</div>
+        <div class="brand-sub" data-i18n="app.brandSub">多帧生成 + DLSS5</div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-page="home"><span data-i18n="nav.home">主页</span></button>
+        <button class="nav-item" data-page="usage"><span data-i18n="nav.usage">使用说明</span></button>
+        <button class="nav-item" data-page="update"><span data-i18n="nav.update">更新内容</span></button>
+        <button class="nav-item" data-page="smooth">
+          <span data-i18n="nav.smooth">Smooth Motion</span>
+          <span class="nav-beta">Beta</span>
+        </button>
+        <button class="nav-item" data-page="download">
+          <span data-i18n="nav.download">下载</span>
+          <span class="nav-dot hidden" id="downloadNavDot"></span>
+        </button>
+      </nav>
+      <div class="nav-bottom">
+        <button class="nav-item" data-page="settings"><span data-i18n="nav.settings">设置</span></button>
+        <button class="nav-item" data-page="about"><span data-i18n="nav.about">关于</span></button>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div class="content-head">
+        <div class="head-left">
+          <div class="page-title" id="pageTitle">主页</div>
+          <div class="page-sub" id="pageSub">本地库 · 一键开关 · 状态总览</div>
+        </div>
+        <div class="head-right">
+          <button class="pill primary" id="btnGroup" data-i18n="head.group">交流群</button>
+        </div>
+      </div>
+
+      <div id="homePane">
+        <div class="notice" id="noticeBar">
+          <span class="notice-icon">!</span>
+          <span class="notice-text" data-i18n="home.notice">使用提示：本软件仅用于单机游戏，请勿用于网游或带反作弊的游戏；修改游戏文件存在封号风险，请自行评估后再使用。</span>
+          <button class="notice-ok" id="btnNoticeOk" data-i18n="home.noticeOk">了解</button>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <button class="pill" data-act="scan" data-i18n="tool.scan">自动扫描</button>
+            <button class="pill" data-act="add" data-i18n="tool.add">手动添加</button>
+            <button class="pill" data-act="addExe" data-i18n="tool.addExe">手动选择游戏 exe</button>
+            <button class="pill" data-act="detect" data-i18n="tool.detect">检测运行中游戏</button>
+            <button class="pill" data-act="refresh" data-i18n="tool.refresh">刷新状态</button>
+            <button class="pill" data-act="clear" data-i18n="tool.clear">清除列表</button>
+          </div>
+        </div>
+
+        <div class="list-bar">
+          <span id="listCount">共 0 个游戏</span>
+          <div class="list-bar-right">
+            <span class="list-hint" data-i18n="home.listHint">右键游戏卡片可快速操作</span>
+            <button class="view-toggle" id="btnViewMode" title="切换为大图模式">
+              <span class="view-glyph" id="viewGlyph">▦</span>
+              <span id="viewLabel">大图模式</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="game-list" id="gameList"></div>
+
+        <div class="foot" data-i18n="home.foot">免责声明：不建议在网游和带反作弊的游戏使用该软件，本质是修改文件，修改文件可能导致游戏封号，如遇封号本软件概不负责。</div>
+      </div>
+
+      <div id="pageUsage" class="page-pane hidden">
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.noticeTitle">⚠️ 重要声明</div>
+          <div class="doc-li" data-i18n="usage.notice1">· 本软件只建议用于单机游戏。网游或带反作弊的游戏不要使用；修改游戏文件存在封号风险。</div>
+          <div class="doc-li" data-i18n="usage.notice2">· 米哈游系列游戏反作弊较严，暂未适配，建议改用 Magpie、HoYoshade 或 XXMI 等外部方案。</div>
+          <div class="doc-li" data-i18n="usage.notice3">· 育碧、EA 平台的游戏尚未广泛适配，功能是否生效需要自行测试。</div>
+          <div class="doc-li" data-i18n="usage.notice4">· Vulkan 游戏适配有限；本软件不再为 AMD 显卡安装补丁，A 卡用户请按弹窗指引使用 NeuralHub。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.introTitle">一、软件能做什么</div>
+          <div class="doc-li" data-i18n="usage.intro1">· 一键为游戏开启多帧生成和 DLSS5。支持自动扫描 Steam / Epic / GOG / 育碧游戏库，也支持手动添加游戏目录或 exe。当前版本沿用正式版的扫描与补丁逻辑，安装、还原结果一致。</div>
+          <div class="doc-li" data-i18n="usage.intro2">· 显卡支持 NVIDIA RTX 20/30/40/50 系。补丁会按游戏自动匹配；安装 DLSS5 时还会再确认渲染 API、游戏位数和显卡型号。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.fgTitle">二、多帧生成</div>
+          <div class="doc-li"><b data-i18n="usage.fgClassicTitle">经典模式</b></div>
+          <div class="doc-li" data-i18n="usage.fgClassic">· 替换 nvngx_dlssg.dll，适合 616.56 之前的老驱动，且只对帧生成 310.8 及以下版本有效。即装即用，兼容性最好，适合不想折腾或无法更新驱动的游戏。</div>
+          <div class="doc-li"><b data-i18n="usage.fgAdvancedTitle">高级 MFG</b></div>
+          <div class="doc-li" data-i18n="usage.fgAdvanced">· 适合新驱动和帧生成 310.9 以上版本，包含 ReShade、Universal RTX 40 MFG Unlock 和 version.dll 代理。兼容性最强，但部分游戏需要自行修改配置才能进入。</div>
+          <div class="doc-li"><b data-i18n="usage.fgSm86Title">SM86 方案</b></div>
+          <div class="doc-li" data-i18n="usage.fgSm86">· 不替换游戏原文件：把 version.dll、dlssg_sm86.ini 和 dlssg_sm86 文件夹放到游戏 exe 同目录，附带内核优化，可自由搭配 DLSS 超分 + XeSS 补帧。</div>
+          <div class="doc-li" data-i18n="usage.fgRule">· MFG 与 SM86 只能二选一；同一游戏切换方案前，先点「还原」再重新安装。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.dlssTitle">三、DLSS5</div>
+          <div class="doc-li" data-i18n="usage.dlssVersions">· DLSS5 可选 1.7.0 或 2.0.0。1.7.0 兼容性最广，能与 MFG 1.7.0 / 1.7.1 同时开启；2.0.0 功能更多，但与 MFG 1.7.1 冲突会导致崩溃，和 SM86 方案不冲突。</div>
+          <div class="doc-li" data-i18n="usage.dlssInstall">· 安装时会选择 DX12 / DX9 / Vulkan；DX9 还要选通用安装或起源引擎安装，以及 32/64 位。部分游戏进游戏后要按 Home 打开 GITC 菜单，手动开启 NR（默认关闭）。</div>
+          <div class="doc-li" data-i18n="usage.dlssConfig">· 装了 SM86 的游戏，卡片会多出「配置」按钮，可改代理 DLL、插帧引擎、倍率、档位、预设、超分、光流、HUD 和日志级别。改完必须完全退出游戏再启动才生效。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.scanTitle">四、游戏管理</div>
+          <div class="doc-li" data-i18n="usage.scanAuto">· 自动扫描：检测 Steam、Epic、GOG、育碧游戏库，只添加有真实运行 exe 的游戏，跳过空目录和引擎目录。</div>
+          <div class="doc-li" data-i18n="usage.scanManual">· 手动添加：选择游戏文件夹会自动识别 exe；DX9 或老游戏也可以直接选择 exe。</div>
+          <div class="doc-li" data-i18n="usage.scanDetect">· 检测运行中游戏：从正在运行的进程里挑选，已在列表里的不会重复显示；弹窗会带游戏图标，方便确认是哪一个。</div>
+          <div class="doc-li" data-i18n="usage.scanRefresh">· 刷新状态：手动改过游戏文件或在外部还原后，用它重新检测各游戏的开启状态。</div>
+          <div class="doc-li" data-i18n="usage.scanClear">· 清除列表：只清空测试版的游戏列表，不影响正式版数据。</div>
+          <div class="doc-li" data-i18n="usage.scanNoMenu">· 右键游戏卡片可快速开启/还原多帧生成、开关 DLSS5、修改配置名、排错修复和编辑备注标签。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.restoreTitle">五、还原与状态</div>
+          <div class="doc-li" data-i18n="usage.restore1">· 点「还原」会删除安装进去的多帧生成、DLSS5 补丁并恢复备份，然后重新检测状态。</div>
+          <div class="doc-li" data-i18n="usage.restore2">· 如果当前没有任何开启项，软件会提示「无需还原」。</div>
+          <div class="doc-li" data-i18n="usage.restore3">· 安装和还原前请完全退出游戏，避免文件被占用；游戏更新后补丁失效，重新安装即可。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.faqTitle">六、常见问题</div>
+          <div class="doc-li" data-i18n="usage.faq1">· 开启后没效果：先在游戏设置里打开 DLSS / 帧生成，退出游戏后再装补丁；SM86 可以换一个代理 DLL 再试。</div>
+          <div class="doc-li" data-i18n="usage.faq2">· 游戏进不去或崩溃：检查是否同时开了 MFG 1.7.1 和 GITC DLSS5 2.0.0；先还原，再换兼容组合。Steam 游戏可验证完整性。</div>
+          <div class="doc-li" data-i18n="usage.faq3">· 多帧生成按钮是灰色：目录里没有检测到 DLSS / 帧生成特征，说明这个游戏本身不支持，不是所有游戏都能开。</div>
+          <div class="doc-li" data-i18n="usage.faq4">· 扫描找不到游戏：用「手动添加」直接选 exe；或者先启动游戏，再用「检测运行中游戏」。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="usage.sysTitle">七、系统要求与注意事项</div>
+          <div class="doc-li" data-i18n="usage.sysReq">· Windows 10 1809 或更高（推荐 Windows 11）；需要 WebView2 Runtime；NVIDIA RTX 20/30/40/50 系显卡，建议使用最新驱动。</div>
+          <div class="doc-li" data-i18n="usage.sysNotes">· 使用前备份游戏存档；打补丁和还原时游戏必须完全关闭；不建议网游和带反作弊的游戏；RE 引擎可用 GITC DLSS5 + 多帧生成；DX9 走 d3d9.dll 分支，注意 32/64 位。</div>
+        </div>
+
+        <div class="doc-card guide-beta">
+          <div class="doc-h" data-i18n="usage.betaTitle">测试版反馈指引</div>
+          <div class="doc-li" data-i18n="usage.beta1">· 当前是测试版，功能和界面还在调整。遇到问题请尽量说明：游戏名、补丁方案（经典 / MFG / SM86）、DLSS5 版本、渲染 API、报错现象或截图。</div>
+          <div class="doc-li" data-i18n="usage.beta2">· 设置页「运行日志」可以直接打开 error.log，把日志和问题描述一起发给开发者，能更快定位问题。</div>
+          <div class="doc-li" data-i18n="usage.beta3">· 反馈渠道：GitHub Issues、哔哩哔哩、小黑盒；关于页有对应链接。</div>
+        </div>
+      </div>
+
+      <div id="pageUpdate" class="page-pane hidden">
+        <div class="doc-card">
+          <div class="doc-h">V1.50</div>
+          <div class="doc-li" data-i18n="update.v1501">· 集成 Smooth Motion 功能：可以为不支持原生帧生成的游戏提供 AI 插帧。</div>
+          <div class="doc-li" data-i18n="update.v1502">· Smooth Motion 目前为 Beta 测试阶段，导航栏已加 Beta 标识；RTX 40/50 走官方驱动，RTX 20/30 使用内置补丁。</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-h">V1.45</div>
+          <div class="doc-li" data-i18n="update.v1451">· 界面统一：导航栏改为纯白选中态并加底部阴影，工具栏、设置、关于、弹窗和下拉框统一为新的 WebUI 风格；一键还原按钮改为红色。</div>
+          <div class="doc-li" data-i18n="update.v1454">· 主页调整：移除搜索框与筛选；游戏卡片新增右键菜单，可一键开启/还原多帧生成、开关 DLSS5、配置 SM86、启动游戏、打开目录、移除列表。</div>
+          <div class="doc-li" data-i18n="update.v1455">· 大图模式：新增 9:16 游戏封面视图，可从游戏库读取封面；修复封面显示不全的问题。</div>
+          <div class="doc-li" data-i18n="update.v1457">· 修复与清理：移除 8-Zip 误识别；优化自动扫描与运行中游戏检测；修复部分游戏在列表中的状态显示异常。</div>
+          <div class="doc-li" data-i18n="update.v1458">· 下载管理：下载改为独立「下载」页面，支持暂停/继续、取消和打开下载位置；下载期间不再遮挡主界面，可继续操作其他功能。</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-h">V1.35</div>
+          <div class="doc-li" data-i18n="update.b1">· 多帧生成新增 SM86 方案：选择高级模式后会弹出选择框，可自行选择 MFG 方案还是 SM86 方案。</div>
+          <div class="doc-li" data-i18n="update.b2">· MFG 方案在画质与帧率之间比较均衡；SM86 方案不用替换游戏原文件，附带内核优化，搭配比较自由，可以选择 DLSS 超分 + XeSS 补帧。</div>
+          <div class="doc-li" data-i18n="update.b3">· SM86 配置界面：开启后在卡片上点「配置」即可弹出，可改代理 DLL、插帧引擎与档位、超分、XeSS-FG、日志级别。</div>
+          <div class="doc-li" data-i18n="update.b4">· 注意：SM86 方案和 MFG 方案只能二选一开启。</div>
+          <div class="doc-li" data-i18n="update.b5">· GITC DLSS5 升级到 2.0.0，但 2.0.0 会与 MFG 1.7.1 冲突导致游戏崩溃，1.7.0 版本仍然保留；开启 DLSS5 时可选择 1.7.0 或 2.0.0。</div>
+          <div class="doc-li" data-i18n="update.b6">· 软件有兼容性检测，会提示不建议 MFG 1.7.1 与 GITC 2.0.0 同时开启，但仍然可以继续安装。</div>
+          <div class="doc-li" data-i18n="update.b7">· 修复部分游戏在英文界面下仍显示中文名称的问题。</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-h">V1.32</div>
+          <div class="doc-li" data-i18n="update.p1">· MFG 更新到 1.7.1。</div>
+          <div class="doc-li" data-i18n="update.p2">· 由于 GITC DLSS5 1.8.0 起与 MFG 1.7.1 冲突导致崩溃，暂不更新 GITC DLSS5。</div>
+        </div>
+      </div>
+
+      <div id="pageSmooth" class="page-pane hidden">
+        <div class="doc-card sm-hero">
+          <div class="sm-hero-top">
+            <div>
+              <div class="sm-hero-title" data-i18n="sm.title">Smooth Motion</div>
+              <div class="sm-hero-sub" data-i18n="sm.sub">不打开 NVIDIA App，也不打开 Profile Inspector，直接在这里写入驱动 profile。</div>
+            </div>
+            <span class="sm-badge" id="smSupportBadge" data-i18n="sm.checking">检测中…</span>
+          </div>
+          <div class="sm-meta">
+            <div class="sm-meta-item"><span data-i18n="sm.gpu">显卡</span><b id="smGpu">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="sm.driver">驱动</span><b id="smDriver">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="sm.base">驱动默认</span><b id="smBase">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="sm.profile">Profile</span><b id="smProfileHint">—</b></div>
+          </div>
+          <div class="sm-support-note" id="smSupportNote"></div>
+        </div>
+
+        <div class="sm-tabs">
+          <button class="sm-tab active" data-sm-tab="official" data-i18n="sm.tabOfficial">官方驱动</button>
+          <button class="sm-tab" data-sm-tab="mod" data-i18n="sm.tabMod">RTX 20/30 补丁</button>
+        </div>
+
+        <div id="smOfficialPanel">
+          <div class="doc-card">
+            <div class="sm-toolbar">
+              <div>
+                <div class="doc-h" data-i18n="sm.gamesTitle">按游戏开关</div>
+                <div class="set-desc" data-i18n="sm.gamesDesc">开关写入该游戏自己的 NVIDIA 驱动 profile，不改全局设置。找不到 profile 时会在第一次开启时自动创建。</div>
+              </div>
+              <div class="sm-actions">
+                <button class="pill" id="smRefreshBtn" data-i18n="sm.refresh">刷新</button>
+                <button class="pill" id="smOpenLogBtn" data-i18n="sm.openLog">打开日志目录</button>
+              </div>
+            </div>
+            <div class="sm-list" id="smGameList"></div>
+            <div class="sm-empty hidden" id="smGameEmpty" data-i18n="sm.noGames">列表里还没有游戏。先在主页添加游戏，再回来开启 Smooth Motion。</div>
+          </div>
+
+          <div class="doc-card">
+            <div class="doc-h" data-i18n="sm.notesTitle">说明</div>
+            <div class="doc-li" data-i18n="sm.note1">· RTX 40/50：官方驱动已支持，直接用本页开关即可；Smooth Motion 只插入 1 帧（2x），支持 DX11 / DX12 / Vulkan。</div>
+            <div class="doc-li" data-i18n="sm.note2">· RTX 20/30：补丁已经内置在 Patches\SmoothMotion 里，不需要导入 zip；切到上方「RTX 20/30 补丁」标签直接部署。</div>
+            <div class="doc-li" data-i18n="sm.note3">· Enabled APIs 是位掩码：DX12 = 1，DX11 = 2，Vulkan = 4；默认 7 表示三种全开。</div>
+            <div class="doc-li" data-i18n="sm.note4">· 游戏内要先把 DLSS / 帧生成相关选项打开，Smooth Motion 才会真正生效；修改后建议完全退出游戏再进。</div>
+          </div>
+        </div>
+
+        <div id="smModPanel" class="hidden">
+          <div class="doc-card">
+            <div class="sm-toolbar">
+              <div>
+                <div class="doc-h" data-i18n="sm.modTitle">RTX 20/30 内置补丁</div>
+                <div class="set-desc" data-i18n="sm.modDesc">补丁已随软件放在 Patches\SmoothMotion，不需要导入 zip；按显卡自动选择 RTX20 / RTX30 引擎，用的时候直接部署。</div>
+              </div>
+              <div class="sm-actions">
+                <button class="pill" id="smOpenModLogBtn" data-i18n="sm.openModLog">打开 Mod 日志</button>
+                <button class="pill" id="smOpenModBtn" data-i18n="sm.openMod">打开补丁目录</button>
+              </div>
+            </div>
+            <div class="sm-mod-status" id="smModStatus">正在检测内置补丁…</div>
+            <div class="sm-mod-warn" data-i18n="sm.modWarn">部署前请先完全退出游戏。游戏目录已有自己的 version.dll 时不会覆盖；RTX30 引擎要求 msvcp140.dll ≥ 14.40。</div>
+            <div class="sm-mod-warn" id="smModSupport"></div>
+          </div>
+
+          <div class="doc-card">
+            <div class="doc-h" data-i18n="sm.modGamesTitle">部署到游戏</div>
+            <div class="set-desc" data-i18n="sm.modGamesDesc">同一游戏只能装一个引擎；切换或换显卡前先还原。RTX 40/50 不需要这个补丁，直接用「官方驱动」标签。</div>
+            <div class="sm-list" id="smModList"></div>
+            <div class="sm-empty hidden" id="smModEmpty" data-i18n="sm.noGames">列表里还没有游戏。</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="pageDownload" class="page-pane hidden">
+        <div id="downloadEmpty" class="doc-card download-empty">
+          <div class="download-empty-icon">ZIP</div>
+          <div class="download-empty-title" data-i18n="download.emptyTitle">暂无下载任务</div>
+          <div class="download-empty-desc" data-i18n="download.emptyDesc">从“检查更新”或设置页的“下载最新版本”开始下载后，任务会显示在这里。</div>
+        </div>
+        <div id="downloadList" class="download-list"></div>
+      </div>
+
+      <div id="pageSettings" class="page-pane hidden">
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="set.appearance">外观</div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.dark">深色模式</div>
+              <div class="set-desc" data-i18n="set.darkDesc">在浅色与深色之间切换，带平滑过渡动画</div>
+            </div>
+            <button class="sw" data-setkey="dark"><i></i></button>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.anim">动画效果</div>
+              <div class="set-desc" data-i18n="set.animDesc">关闭后将禁止页面切换和深浅色切换等所有动画，以减少性能占用</div>
+            </div>
+            <button class="sw" data-setkey="anim"><i></i></button>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.backdrop">界面材质</div>
+              <div class="set-desc" data-i18n="set.backdropDesc">云母 / 亚克力 / 纯透明 / 自定义壁纸</div>
+            </div>
+            <select class="set-select" id="setBackdrop">
+              <option value="0" data-i18n="set.bd0">默认</option>
+              <option value="1" data-i18n="set.bd1">云母 Mica</option>
+              <option value="2" data-i18n="set.bd2">亚克力 Acrylic</option>
+              <option value="5" data-i18n="set.bd5">纯透明 Pure Transparent</option>
+              <option value="4" data-i18n="set.bd4">自定义壁纸</option>
+            </select>
+          </div>
+          <div class="set-row hidden" id="rowWallpaper">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.wallpaper">壁纸图片</div>
+              <div class="set-desc" id="setWallpaperPath">—</div>
+            </div>
+            <div class="set-actions">
+              <button class="pill" id="btnPickWallpaper" data-i18n="set.pick">选择图片</button>
+              <button class="pill" id="btnResetWallpaper" data-i18n="set.reset">恢复默认</button>
+            </div>
+          </div>
+          <div class="set-tip hidden" id="tipTransparent" data-i18n="set.transparentTip">注意：纯透明材质下切换深浅色模式后，需要重启软件才能显示正确颜色</div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.language">语言</div>
+              <div class="set-desc" data-i18n="set.languageDesc">切换后界面立即生效，无需重启</div>
+            </div>
+            <select class="set-select" id="setLang">
+              <option value="0" data-i18n="set.lang0">跟随系统</option>
+              <option value="1" data-i18n="set.lang1">简体中文</option>
+              <option value="2" data-i18n="set.lang2">English</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.fontSize">界面字体大小</div>
+              <div class="set-desc" data-i18n="set.fontSizeDesc">以小字体 13px 为基准，中字体约 14px、大字体约 16px；切换后立即生效</div>
+            </div>
+            <select class="set-select" id="setFontSize">
+              <option value="0" data-i18n="set.font0">小字体（默认）</option>
+              <option value="1" data-i18n="set.font1">中字体</option>
+              <option value="2" data-i18n="set.font2">大字体</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="set.startup">启动</div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.startupDialog">启动时显示提示弹窗</div>
+              <div class="set-desc" data-i18n="set.startupDialogDesc">打开时显示使用提示，关闭后直接进入主界面</div>
+            </div>
+            <button class="sw" data-setkey="startupDialog"><i></i></button>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.rememberGames">记住游戏列表</div>
+              <div class="set-desc" data-i18n="set.rememberGamesDesc">关闭后会清空已保存的游戏列表</div>
+            </div>
+            <button class="sw" data-setkey="rememberGames"><i></i></button>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.autoUpdate">启动时自动检查更新</div>
+              <div class="set-desc" data-i18n="set.autoUpdateDesc">启动时读取线上版本号并提示新版本</div>
+            </div>
+            <button class="sw" data-setkey="autoUpdate"><i></i></button>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="set.gpu">显卡</div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.gpuSelect">选择显卡</div>
+              <div class="set-desc" data-i18n="set.gpuTip">一般自动识别；如果自动检测出错，可以手动选择显卡</div>
+            </div>
+            <select class="set-select" id="setGpu"></select>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="set.backup">备份管理</div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.backupSize">备份占用情况</div>
+              <div class="set-desc" id="setBackupSize">(0MB/1024MB)</div>
+            </div>
+            <div class="set-actions">
+              <button class="pill" id="btnOpenBackup" data-i18n="set.openBackup">打开备份目录</button>
+              <button class="pill" id="btnClearBackup" data-i18n="set.clearBackup">删除备份</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="set.data">数据与日志</div>
+          <div class="set-row">
+            <div class="set-left"><div class="set-name" data-i18n="set.dataPath">游戏列表数据</div><div class="set-desc" id="setDataPath">—</div></div>
+            <button class="pill" data-set="data" data-i18n="set.openDir">打开目录</button>
+          </div>
+          <div class="set-row">
+            <div class="set-left"><div class="set-name" data-i18n="set.logPath">运行日志</div><div class="set-desc" id="setLogPath">—</div></div>
+            <button class="pill" data-set="log" data-i18n="set.openLog">打开日志</button>
+          </div>
+          <div class="set-row">
+            <div class="set-left"><div class="set-name" data-i18n="set.exportLog">导出日志到桌面</div><div class="set-desc" data-i18n="set.exportLogDesc">打包运行日志、配置文件与系统信息，方便反馈问题。</div></div>
+            <button class="pill primary" id="btnExportLog" data-i18n="set.exportLogBtn">导出日志</button>
+          </div>
+          <div class="set-row">
+            <div class="set-left"><div class="set-name" data-i18n="set.clearList">清空列表</div><div class="set-desc" data-i18n="set.clearListDesc">只清空测试版列表，不影响正式版数据。</div></div>
+            <button class="pill" data-act="clear" data-i18n="set.clearBtn">清空</button>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="set.version">当前版本</div>
+          <div class="set-row">
+            <div class="set-left ver-left"><div class="set-name" data-i18n="set.versionName">版本号</div><div class="set-desc" id="setVersion">—</div></div>
+            <div class="set-actions">
+              <button class="pill" id="btnCheckUpdate" data-i18n="set.checkUpdate">检查更新</button>
+              <button class="pill primary" id="btnDownloadLatest" data-i18n="set.downloadLatest">直接下载最新版本</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="pageAbout" class="page-pane hidden">
+        <div class="doc-card about-card">
+          <div class="about-logo"><img src="app-icon-256.png" alt="DLSS Toolbox" draggable="false" /></div>
+          <div class="about-name" data-i18n="about.name">多帧生成 + DLSS5 开启工具</div>
+          <div class="about-ver" id="aboutVer">版本：V1.50.0.0</div>
+          <div class="about-line" data-i18n="about.devlang">开发语言：C# + WebView2 + 自绘 HTML</div>
+          <div class="about-line" data-i18n="about.openSource">本软件已免费开源，欢迎 Star 和 Fork！</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="about.links">作者链接</div>
+          <div class="about-links">
+            <button class="about-link" data-url="https://github.com/QSXK1314">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t" data-i18n="about.ghProfile">GitHub 个人主页</span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t" data-i18n="about.ghRepo">GitHub 项目仓库</span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://space.bilibili.com/414911649">
+              <span class="about-ico"><img class="bili-icon" src="about-bilibili.png" alt="" draggable="false" /></span>
+              <span class="about-link-t" data-i18n="about.bilibili">哔哩哔哩</span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://www.xiaoheihe.cn/app/user/profile/33117847">
+              <span class="about-ico"><img class="xhh-icon" src="about-xiaoheihe.png" alt="" draggable="false" /></span>
+              <span class="about-link-t" data-i18n="about.xiaoheihe">小黑盒</span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="about.thanks">补丁致谢</div>
+          <div class="about-meta" data-i18n="about.thanksIntro">以下社区项目使本软件成为可能：</div>
+          <ul class="about-thx">
+            <li data-i18n="about.thanks1">• Universal RTX 40 MFG Unlock（社区版）</li>
+            <li data-i18n="about.thanks2">• ReShade（Crosire）</li>
+            <li data-i18n="about.thanks3">• RE Framework / DLSS5 on RE（社区版）</li>
+            <li data-i18n="about.thanks4">• GITC DLSS5（ghostinthecamera）</li>
+            <li data-i18n="about.thanks5">• DLSSG for SM86 / SM86 多帧生成补丁（sdli1995、pipotoufikxyz-lgtm 及社区分支）</li>
+            <li data-i18n="about.thanks6">• Smooth Motion Mod（ItsAdeline / NVSmooth30；RTXMFG SmoothMotion-next 社区版）</li>
+          </ul>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="about.disclaimerTitle">免责声明</div>
+          <div class="about-meta" data-i18n="about.disclaimer">本软件仅供学习交流使用，请勿用于商业用途。不建议在网游上和带反作弊的游戏使用该软件，本质是修改文件，而修改文件则可能导致游戏封号，如果遇到游戏封号，本软件概不负责。</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="ctxMenu" class="ctx-menu hidden"></div>
+
+  <div id="modalMask" class="modal-mask hidden">
+    <div class="modal" id="modalBox">
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-text" id="modalText"></div>
+      <div class="modal-options" id="modalOptions"></div>
+      <div class="modal-foot">
+        <button class="pill" id="modalCancel" data-i18n="common.cancel">取消</button>
+        <button class="pill danger hidden" id="modalConfirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="backupMask" class="modal-mask hidden">
+    <div class="modal">
+      <div class="modal-title" data-i18n="backup.title">选择要删除的备份</div>
+      <div class="modal-text" data-i18n="backup.desc">备份删除后不可恢复，请确认没有游戏还依赖这些备份。</div>
+      <label class="bk-all"><input type="checkbox" id="bkAll" /><span class="bk-check"></span><span data-i18n="backup.all">全选</span></label>
+      <div class="bk-list" id="bkList"></div>
+      <div class="modal-foot">
+        <button class="pill" id="bkCancel" data-i18n="common.cancel">取消</button>
+        <button class="pill danger" id="bkDelete" data-i18n="backup.delete">删除选中</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toolMask" class="modal-mask hidden">
+    <div class="modal" id="toolBox">
+      <div class="modal-title" id="toolTitle"></div>
+      <div class="modal-text" id="toolText"></div>
+      <div class="tool-body" id="toolBody"></div>
+      <div class="modal-foot">
+        <button class="pill" id="toolCancel" data-i18n="common.cancel">取消</button>
+        <button class="pill primary" id="toolConfirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="groupMask" class="modal-mask hidden">
+    <div class="modal group-modal" id="groupBox">
+      <button class="group-close" id="groupClose" type="button" title="关闭" data-i18n-title="group.close">&times;</button>
+      <div class="group-title" data-i18n="group.title">加入交流群</div>
+      <div class="group-sub" data-i18n="group.sub">扫码加入 QQ 交流群，交流使用经验或反馈问题。</div>
+      <div class="group-qr-frame">
+        <img class="group-qr" src="qq-group.jpg" alt="QQ 交流群二维码" draggable="false" />
+      </div>
+      <div class="group-id" data-i18n="group.id">群号：857934769</div>
+      <div class="modal-foot group-foot">
+        <button class="pill primary" id="groupOk" data-i18n="group.close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="progressMask" class="progress-mask hidden">
+    <div class="progress-box"><span class="spinner"></span><span id="progressText">正在处理…</span></div>
+  </div>
+
+  <div id="cfgMask" class="modal-mask hidden">
+    <div class="cfg-panel">
+      <div class="cfg-head">
+        <div>
+          <div class="cfg-title" id="cfgTitle">SM86 多帧生成设置</div>
+          <div class="cfg-sub" id="cfgSub"></div>
+        </div>
+        <button class="win-btn cfg-x" id="cfgX">&#x2715;</button>
+      </div>
+      <div class="cfg-body" id="cfgBody"></div>
+      <div class="cfg-foot">
+        <button class="pill" id="cfgReset" data-i18n="sm86.reset">恢复出厂</button>
+        <div class="cfg-spacer"></div>
+        <button class="pill" id="cfgCancel" data-i18n="common.cancel">取消</button>
+        <button class="pill primary" id="cfgSave" data-i18n="common.save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</div>
+<script src="app.js?v=1.50.0"></script>
+</body>
+</html>
+
