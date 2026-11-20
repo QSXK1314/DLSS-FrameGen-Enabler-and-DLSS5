@@ -9,155 +9,131 @@ A Windows desktop tool for enabling DLSS5 and Frame Generation in games.
 - 测试版用户：先下载 **V1.61-Beta 基线完整包**，再应用最新测试版增量包。 / Beta users: Download the **V1.61-Beta baseline full package** first, then apply the latest beta incremental package.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
 - 新用户：需要下载 **V1.30 基线完整包**或者下载 **V1.61-Beta 基线完整包**。 / New users: Download either the **V1.30 Baseline Full Package** or the **V1.61-Beta Baseline Full Package**.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.30 **or** https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
 
-- 当前稳定版 / Current stable version：**V1.20.0.0**
+- 当前稳定版 / Current stable version：**V1.40.0.0**
+- 主程序 / Main executable：`WebUI.exe`
+- 更新通道 / Update channel：正式版 `version.json`
 - 稳定版源码分支 / Stable source branch：`master`
-- 测试版与 WebUI 版为独立发布，不在本仓库的稳定版源码内 / Beta and WebUI builds are released separately.
+- 本版本已并入 HSF 帧生成、精确渲染 API 识别和 Source 1 DX9 `bin` 安装；Smooth Motion 仍保留 Beta 标识。
 
-## V1.20 更新内容 / V1.20 Changelog
+## V1.40 更新内容 / V1.40 Changelog
 
-1. **GITC DLSS5 还原不再误删游戏原生文件**
-   移除了固定删除 `dxgi.dll`、`d3d9.dll`、`vulkan.dll`、`dinput8.dll`、`ReShade.ini` 和整个 `Fonts` 目录的逻辑，改为按安装时生成的备份清单精确还原，只删除本软件真正新增的文件。
-   GITC DLSS5 restore now follows the install backup manifest instead of deleting known filenames and the whole `Fonts` folder, so native game files are no longer removed.
+1. **HSF 帧生成并入稳定版 / HSF frame generation**
+   基于 ReShade add-on 捕获画面插帧，把游戏画面、深度和运动数据交给 NVIDIA DLSS-G，支持 DX9 / DX11 / DX12 / Vulkan，最高 6X；MFG-Unlocker 可在 HSF helper 的 mods 目录解锁 3X-6X。
+   HSF is a ReShade add-on that feeds the game image, depth and motion data to NVIDIA DLSS-G. Supports DX9 / DX11 / DX12 / Vulkan, up to 6X; MFG-Unlocker unlocks 3X-6X through the HSF helper mods folder.
 
-2. **一键还原只处理实际已开启的功能**
-   不再无差别执行多帧生成、GITC DLSS5 的全部还原流程；只还原当前游戏实际开启过的功能，未安装的补丁不会被误动。
-   One-click restore now only restores features that were actually enabled for the selected game.
+2. **HSF 菜单语言 / HSF menu language**
+   中文界面安装汉化版 add-on，英文界面安装 HSF 0.9.9 原版；「跟随软件语言」保持 HSF 菜单与软件界面一致，已安装游戏可以在卡片上切换。
+   Chinese installs the translated add-on; English installs the original HSF 0.9.9 add-on. “Follow app language” keeps the menu consistent, and installed games can switch from their card.
 
-3. **GITC 安装覆盖前先备份**
-   覆盖游戏目录中已存在的同名文件前会先写入备份，还原时可以恢复原始文件，而不是直接删除。
-   Existing files are backed up before being overwritten during GITC installation.
+3. **精确渲染 API 识别 / Accurate render API detection**
+   改为读取 PE 普通导入表和延迟导入表，识别 DX9 / DX11 / DX12 / Vulkan / OpenGL；不再用 exe 位数或目录里是否有 `d3d9.dll` 猜测，ReShade 自己放的代理 DLL 不会再把 DX11 误判成 DX9。
+   API detection now reads the PE import and delay-import tables to identify DX9 / DX11 / DX12 / Vulkan / OpenGL. It no longer guesses from exe bitness or the presence of `d3d9.dll`.
 
-4. **RE 引擎游戏可同时开启多帧生成和 GITC DLSS5**
-   移除了启动时强制“DLSS5 与多帧生成只能开其一”的限制。RE 引擎游戏现在可以同时开启两项功能。
-   RE Engine games can now enable Multi Frame Generation and GITC DLSS5 at the same time.
+4. **Source 1 DX9 自动安装到 bin / Source 1 DX9 installs into bin**
+   识别 `bin\engine.dll`、`materialsystem.dll`、`shaderapidx9/11.dll` 和 Source 游戏目录；Source 1 DX9 游戏自动把 ReShade / HSF 安装到 `bin`，游戏卡片显示实际安装目录，并允许在安装前选择「自动识别 / 游戏根目录 / bin 子目录」。
+   Detects Source engine markers and automatically installs ReShade / HSF into `bin` for Source 1 DX9 games. The card shows the actual install folder and allows Auto / Game root / bin overrides.
 
-5. **GITC 按钮状态重启后保持**
-   修复按钮显示“开启 DLSS5”而列表显示已开启的状态不同步问题，也避免重复安装产生 V2/V3 备份。
-   The GITC button state now persists after restart, and duplicate installs no longer create V2/V3 backups.
+5. **安装记录与旧版兼容 / Install record and legacy compatibility**
+   `install.json` 新增 `InstallDir`；状态检测、安装、还原、LaunchPad、MFG-Unlocker 和 ReShade 代理检测统一使用记录目录。旧版根目录安装仍能还原，并提示还原后重新安装会自动使用 `bin`。
+   `install.json` now records `InstallDir`; status, install, restore, LaunchPad, MFG-Unlocker and ReShade proxy checks all use it. Older root-folder installs still restore correctly and show a migration hint.
 
-6. **GITC-Uplift 残留清理**
-   GITC DLSS5 还原后会清理 `GITC-Uplift` 文件夹及其中的 `nvngx_dlssnr.dll`，旧版本安装留下的残留也会一并处理。
-   The `GITC-Uplift` folder and its `nvngx_dlssnr.dll` are cleaned up on restore, including leftovers from older installs.
+6. **API 兼容页 / API compatibility page**
+   新增 DX9 · 起源引擎条目，说明 ReShade / HSF 必须装到 `bin`；DX11、DX12 与 Vulkan 行为不变。
+   Added a DX9 / Source engine entry explaining that ReShade / HSF must be installed into `bin`; DX11, DX12 and Vulkan behavior is unchanged.
 
-7. **状态列修复**
-   RE 引擎游戏同时开启多帧生成和 DLSS5 时，状态列不再错误显示为“只开启 DLSS5”。
-   The status column no longer incorrectly shows “DLSS5 only” when both features are enabled.
+7. **启动更新提示顺序 / Startup update prompt order**
+   自动检查更新时先等「温馨提示」或测试指引关闭，再显示新版本弹窗，避免更新提示被启动提示覆盖。
+   Automatic update checks now wait until startup notices are closed before showing the new-version dialog, so the prompt is no longer replaced.
 
-8. **备份上限与说明统一**
-   备份上限提示与实际阈值统一为 **1024MB**；使用说明删除了已过时的“RE 引擎两者冲突”和“A 卡 7000/9000 系支持”描述。
-   The backup limit hint and actual threshold are both 1024MB; outdated notes were removed from the usage guide.
+## V1.30 更新内容 / V1.30 Changelog
+
+1. **集成 Smooth Motion**
+   为不支持原生帧生成的游戏提供 AI 插帧；导航栏已增加 `Beta` 标识。
+   Smooth Motion provides AI frame interpolation for games without native frame generation; the navigation item is marked `Beta`.
+
+2. **RTX 40/50 与 RTX 20/30 分流**
+   RTX 40/50 走官方驱动支持；RTX 20/30 使用 `Patches\SmoothMotion` 内置补丁。
+   RTX 40/50 use the official driver path; RTX 20/30 use the built-in patch under `Patches\SmoothMotion`.
+
+3. **NVAPI profile 开关**
+   Smooth Motion 页面可以为游戏列表逐项开关 Smooth Motion，并选择 `DX12 + DX11 + Vulkan` 或单一 API。
+   The Smooth Motion page can toggle Smooth Motion for each game and select combined or single APIs.
+
+4. **单 API 写入权限修复**
+   单独选择 DX12 / DX11 / Vulkan 时，受保护的 `Enabled APIs` 写入会在需要时通过管理员权限的短命进程完成，避免 `NVAPI_137` 权限错误。
+   When a single API is selected, the protected `Enabled APIs` write is performed by a short-lived elevated process if needed, avoiding `NVAPI_137`.
+
+5. **补丁致谢**
+   SM86 多帧生成补丁与 Smooth Motion Mod 的社区作者已在软件“关于”页致谢。
+   Community authors of the SM86 patch and Smooth Motion Mod are credited on the About page.
 
 ## 功能特性 / Features
 
 ### 多帧生成 / Frame Generation
-- **RTX 20/30/40/50 系统一安装流程**：使用 MFGUnlocker 方案，安装文件更少，兼容性更集中。
-- **RTX 40 系经典 / 高级模式**：经典模式面向老驱动（616.56 之前），高级模式面向新驱动与 310.9 及以上帧生成版本。
-- **RE 引擎多帧生成**：支持 RE 引擎游戏的专属安装流程，可与 GITC DLSS5 共存。
-- **赛博朋克 2077**：提供 2077 专用多帧生成补丁。
-- **老驱动多帧生成**：为旧驱动环境保留独立分支。
+- RTX 20/30/40/50 系统一安装流程。
+- RTX 40 系经典模式与高级模式；高级模式可选 MFG 或 SM86。
+- SM86 方案不替换游戏原文件，自带内核优化，可搭配 DLSS 超分 + XeSS 补帧。
+- SM86 与 MFG 只能二选一开启。
+- RE 引擎、赛博朋克 2077、老驱动分支保留。
 
 ### DLSS5 / GITC DLSS5
-- **GITC 统一方案**：DLSS5 使用 GITC 补丁体系，支持 DX11/DX12 与 Vulkan 安装分支，具体可用性取决于游戏渲染路径和补丁兼容性。
-- **RE 引擎 DLSS5**：RE 引擎游戏提供专属安装适配。
-- **DX9 32 位 / 64 位**：32 位通过 dgVoodoo2 + DLSS5 Feeder 转译，64 位使用直接加载方案。
-- **燕云十六声**：提供专属 DLSS5 适配。
-- **AMD 显卡过渡方案**：本软件不再直接为 AMD 显卡安装补丁；安装包内提供 NeuralHub v0.8.0 与所需 DLL，检测到 AMD 显卡时会弹出完整操作指引。
+- GITC DLSS5 1.7.0 与 2.0.0 双版本可选。
+- 2.0.0 与 MFG 1.7.1 同时开启有崩溃风险，软件会提示但仍可继续。
+- 支持 DX11/DX12 游戏、RE 引擎、DX9 32/64 位与燕云十六声。
+- AMD 显卡不再由本软件直接安装补丁；检测到 A 卡时显示 NeuralHub v0.8.0 操作指引。
 
-### 其他功能 / Other Features
-- 自动扫描 Steam / EA / Ubisoft / GOG 游戏库。
-- 手动添加游戏，支持直接选择游戏 exe。
-- 通过 Win32 API 枚举系统进程，检测正在运行的游戏并定位真实 exe 路径。
-- 游戏列表管理：右键菜单、移除列表、打开目录、修改配置名、备注标签。
-- 排错功能：检测并替换缺失或异常的补丁文件。
-- 一键还原：只还原实际开启过的功能。
-- 显卡自动检测与手动选择，优先独立显卡。
-- 中英文切换、深色/浅色模式、云母/亚克力/纯透明/自定义壁纸。
-- 深浅色切换动画、页面切换动画。
-- 自动检查更新，支持 GitHub 直接下载、断点续传与 Beta 安装。
-- 记住游戏列表、窗口大小与使用前说明的显示状态。
-- 游戏名称数据库：根据 exe 名称识别更准确的中英文游戏名。
+### Smooth Motion（Beta）
+- 为不支持原生帧生成的游戏提供 AI 插帧。
+- RTX 40/50 使用官方驱动能力；RTX 20/30 使用内置 Smooth Motion Mod。
+- 支持逐游戏开关、API 选择、状态检测与日志查看。
+- `Patches\SmoothMotion` 已随源码包含 RTX20 / RTX30 的 `version.dll`。
+
+### HSF 帧生成
+- 在 HSF 页面按游戏一键安装 / 还原 ReShade 6.8 add-on + HSF。
+- Vulkan / DX11 / 无 DLSS 的 DX12 游戏可一键安装 iMMERSE LaunchPad 光流源（从官方仓库下载，不随软件分发）。
+- RTX 20/30/40 可一键把 MFG-Unlocker 放入 `HSF_streamline\mods`，解锁 3X-6X；DX12 原生路线仍按官方说明放到游戏 exe 旁。
+
+### WebUI 与其他功能
+- WebView2 前端界面，深浅色、卡片列表、右键菜单、设置与关于页。
+- 游戏库扫描、手动添加游戏、进程检测、配置名修改、备注标签。
+- 一键开启 / 还原、备份管理、补丁排错、日志导出。
+- 中英文切换、自动检查更新、GitHub 下载与断点续传。
 
 ## 系统要求 / System Requirements
 
 - Windows 10 1809 或更高版本，推荐 Windows 11。
-- .NET 10 Runtime。
-- Visual Studio 2022 或更高版本（仅编译需要）。
-- Windows App SDK 2.4.0。
-
-## 编译说明 / Build Instructions
-
-### 前置要求 / Prerequisites
-- Visual Studio 2022 或更高版本。
-- .NET 10 SDK。
-- Windows App SDK 工作负载。
-
-### 编译步骤 / Build Steps
-1. 克隆仓库。
-2. 打开 `DLSSFrameGenEnabler_WinUI3.csproj`。
-3. 选择 `Release` 配置。
-4. 生成解决方案。
-
-### 补丁文件 / Patch Files
-补丁文件体积较大，未包含在源码仓库中。编译后需要：
-
-1. 从发布版获取完整的 `Patches` 目录。
-2. 将 `Patches` 放到编译输出目录中，与 exe 同级。
-3. 软件运行时会自动读取对应补丁。
-
-The patch files are large and are not included in this source repository. After building, place the complete `Patches` directory next to the executable.
-
-## 项目结构 / Project Structure
-
-```text
-DLSSFrameGenEnabler_WinUI3/
-├── Assets/              # 图标、图片等资源 / Icons and images
-├── Models/              # 数据模型 / Data models
-├── Pages/               # 主页、设置、关于、更新内容、使用说明 / Pages
-├── Patches/             # 补丁说明（完整补丁从发布版获取）/ Patch notes; full patches come with releases
-├── Properties/          # 项目属性 / Project properties
-├── Services/            # 补丁安装、扫描、翻译、设置、游戏名数据库 / Services
-├── App.xaml             # 应用入口 / App entry
-├── App.xaml.cs
-├── MainWindow.xaml      # 主窗口 / Main window
-├── MainWindow.xaml.cs
-└── DLSSFrameGenEnabler_WinUI3.csproj
-```
-
-## 技术栈 / Tech Stack
-
-- **语言 / Language**：C#
-- **UI 框架 / UI framework**：WinUI 3（Windows App SDK 2.4.0）
-- **目标框架 / Target framework**：.NET 10
-- **目标平台 / Target platform**：Windows 10.0.26100.0
-- **发布方式 / Packaging**：自包含 WinUI 3 桌面应用，无需安装 Windows App SDK Runtime。
+- .NET 8 Runtime（或使用自包含发布）。
+- Microsoft Edge WebView2 Runtime。
+- Visual Studio 2022（仅编译需要）。
 
 ## 使用提醒 / Usage Notes
 
 - 先在游戏内开启 DLSS / 帧生成相关选项，再关闭游戏，最后安装补丁。
 - 安装或还原前建议备份游戏文件。
+- SM86 与 MFG 只能二选一；切换前先还原当前方案。
+- GITC DLSS5 2.0.0 与 MFG 1.7.1 同时开启存在崩溃风险。
+- Smooth Motion 仍为 Beta；RTX 20/30 的补丁兼容性以实际游戏测试为准。
+- Source 1 DX9 游戏的 ReShade / HSF 会自动装到 in；如果卡片显示旧版根目录安装，先还原再重新安装。
 - 米哈游系列游戏因反作弊较严，暂不适配。
-- 育碧与 EA 游戏可能存在兼容性问题。
-- GITC DLSS5 提供 Vulkan 安装分支，但并非所有 Vulkan 游戏都能直接使用；需按游戏实际渲染 API 选择。
-- 本软件不再直接为 AMD 显卡安装补丁；A 卡用户请按软件内弹出的 NeuralHub 指引操作。
-
-## 免责声明 / Disclaimer
-
-本软件仅供学习和研究使用。使用本软件修改游戏文件可能导致游戏无法正常运行或被反作弊系统检测。使用前请备份游戏文件，使用者需自行承担风险。
-
-This software is for learning and research purposes only. Modifying game files may cause games to malfunction or be detected by anti-cheat systems. Backup game files before use; users assume all risks.
+- 本软件不再直接为 AMD 显卡安装补丁；A 卡用户请按软件内 NeuralHub 指引操作。
 
 ## 致谢 / Credits
 
-感谢以下社区项目和作者的开源贡献：
-
-- ReShade
-- DLSS5 Feeder
-- dgVoodoo2
-- RTX 40 MFG Unlock
-- MFGUnlocker
-- NeuralHub
+- Universal RTX 40 MFG Unlock（社区版）
+- MFG-Unlocker（Michael Robles / dashdogy，MIT License）
+- HSF 0.9.9（Capt-Hunter，PolyForm Noncommercial License 1.0.0）
+- iMMERSE LaunchPad（Pascal Gilcher / Marty McFly，按原作者许可仅从官方 GitHub 下载，不随本软件分发）
+- ReShade（Crosire）
+- RE Framework / DLSS5 on RE（社区版）
+- GITC DLSS5（ghostinthecamera）
+- DLSSG for SM86 / SM86 多帧生成补丁（sdli1995、pipotoufikxyz-lgtm 及社区分支）
+- Smooth Motion Mod（ItsAdeline / NVSmooth30；RTXMFG SmoothMotion-next 社区版）
 - Magpie（大力喜鹊）
-- 以及所有为 DLSS 和帧生成技术做出贡献的社区开发者
+
+## 免责声明 / Disclaimer
+
+本软件仅供学习交流使用，请勿用于商业用途。不建议在网游和带反作弊的游戏上使用；修改游戏文件可能导致封号，本软件概不负责。
+This software is for learning and research only. Modifying game files may lead to bans in online or anti-cheat games; use at your own risk.
 
 ## 许可证 / License
 
