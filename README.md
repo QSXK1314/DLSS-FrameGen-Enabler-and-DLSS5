@@ -3,6 +3,12 @@
 一款基于 WebView2 + WebUI 界面的 DLSS5 / 多帧生成 / Smooth Motion 开启工具。
 A WebView2-based tool for enabling DLSS5, Frame Generation and Smooth Motion.
 
+- - ## 下载哪个版本？
+
+- 稳定版用户：先下载 **V1.30 基线完整包**，再应用最新稳定版增量包。 / Stable version users: Download the **V1.30 baseline full package** first, then apply the latest stable version incremental package.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/tag/V1.30
+- 测试版用户：先下载 **V1.61-Beta 基线完整包**，再应用最新测试版增量包。 / Beta users: Download the **V1.61-Beta baseline full package** first, then apply the latest beta incremental package.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
+- 新用户：需要下载 **V1.30 基线完整包**或者下载 **V1.61-Beta 基线完整包**。 / New users: Download either the **V1.30 Baseline Full Package** or the **V1.61-Beta Baseline Full Package**.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.30 **or** https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
+
 - 当前测试版 / Current beta version：**V1.50.0.0**
 - 测试版源码分支 / Beta source branch：`beta`
 - 稳定版源码分支 / Stable source branch：`master`
