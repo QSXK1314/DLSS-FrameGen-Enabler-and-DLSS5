@@ -5,9 +5,9 @@ A Windows desktop tool for enabling DLSS5 and Frame Generation in games.
 
 - ## 下载哪个版本？
 
-- 稳定版用户：先下载 **V1.30 基线完整包**，再应用最新稳定版增量包。
-- 测试版用户：先下载 **V1.61-Beta 基线完整包**，再应用最新测试版增量包。
-- 新用户：也可以直接下载当前完整包。
+- 稳定版用户：先下载 **V1.30 基线完整包**，再应用最新稳定版增量包。 / Stable version users: Download the **V1.30 baseline full package** first, then apply the latest stable version incremental package.
+- 测试版用户：先下载 **V1.61-Beta 基线完整包**，再应用最新测试版增量包。 / Beta users: Download the **V1.61-Beta baseline full package** first, then apply the latest beta incremental package.
+- 新用户：需要下载 **V1.30 基线完整包**或者下载 **V1.61-Beta 基线完整包**。 / New users: Download either the **V1.30 Baseline Full Package** or the **V1.61-Beta Baseline Full Package**.
 
 - 当前稳定版 / Current stable version：**V1.20.0.0**
 - 稳定版源码分支 / Stable source branch：`master`
