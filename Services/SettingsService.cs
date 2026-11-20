@@ -33,6 +33,9 @@ public class SettingsService
 
 	public int Language { get; set; }
 
+	/// <summary>HSF 菜单语言：0=跟随软件，1=简体中文，2=English。</summary>
+	public int HsfMenuLanguage { get; set; }
+
 	public int FontSize { get; set; }
 
 	public int BackdropType { get; set; }

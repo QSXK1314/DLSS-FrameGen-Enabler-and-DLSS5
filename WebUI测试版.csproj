@@ -10,9 +10,9 @@
     <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
     <PublishRepositoryUrl>false</PublishRepositoryUrl>
     <EmbedUntrackedSources>false</EmbedUntrackedSources>
-    <Version>1.50.0.0</Version>
-    <FileVersion>1.50.0.0</FileVersion>
-    <ProductVersion>1.50.0.0</ProductVersion>
+    <Version>1.62.0.0</Version>
+    <FileVersion>1.62.0.0</FileVersion>
+    <ProductVersion>1.62.0.0</ProductVersion>
     <AssemblyTitle>DLSS 多帧生成 + DLSS5 开启工具（WebUI 测试版）</AssemblyTitle>
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
@@ -24,11 +24,18 @@
     <None Update="app.ico" CopyToOutputDirectory="PreserveNewest" />
     <None Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Patches\SmoothMotion\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Patches\HSF\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopySmoothMotionPatchesToPublish" AfterTargets="Publish">
     <ItemGroup>
       <SmoothMotionPatchFiles Include="$(MSBuildProjectDirectory)\Patches\SmoothMotion\**\*" />
     </ItemGroup>
     <Copy SourceFiles="@(SmoothMotionPatchFiles)" DestinationFiles="@(SmoothMotionPatchFiles->'$(PublishDir)Patches\SmoothMotion\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+  <Target Name="CopyHsfPatchesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <HsfPatchFiles Include="$(MSBuildProjectDirectory)\Patches\HSF\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HsfPatchFiles)" DestinationFiles="@(HsfPatchFiles->'$(PublishDir)Patches\HSF\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 </Project>

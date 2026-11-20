@@ -32,6 +32,12 @@ public class GameInfo : INotifyPropertyChanged
 
 	private bool _dx9Dlss5Enabled;
 
+	private string _renderApi = "";
+
+	private bool _isSourceEngine;
+
+	private string _hsfInstallMode = "auto";
+
 	private string _frameGenMode = "";
 
 	private string _gitcVersion = "1.7.0";
@@ -153,6 +159,50 @@ public class GameInfo : INotifyPropertyChanged
 		{
 			_supportsDX11 = value;
 			OnPropertyChanged("SupportsDX11");
+		}
+	}
+
+	/// <summary>PE 导入表识别出的渲染 API：DX9 / DX11 / DX12 / Vulkan / OpenGL。</summary>
+	public string RenderApi
+	{
+		get
+		{
+			return _renderApi;
+		}
+		set
+		{
+			_renderApi = value;
+			OnPropertyChanged("RenderApi");
+		}
+	}
+
+	/// <summary>是否为 Source 1 引擎（ReShade/HSF 需要装到 bin）。</summary>
+	public bool IsSourceEngine
+	{
+		get
+		{
+			return _isSourceEngine;
+		}
+		set
+		{
+			_isSourceEngine = value;
+			OnPropertyChanged("IsSourceEngine");
+		}
+	}
+
+	/// <summary>HSF 安装目录模式：auto / root / bin。默认自动。</summary>
+	public string HsfInstallMode
+	{
+		get
+		{
+			return string.IsNullOrWhiteSpace(_hsfInstallMode) ? "auto" : _hsfInstallMode;
+		}
+		set
+		{
+			string mode = string.IsNullOrWhiteSpace(value) ? "auto" : value.Trim().ToLowerInvariant();
+			if (mode != "auto" && mode != "root" && mode != "bin") mode = "auto";
+			_hsfInstallMode = mode;
+			OnPropertyChanged("HsfInstallMode");
 		}
 	}
 

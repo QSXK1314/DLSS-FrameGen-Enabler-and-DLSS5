@@ -9,10 +9,28 @@ A WebView2-based tool for enabling DLSS5, Frame Generation and Smooth Motion.
 - 测试版用户：先下载 **V1.61-Beta 基线完整包**，再应用最新测试版增量包。 / Beta users: Download the **V1.61-Beta baseline full package** first, then apply the latest beta incremental package.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
 - 新用户：需要下载 **V1.30 基线完整包**或者下载 **V1.61-Beta 基线完整包**。 / New users: Download either the **V1.30 Baseline Full Package** or the **V1.61-Beta Baseline Full Package**.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.30 **or** https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
 
-- 当前测试版 / Current beta version：**V1.61.0.0**
+- 当前测试版 / Current beta version：**V1.62.0.0**
 - 测试版源码分支 / Beta source branch：`beta`
 - 稳定版源码分支 / Stable source branch：`master`
 - 当前为测试版，功能和界面仍可能调整 / This is a beta build; features and UI may change.
+
+## V1.62 更新内容 / V1.62 Changelog
+
+1. **精确渲染 API 识别 / Accurate render API detection**
+   改为读取 PE 普通导入表和延迟导入表，识别 DX9 / DX11 / DX12 / Vulkan / OpenGL；不再用 exe 位数或目录里是否有 `d3d9.dll` 猜测，ReShade 自己放的代理 DLL 不会再把 DX11 误判成 DX9。
+   API detection now reads the PE import and delay-import tables to identify DX9 / DX11 / DX12 / Vulkan / OpenGL. It no longer guesses from exe bitness or the presence of `d3d9.dll`, so ReShade’s own proxy cannot make a DX11 game look like DX9.
+
+2. **Source 1 DX9 自动安装到 bin / Source 1 DX9 installs into bin**
+   识别 `bin\engine.dll`、`materialsystem.dll`、`shaderapidx9/11.dll` 和 Source 游戏目录；Source 1 DX9 游戏自动把 ReShade / HSF 安装到 `bin`，游戏卡片显示实际安装目录，并允许在安装前选择「自动识别 / 游戏根目录 / bin 子目录」。
+   Detects Source engine markers and automatically installs ReShade / HSF into `bin` for Source 1 DX9 games. The game card shows the actual install folder and allows Auto / Game root / bin overrides before installation.
+
+3. **安装记录与旧版兼容 / Install record and legacy compatibility**
+   `install.json` 新增 `InstallDir`；状态检测、安装、还原、LaunchPad、MFG-Unlocker 和 ReShade 代理检测统一使用记录目录。旧版根目录安装仍能还原，并提示还原后重新安装会自动使用 `bin`。
+   `install.json` now records `InstallDir`; status, install, restore, LaunchPad, MFG-Unlocker and ReShade proxy checks all use it. Older root-folder installs still restore correctly and show a migration hint.
+
+4. **API 兼容页 / API compatibility page**
+   新增 DX9 · 起源引擎条目，说明 ReShade / HSF 必须装到 `bin`；DX11、DX12 与 Vulkan 行为不变。
+   Added a DX9 / Source engine entry explaining that ReShade / HSF must be installed into `bin`; DX11, DX12 and Vulkan behavior is unchanged.
 
 ## V1.61 更新内容 / V1.61 Changelog
 
@@ -110,6 +128,38 @@ A WebView2-based tool for enabling DLSS5, Frame Generation and Smooth Motion.
 - .NET 8 Runtime（或使用自包含发布）。
 - Microsoft Edge WebView2 Runtime。
 - Visual Studio 2022（仅编译需要）。
+
+## 编译说明 / Build Instructions
+
+### 直接编译 / Build
+```powershell
+dotnet build .\WebUI测试版.csproj -c Release
+```
+
+### 自包含发布 / Self-contained publish
+```powershell
+dotnet publish .\WebUI测试版.csproj -c Release -r win-x64 --self-contained true
+```
+
+发布输出中的 `WebUI_Beta.exe` 需要与 `wwwroot`、`Patches` 保持同级目录结构。
+The published `WebUI_Beta.exe` expects `wwwroot` and `Patches` beside it.
+
+## 项目结构 / Project Structure
+
+```text
+WebUI测试版/
+├── Models/              # 数据模型 / Data models
+├── Services/            # 补丁、扫描、Smooth Motion、设置、翻译 / Services
+├── Patches/
+│   ├── SmoothMotion/    # RTX20 / RTX30 Smooth Motion 补丁 / Built-in patches
+│   └── HSF/             # HSF、ReShade、字体、MFG-Unlocker 与许可 / HSF pack
+├── wwwroot/             # HTML / CSS / JS / 图标 / WebUI frontend
+├── App.cs               # 应用入口 / App entry
+├── MainForm.cs          # WinForms 主窗口与 WebView2 桥接 / Host and bridge
+├── Program.cs
+├── WebUI测试版.csproj
+└── app.ico
+```
 
 ## 使用提醒 / Usage Notes
 

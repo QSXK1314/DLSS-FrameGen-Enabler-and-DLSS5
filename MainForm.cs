@@ -53,8 +53,12 @@ public class MainForm : Form
     private readonly bool _demoBetaMode;
     private readonly bool _demoBigMode;
     private bool _busy;
+    private bool _hsfBusy;
+    private bool _hsfRefreshPending;
     private int _dialogSeq;
     private DownloadJob? _downloadJob;
+    private readonly Dictionary<string, LaunchPadDownloadJob> _hsfLaunchPadJobs =
+        new Dictionary<string, LaunchPadDownloadJob>();
     private readonly System.Windows.Forms.Timer _windowAnimTimer = new System.Windows.Forms.Timer();
     private DateTime _windowAnimStart;
     private Rectangle _windowAnimFrom;
@@ -412,14 +416,12 @@ public class MainForm : Form
                 }
                 else
                 {
-                    if ((_settings.ShowStartupDialog || (DLSSFrameGenEnabler_WinUI3.App.IsBeta && _settings.ShowBetaFeedback)) && !_demoDialogMode && !_demoSm86Mode && !_demoDetectMode && !_demoStartupMode && !_demoBetaMode && _demoPage.Length == 0)
-                    {
-                        _ = ShowStartupDialogsAsync();
-                    }
-                    if (_settings.AutoCheckUpdate)
-                    {
-                        _ = CheckUpdateAsync();
-                    }
+                    bool showStartupDialogs =
+                        (_settings.ShowStartupDialog ||
+                         (DLSSFrameGenEnabler_WinUI3.App.IsBeta && _settings.ShowBetaFeedback)) &&
+                        !_demoDialogMode && !_demoSm86Mode && !_demoDetectMode &&
+                        !_demoStartupMode && !_demoBetaMode && _demoPage.Length == 0;
+                    _ = RunStartupSequenceAsync(showStartupDialogs);
                 }
             };
             core.Navigate("https://app.local/index.html");
@@ -683,6 +685,39 @@ public class MainForm : Form
             case "smoothOpenModLog":
                 OpenSmoothMotionModLog();
                 break;
+            case "hsfRefresh":
+                _ = RefreshHsfAsync();
+                break;
+            case "hsfInstall":
+                _ = InstallHsfAsync(root);
+                break;
+            case "hsfSwitchLanguage":
+                _ = SwitchHsfLanguageAsync(root);
+                break;
+            case "hsfSetInstallMode":
+                SetHsfInstallMode(root);
+                break;
+            case "hsfInstallLaunchPad":
+                _ = InstallHsfLaunchPadAsync(root);
+                break;
+            case "hsfInstallMfg":
+                _ = InstallHsfMfgAsync(root);
+                break;
+            case "hsfRestore":
+                _ = RestoreHsfAsync(root);
+                break;
+            case "hsfOpenPatch":
+                OpenHsfPatchFolder();
+                break;
+            case "hsfOpenGame":
+                OpenHsfGameFolder(root);
+                break;
+            case "hsfOpenLog":
+                OpenHsfLog(root);
+                break;
+            case "hsfOpenDocs":
+                OpenUrl("https://github.com/Capt-Hunter/HSF");
+                break;
             case "downloadLatest":
                 _ = DownloadFromGitHubAsync(_settings.GithubUrl);
                 break;
@@ -693,13 +728,13 @@ public class MainForm : Form
                 ResumeDownload();
                 break;
             case "downloadCancel":
-                _ = CancelDownloadAsync();
+                _ = CancelDownloadAsync(GetDownloadId(root));
                 break;
             case "downloadOpenFolder":
-                OpenDownloadFolder();
+                OpenDownloadFolder(GetDownloadId(root));
                 break;
             case "downloadClear":
-                ClearDownloadRecord();
+                ClearDownloadRecord(GetDownloadId(root));
                 break;
             case "drag":
                 BeginDragMove();
@@ -728,6 +763,8 @@ public class MainForm : Form
 
     private sealed class DownloadJob
     {
+        public string Id { get; set; } = "release";
+        public string Kind { get; set; } = "release";
         public string FileName { get; set; } = "";
         public string DownloadUrl { get; set; } = "";
         public string TargetPath { get; set; } = "";
@@ -741,6 +778,21 @@ public class MainForm : Form
         public bool Completed { get; set; }
         public CancellationTokenSource? ReadCts { get; set; }
         public Task? Task { get; set; }
+    }
+
+    private sealed class LaunchPadDownloadJob
+    {
+        public string Id { get; set; } = "";
+        public string GameExe { get; set; } = "";
+        public string GameName { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string TargetPath { get; set; } = "";
+        public long TotalBytes { get; set; }
+        public long DownloadedBytes { get; set; }
+        public DateTime StartedAt { get; set; } = DateTime.UtcNow;
+        public bool Cancelled { get; set; }
+        public bool Completed { get; set; }
+        public CancellationTokenSource Cts { get; } = new CancellationTokenSource();
     }
 
     private Task<string?> ShowChoiceAsync(string title, string text, List<(string, string, string)> options)
@@ -806,6 +858,13 @@ public class MainForm : Form
         catch
         {
         }
+    }
+
+    private static string GetDownloadId(JsonElement root)
+    {
+        return root.TryGetProperty("id", out JsonElement idElement)
+            ? (idElement.GetString() ?? "release")
+            : "release";
     }
 
     private async Task DemoDialogAsync()
@@ -1665,6 +1724,30 @@ public class MainForm : Form
         }
     }
 
+    private async Task RunStartupSequenceAsync(bool showStartupDialogs)
+    {
+        try
+        {
+            if (showStartupDialogs)
+            {
+                await ShowStartupDialogsAsync();
+                // WebUI 只有一个模态弹窗容器；等温馨提示/测试指引完全关闭后再显示更新提示，
+                // 避免后弹出的启动提示把“发现新版本”弹窗顶掉。
+                await Task.Delay(200);
+            }
+
+            if (_settings.AutoCheckUpdate)
+            {
+                WriteStartupLog("启动提示结束，开始自动检查更新");
+                await CheckUpdateAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            WriteLog("RunStartupSequenceAsync FAILED: " + ex.Message);
+        }
+    }
+
     private async Task ShowBetaFeedbackAsync()
     {
         List<DialogOption> options = new List<DialogOption>
@@ -1881,7 +1964,7 @@ public class MainForm : Form
             string apiBase = GetGithubReleasesApi(githubUrl);
             using HttpClient client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(30);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.50");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.60");
 
             string releasesJson = await client.GetStringAsync(apiBase + "?per_page=20");
             using JsonDocument doc = JsonDocument.Parse(releasesJson);
@@ -1934,7 +2017,7 @@ public class MainForm : Form
             {
                 using HttpClient latestClient = new HttpClient();
                 latestClient.Timeout = TimeSpan.FromSeconds(30);
-                latestClient.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.50");
+                latestClient.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.60");
                 using JsonDocument latestDoc = JsonDocument.Parse(
                     await latestClient.GetStringAsync(apiBase + "/latest"));
                 release = latestDoc.RootElement.Clone();
@@ -2194,7 +2277,7 @@ public class MainForm : Form
             }
             using HttpClient client = new HttpClient();
             client.Timeout = TimeSpan.FromMinutes(120);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.50");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.60");
 
             using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, job.DownloadUrl);
             if (job.DownloadedBytes > 0)
@@ -2334,8 +2417,14 @@ public class MainForm : Form
         job.Task = RunDownloadAsync(job);
     }
 
-    private async Task CancelDownloadAsync()
+    private async Task CancelDownloadAsync(string id)
     {
+        if (id.StartsWith("hsf-launchpad:", StringComparison.OrdinalIgnoreCase))
+        {
+            CancelHsfLaunchPadDownload(id);
+            return;
+        }
+
         DownloadJob? job = _downloadJob;
         if (job == null)
         {
@@ -2390,8 +2479,32 @@ public class MainForm : Form
         }
     }
 
-    private void OpenDownloadFolder()
+    private void OpenDownloadFolder(string id)
     {
+        if (id.StartsWith("hsf-launchpad:", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_hsfLaunchPadJobs.TryGetValue(id, out LaunchPadDownloadJob? hsfJob))
+            {
+                return;
+            }
+            try
+            {
+                string gameFolder = Path.GetDirectoryName(hsfJob.GameExe) ?? "";
+                if (gameFolder.Length > 0 && Directory.Exists(gameFolder))
+                {
+                    Process.Start(new ProcessStartInfo("explorer.exe", "\"" + gameFolder + "\"")
+                    {
+                        UseShellExecute = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                PostStatus(Lang("打开下载位置失败：" + ex.Message, "Failed to open download folder: " + ex.Message));
+            }
+            return;
+        }
+
         DownloadJob? job = _downloadJob;
         if (job == null)
         {
@@ -2422,15 +2535,25 @@ public class MainForm : Form
         }
     }
 
-    private void ClearDownloadRecord()
+    private void ClearDownloadRecord(string id)
     {
+        if (id.StartsWith("hsf-launchpad:", StringComparison.OrdinalIgnoreCase))
+        {
+            _hsfLaunchPadJobs.Remove(id);
+            PostJson(new { type = "downloadClear", id });
+            return;
+        }
+
         DownloadJob? job = _downloadJob;
-        if (job == null || !job.Completed)
+        if (job != null && job.Id == id && !job.Completed)
         {
             return;
         }
-        _downloadJob = null;
-        PostJson(new { type = "downloadClear" });
+        if (job != null && job.Id == id)
+        {
+            _downloadJob = null;
+        }
+        PostJson(new { type = "downloadClear", id });
     }
 
     private void PostDownloadState(DownloadJob job, string status, bool navigate = false, string? error = null)
@@ -2450,6 +2573,8 @@ public class MainForm : Form
         PostJson(new
         {
             type = "downloadState",
+            id = job.Id,
+            kind = job.Kind,
             status,
             navigate,
             fileName = job.FileName,
@@ -2569,6 +2694,13 @@ public class MainForm : Form
                     _settings.FontSize = fontSize < 0 ? 0 : (fontSize > 2 ? 2 : fontSize);
                 }
                 break;
+            case "hsfLanguage":
+                if (v.ValueKind == JsonValueKind.Number)
+                {
+                    int hsfLanguage = v.GetInt32();
+                    _settings.HsfMenuLanguage = hsfLanguage < 0 ? 0 : (hsfLanguage > 2 ? 2 : hsfLanguage);
+                }
+                break;
             case "startupDialog":
                 if (v.ValueKind == JsonValueKind.True || v.ValueKind == JsonValueKind.False)
                 {
@@ -2607,6 +2739,10 @@ public class MainForm : Form
         if (key == "language")
         {
             PushGames();
+        }
+        if (key == "language" || key == "hsfLanguage")
+        {
+            _ = RefreshHsfAsync();
         }
     }
 
@@ -4016,6 +4152,515 @@ public class MainForm : Form
         catch (Exception ex)
         {
             PostStatus(Lang("打开 Mod 日志目录失败：" + ex.Message, "Failed to open Mod log folder: " + ex.Message));
+        }
+    }
+
+    // ---------------- HSF ----------------
+
+    private async Task RefreshHsfAsync()
+    {
+        if (_hsfBusy)
+        {
+            // 正在刷新/安装时再次请求刷新：记下来，等当前任务结束后自动补一次，避免页面停在旧状态。
+            _hsfRefreshPending = true;
+            return;
+        }
+        _hsfBusy = true;
+        try
+        {
+            HsfService.PackageInfo package = HsfService.GetPackageInfo();
+            GpuInfo gpu = GpuDetector.DetectPrimaryGpu();
+            List<object> gameItems = new List<object>();
+            int installedCount = 0;
+
+            foreach (GameInfo game in _games)
+            {
+                HsfService.GameStatus state = HsfService.GetStatus(game.ExePath, game);
+                if (state.Installed) installedCount++;
+                gameItems.Add(new
+                {
+                    exe = game.ExePath,
+                    name = GameDisplayName(game),
+                    installed = state.Installed,
+                    partial = state.Partial,
+                    conflict = state.Conflict,
+                    canInstall = state.CanInstall,
+                    arch = state.Arch,
+                    api = state.Api,
+                    installDir = state.InstallDir,
+                    installMode = state.InstallMode,
+                    sourceEngine = state.IsSourceEngine,
+                    reshadePresent = state.ReShadePresent,
+                    reshadeReady = state.ReShadeReady,
+                    reshadeProxy = state.ReShadeProxy,
+                    reshadeVersion = state.ReShadeVersion,
+                    reshadeKind = state.ReShadeKind,
+                    message = state.Message,
+                    version = state.HsfVersion,
+                    installedLanguage = state.InstalledLanguage,
+                    desiredLanguage = state.DesiredLanguage,
+                    languageMismatch = state.LanguageMismatch,
+                    launchPadInstalled = state.LaunchPadInstalled,
+                    lumeniteDetected = state.LumeniteDetected,
+                    flowSource = state.FlowSourceName,
+                    mfgUnlockerInstalled = state.MfgUnlockerInstalled,
+                    canInstallLaunchPad = state.CanInstallLaunchPad,
+                    canInstallMfg = state.CanInstallMfgUnlocker
+                });
+            }
+
+            PostJson(new
+            {
+                type = "hsfState",
+                menuLanguage = HsfService.GetMenuLanguageMode(),
+                desiredLanguage = HsfService.DesiredMenuLanguage,
+                effectiveEnglish = HsfService.UseEnglishMenu(),
+                package = new
+                {
+                    ready = package.Ready,
+                    version = package.Version,
+                    error = package.Error,
+                    addon64Ready = package.Addon64Ready,
+                    addon32Ready = package.Addon32Ready,
+                    addon64Size = package.Addon64Size,
+                    addon32Size = package.Addon32Size,
+                    addon64Sha256 = package.Addon64Sha256,
+                    addon32Sha256 = package.Addon32Sha256,
+                    originalAddon64Ready = package.OriginalAddon64Ready,
+                    originalAddon32Ready = package.OriginalAddon32Ready,
+                    originalAddon64Size = package.OriginalAddon64Size,
+                    originalAddon32Size = package.OriginalAddon32Size,
+                    originalAddon64Sha256 = package.OriginalAddon64Sha256,
+                    originalAddon32Sha256 = package.OriginalAddon32Sha256,
+                    reshade64Ready = package.ReShade64Ready,
+                    reshade32Ready = package.ReShade32Ready,
+                    mfgUnlockerReady = package.MfgUnlockerReady,
+                    mfgUnlockerSize = package.MfgUnlockerSize,
+                    mfgUnlockerVersion = package.MfgUnlockerVersion,
+                    launchPadSourceUrl = HsfService.LaunchPadSourceUrl,
+                    installedCount = installedCount
+                },
+                gpu = new
+                {
+                    name = gpu.Name,
+                    series = gpu.Series,
+                    isNvidia = gpu.IsNvidia,
+                    official = gpu.Series is "RTX50",
+                    needsUnlocker = gpu.Series is "RTX20" or "RTX30" or "RTX40",
+                    supported = gpu.IsNvidia && (gpu.Series is "RTX20" or "RTX30" or "RTX40" or "RTX50")
+                },
+                games = gameItems
+            });
+        }
+        catch (Exception ex)
+        {
+            PostJson(new { type = "hsfError", message = ex.Message });
+        }
+        finally
+        {
+            _hsfBusy = false;
+            if (_hsfRefreshPending)
+            {
+                _hsfRefreshPending = false;
+                _ = RefreshHsfAsync();
+            }
+        }
+    }
+
+    private async Task InstallHsfAsync(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏，请刷新列表后重试", "Game not found, refresh the list and try again"));
+            return;
+        }
+
+        PostStatus(Lang("正在安装 HSF…", "Installing HSF…"));
+        HsfService.InstallResult result = await Task.Run(() => HsfService.Install(game));
+        if (result.Success)
+        {
+            PostStatus(result.Message);
+        }
+        else
+        {
+            PostJson(new { type = "hsfError", message = result.Error, exe = game.ExePath });
+            PostStatus(Lang("HSF 安装失败：" + result.Error, "HSF install failed: " + result.Error));
+        }
+        await RefreshHsfAsync();
+    }
+
+    /// <summary>
+    /// 从游戏卡片直接切换 HSF 菜单语言。目标语言会同步为全局 HSF 菜单语言，
+    /// 然后按该语言还原并重装这一份游戏。
+    /// </summary>
+    private async Task SwitchHsfLanguageAsync(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        string lang = root.TryGetProperty("lang", out JsonElement langElement) ? (langElement.GetString() ?? "") : "";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏，请刷新列表后重试", "Game not found, refresh the list and try again"));
+            return;
+        }
+
+        if (lang != "en-US" && lang != "zh-CN")
+        {
+            HsfService.GameStatus before = HsfService.GetStatus(game.ExePath, game);
+            lang = before.InstalledLanguage == "en-US" ? "zh-CN" : "en-US";
+        }
+
+        _settings.HsfMenuLanguage = lang == "en-US" ? 2 : 1;
+        _settings.Save();
+        PostSettings();
+
+        PostStatus(Lang("正在切换 HSF 菜单语言…", "Switching HSF menu language…"));
+        HsfService.InstallResult result = await Task.Run(() => HsfService.Install(game));
+        if (result.Success)
+        {
+            PostStatus(result.Message);
+        }
+        else
+        {
+            PostJson(new { type = "hsfError", message = result.Error, exe = game.ExePath });
+            PostStatus(Lang("HSF 菜单语言切换失败：" + result.Error, "HSF menu language switch failed: " + result.Error));
+        }
+        await RefreshHsfAsync();
+    }
+
+    private void SetHsfInstallMode(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        string mode = root.TryGetProperty("mode", out JsonElement modeElement) ? (modeElement.GetString() ?? "auto") : "auto";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏，请刷新列表后重试", "Game not found, refresh the list and try again"));
+            return;
+        }
+
+        HsfService.GameStatus status = HsfService.GetStatus(game.ExePath, game);
+        if (status.Installed || status.Partial)
+        {
+            PostStatus(Lang("请先还原 HSF，再修改安装目录。", "Restore HSF before changing the install directory."));
+            return;
+        }
+
+        if (mode == "bin")
+        {
+            string exeDir = Path.GetDirectoryName(game.ExePath) ?? "";
+            bool hasBin = Directory.Exists(Path.Combine(game.GamePath ?? "", "bin"))
+                || Directory.Exists(Path.Combine(exeDir, "bin"));
+            if (!hasBin)
+            {
+                PostStatus(Lang("这个游戏没有 bin 目录，无法强制安装到 bin。", "This game has no bin folder; cannot force installation into bin."));
+                return;
+            }
+        }
+
+        game.HsfInstallMode = mode;
+        SaveGames();
+        PostStatus(mode == "bin"
+            ? Lang("HSF 安装目录已改为 bin。", "HSF install directory set to bin.")
+            : mode == "root"
+                ? Lang("HSF 安装目录已改为游戏根目录。", "HSF install directory set to game root.")
+                : Lang("HSF 安装目录已恢复自动识别。", "HSF install directory set back to automatic."));
+        _ = RefreshHsfAsync();
+    }
+
+    private async Task InstallHsfLaunchPadAsync(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏，请刷新列表后重试", "Game not found, refresh the list and try again"));
+            return;
+        }
+
+        HsfService.GameStatus hsStatus = HsfService.GetStatus(game.ExePath, game);
+        if (!hsStatus.Installed)
+        {
+            PostJson(new { type = "hsfError", message = "请先安装 HSF，再安装 LaunchPad 光流源。", exe = game.ExePath });
+            PostStatus(Lang("请先安装 HSF，再安装 LaunchPad 光流源。", "Install HSF before installing the LaunchPad optical-flow source."));
+            return;
+        }
+        if (hsStatus.LaunchPadInstalled)
+        {
+            PostStatus(Lang("LaunchPad 光流源已经安装。", "LaunchPad optical-flow source is already installed."));
+            await RefreshHsfAsync();
+            return;
+        }
+
+        string jobId = "hsf-launchpad:" + Norm(game.ExePath);
+        if (_hsfLaunchPadJobs.ContainsKey(jobId))
+        {
+            PostJson(new { type = "navigate", page = "download" });
+            PostStatus(Lang("LaunchPad 正在下载，请到下载页面查看进度。",
+                "LaunchPad is already downloading. Check the Downloads page for progress."));
+            return;
+        }
+
+        LaunchPadDownloadJob job = new LaunchPadDownloadJob
+        {
+            Id = jobId,
+            GameExe = game.ExePath,
+            GameName = GameDisplayName(game),
+            FileName = "iMMERSE LaunchPad · " + GameDisplayName(game),
+            TargetPath = Path.GetDirectoryName(game.ExePath) ?? ""
+        };
+        _hsfLaunchPadJobs[jobId] = job;
+
+        PostStatus(Lang("正在从 iMMERSE 官方 GitHub 下载 LaunchPad…", "Downloading LaunchPad from the official iMMERSE GitHub…"));
+        PostLaunchPadDownloadState(job, "downloading", true);
+
+        DateTime lastReport = DateTime.MinValue;
+        IProgress<HsfService.LaunchPadProgress> progress = new Progress<HsfService.LaunchPadProgress>(p =>
+        {
+            if (job.Completed || job.Cancelled)
+            {
+                return;
+            }
+            job.DownloadedBytes = p.DownloadedBytes;
+            job.TotalBytes = p.TotalBytes;
+            DateTime now = DateTime.UtcNow;
+            if ((now - lastReport).TotalMilliseconds < 300 && job.DownloadedBytes > 0)
+            {
+                return;
+            }
+            lastReport = now;
+            PostLaunchPadDownloadState(job, "downloading");
+        });
+
+        HsfService.InstallResult result;
+        try
+        {
+            result = await HsfService.InstallLaunchPadAsync(game, progress, job.Cts.Token);
+        }
+        catch (Exception ex)
+        {
+            result = new HsfService.InstallResult { Success = false, Error = ex.Message };
+        }
+
+        if (job.Cancelled)
+        {
+            PostLaunchPadDownloadState(job, "cancelled");
+            _hsfLaunchPadJobs.Remove(jobId);
+            PostStatus(Lang("已取消 LaunchPad 下载。", "LaunchPad download cancelled."));
+            await RefreshHsfAsync();
+            return;
+        }
+
+        if (result.Success)
+        {
+            job.Completed = true;
+            if (job.TotalBytes <= 0)
+            {
+                job.TotalBytes = job.DownloadedBytes;
+            }
+            job.DownloadedBytes = job.TotalBytes;
+            PostLaunchPadDownloadState(job, "completed");
+            PostStatus(result.Message);
+        }
+        else
+        {
+            PostLaunchPadDownloadState(job, "failed", false, result.Error);
+            PostJson(new { type = "hsfError", message = result.Error, exe = game.ExePath });
+            PostStatus(Lang("LaunchPad 安装失败：" + result.Error, "LaunchPad install failed: " + result.Error));
+        }
+        _hsfLaunchPadJobs.Remove(jobId);
+        await RefreshHsfAsync();
+    }
+
+    private void PostLaunchPadDownloadState(
+        LaunchPadDownloadJob job,
+        string status,
+        bool navigate = false,
+        string? error = null)
+    {
+        double percent = job.TotalBytes > 0
+            ? Math.Min(100.0, job.DownloadedBytes * 100.0 / job.TotalBytes)
+            : 0.0;
+        double speed = 0.0;
+        if (status == "downloading" && job.DownloadedBytes > 0)
+        {
+            double elapsed = (DateTime.UtcNow - job.StartedAt).TotalSeconds;
+            if (elapsed > 1)
+            {
+                speed = job.DownloadedBytes / elapsed;
+            }
+        }
+        PostJson(new
+        {
+            type = "downloadState",
+            id = job.Id,
+            kind = "hsfLaunchPad",
+            status,
+            navigate,
+            fileName = job.FileName,
+            targetPath = job.TargetPath,
+            releaseVersion = "",
+            totalBytes = job.TotalBytes,
+            downloadedBytes = job.DownloadedBytes,
+            percent,
+            speed,
+            error
+        });
+    }
+
+    private void CancelHsfLaunchPadDownload(string id)
+    {
+        if (!_hsfLaunchPadJobs.TryGetValue(id, out LaunchPadDownloadJob? job) || job.Cancelled || job.Completed)
+        {
+            return;
+        }
+        job.Cancelled = true;
+        try
+        {
+            job.Cts.Cancel();
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task InstallHsfMfgAsync(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏，请刷新列表后重试", "Game not found, refresh the list and try again"));
+            return;
+        }
+
+        PostStatus(Lang("正在把 MFG-Unlocker 放入 HSF helper 的 mods 目录…", "Installing MFG-Unlocker into the HSF helper mods folder…"));
+        HsfService.InstallResult result = await Task.Run(() => HsfService.InstallMfgUnlocker(game));
+        if (result.Success)
+        {
+            PostStatus(result.Message);
+        }
+        else
+        {
+            PostJson(new { type = "hsfError", message = result.Error, exe = game.ExePath });
+            PostStatus(Lang("MFG-Unlocker 安装失败：" + result.Error, "MFG-Unlocker install failed: " + result.Error));
+        }
+        await RefreshHsfAsync();
+    }
+
+    private async Task RestoreHsfAsync(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏，请刷新列表后重试", "Game not found, refresh the list and try again"));
+            return;
+        }
+
+        HsfService.InstallResult result = await Task.Run(() => HsfService.Restore(game));
+        if (result.Success)
+        {
+            PostStatus(result.Message);
+        }
+        else
+        {
+            PostJson(new { type = "hsfError", message = result.Error, exe = game.ExePath });
+            PostStatus(Lang("HSF 还原失败：" + result.Error, "HSF restore failed: " + result.Error));
+        }
+        await RefreshHsfAsync();
+    }
+
+    private GameInfo? FindGameByExe(string exe)
+    {
+        foreach (GameInfo item in _games)
+        {
+            if (Norm(item.ExePath) == Norm(exe))
+            {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private void OpenHsfPatchFolder()
+    {
+        string path = HsfService.PatchRoot;
+        if (!Directory.Exists(path))
+        {
+            PostStatus(Lang(
+                "内置 HSF 补丁目录不存在：" + path + "。请重新安装完整软件包。",
+                "Built-in HSF folder does not exist: " + path + ". Please reinstall the complete package."));
+            return;
+        }
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", "\"" + path + "\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            PostStatus(Lang("打开 HSF 补丁目录失败：" + ex.Message, "Failed to open the HSF patch folder: " + ex.Message));
+        }
+    }
+
+    private void OpenHsfGameFolder(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏", "Game not found"));
+            return;
+        }
+        string dir = Path.GetDirectoryName(game.ExePath) ?? "";
+        if (!Directory.Exists(dir))
+        {
+            PostStatus(Lang("游戏目录不存在", "Game folder not found"));
+            return;
+        }
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            PostStatus(Lang("打开游戏目录失败：" + ex.Message, "Failed to open the game folder: " + ex.Message));
+        }
+    }
+
+    private void OpenHsfLog(JsonElement root)
+    {
+        string exe = root.TryGetProperty("exe", out JsonElement exeElement) ? (exeElement.GetString() ?? "") : "";
+        GameInfo? game = FindGameByExe(exe);
+        if (game == null)
+        {
+            PostStatus(Lang("找不到这个游戏", "Game not found"));
+            return;
+        }
+        string dir = Path.GetDirectoryName(game.ExePath) ?? "";
+        string logPath = Path.Combine(dir, "ReShade.log");
+        if (!File.Exists(logPath))
+        {
+            PostStatus(Lang(
+                "ReShade 还没有生成日志。先进游戏按 Home 打开 ReShade 菜单，确认 Add-ons 里 HSF 已启用，再回来看。",
+                "ReShade has not created a log yet. Launch the game, press Home, confirm HSF is enabled in Add-ons, then check again."));
+        }
+        try
+        {
+            if (File.Exists(logPath))
+            {
+                Process.Start(new ProcessStartInfo("notepad.exe", "\"" + logPath + "\"") { UseShellExecute = true });
+            }
+            else if (Directory.Exists(dir))
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            PostStatus(Lang("打开 HSF 日志失败：" + ex.Message, "Failed to open the HSF log: " + ex.Message));
         }
     }
 

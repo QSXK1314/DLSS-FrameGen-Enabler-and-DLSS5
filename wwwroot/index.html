@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>多帧生成+DLSS5开启工具</title>
-<link rel="stylesheet" href="app.css?v=1.50.0" />
+<link rel="stylesheet" href="app.css?v=1.62.0" />
 </head>
 <body>
 <div id="app">
@@ -14,7 +14,7 @@
       <img class="tb-logo" src="app-icon.png" alt="" draggable="false" />
       <div class="tb-text">
         <div class="tb-brand" data-i18n="app.brand">多帧生成+DLSS5开启工具</div>
-        <div class="tb-sub" data-i18n="app.sub">V1.50-Beta</div>
+        <div class="tb-sub" data-i18n="app.sub">V1.62-Beta</div>
       </div>
     </div>
     <div class="tb-right">
@@ -34,12 +34,12 @@
       </div>
       <nav class="nav">
         <button class="nav-item active" data-page="home"><span data-i18n="nav.home">主页</span></button>
-        <button class="nav-item" data-page="usage"><span data-i18n="nav.usage">使用说明</span></button>
-        <button class="nav-item" data-page="update"><span data-i18n="nav.update">更新内容</span></button>
-        <button class="nav-item" data-page="smooth">
-          <span data-i18n="nav.smooth">Smooth Motion</span>
+        <button class="nav-item" data-page="framegen">
+          <span data-i18n="nav.framegen">帧生成mod</span>
           <span class="nav-beta">Beta</span>
         </button>
+        <button class="nav-item" data-page="usage"><span data-i18n="nav.usage">使用说明</span></button>
+        <button class="nav-item" data-page="update"><span data-i18n="nav.update">更新内容</span></button>
         <button class="nav-item" data-page="download">
           <span data-i18n="nav.download">下载</span>
           <span class="nav-dot hidden" id="downloadNavDot"></span>
@@ -170,9 +170,31 @@
 
       <div id="pageUpdate" class="page-pane hidden">
         <div class="doc-card">
+          <div class="doc-h">V1.62</div>
+          <div class="doc-li" data-i18n="update.v1621">· 渲染 API 改为读取 PE 导入表精确识别，不再靠 exe 位数或目录里是否存在 d3d9.dll；ReShade 自己放的代理 DLL 不会再让 DX11 游戏被误判成 DX9。</div>
+          <div class="doc-li" data-i18n="update.v1622">· 自动识别 Source 1 引擎 DX9 游戏，把 ReShade / HSF 装到游戏根目录的 bin 子目录；游戏卡片会显示实际安装目录，安装前可手动切换「自动识别 / 游戏根目录 / bin 子目录」。</div>
+          <div class="doc-li" data-i18n="update.v1623">· HSF 安装、还原、LaunchPad、MFG-Unlocker 和 ReShade 代理检测全部按安装记录中的目录处理；旧版根目录安装仍能正常还原，并会提示还原后自动迁移到 bin。</div>
+          <div class="doc-li" data-i18n="update.v1624">· API 兼容性页新增 DX9 · 起源引擎 条目；DX11、DX12 与 Vulkan 的行为保持不变。</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-h">V1.61</div>
+          <div class="doc-li" data-i18n="update.v1611">· HSF 菜单语言：中文界面安装汉化版 HSF add-on，英文界面安装 HSF 0.9.9 原版英文 add-on；「跟随软件语言」会让 HSF 菜单和软件界面保持一致。</div>
+          <div class="doc-li" data-i18n="update.v1612">· ReShade 外壳语言跟随 HSF 菜单语言：中文写入 zh-CN + MiSans 字体，英文写入 en-US，不再强制给外国用户安装中文字体。</div>
+          <div class="doc-li" data-i18n="update.v1613">· 已安装 HSF 的游戏可以在卡片上切换菜单语言：软件先按安装记录还原旧文件，再按当前语言重新安装。</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-h">V1.60</div>
+          <div class="doc-li" data-i18n="update.v1601">· 新增 HSF 帧生成：基于 ReShade add-on，把游戏画面、深度和运动数据交给 NVIDIA DLSS-G 进行 AI 插帧，支持 DX9 / DX11 / DX12 / Vulkan，最高可到 6X；安装 MFG-Unlocker 后可在 HSF helper 的 mods 目录解锁 3X-6X。</div>
+          <div class="doc-li" data-i18n="update.v1602">· 帧生成mod：Smooth Motion 与 HSF 合并为一个导航入口，进入后先选择「英伟达 Smooth Motion」或「HSF 帧生成」，子页面可返回选择页。</div>
+          <div class="doc-li" data-i18n="update.v1603">· HSF 页面新增 API 兼容性说明：DX11、DX12 原生 DLSS、DX12 无 DLSS、Vulkan 分别标注；Vulkan 游戏建议使用窗口模式。</div>
+          <div class="doc-li" data-i18n="update.v1604">· 增强 LaunchPad 提示：安装 LaunchPad 后的光流质量比默认 NVOF 更好，鬼影会明显减少；游戏卡片按钮改为「安装 LaunchPad（推荐）」。</div>
+          <div class="doc-li" data-i18n="update.v1605">· 下载页支持显示 HSF LaunchPad 的真实下载进度；导航栏「下载」会显示当前正在进行的下载任务数量。</div>
+        </div>
+        <div class="doc-card">
           <div class="doc-h">V1.50</div>
-          <div class="doc-li" data-i18n="update.v1501">· 集成 Smooth Motion 功能：可以为不支持原生帧生成的游戏提供 AI 插帧。</div>
-          <div class="doc-li" data-i18n="update.v1502">· Smooth Motion 目前为 Beta 测试阶段，导航栏已加 Beta 标识；RTX 40/50 走官方驱动，RTX 20/30 使用内置补丁。</div>
+          <div class="doc-li" data-i18n="update.v1501">· 新增Smooth Motion功能，可以给部分不支持原生帧生成的游戏提供AI插帧，目前只能开启2倍的插帧，而且只支持DX11以上以及Vulkan，并且该功能处于测试中！</div>
+          <div class="doc-li doc-li-note" data-i18n="update.v1501sub">（当你选择单个渲染模式的时候会弹出错误没关系，只是没有调用到管理员权限而已，软件会自动默认调整的）</div>
+          <div class="doc-li" data-i18n="update.v1502">· 减少源目录文件，减少软件自身体积（软件本体只有70MB，但相关补丁占用2.6GB）</div>
         </div>
         <div class="doc-card">
           <div class="doc-h">V1.45</div>
@@ -199,7 +221,52 @@
         </div>
       </div>
 
+      <div id="pageFrameGen" class="page-pane hidden">
+        <div class="fg-hero">
+          <div class="fg-kicker">FRAME GENERATION MOD</div>
+          <div class="fg-title" data-i18n="fg.title">帧生成mod</div>
+          <div class="fg-sub" data-i18n="fg.sub">选择一种帧生成方案。两个方案都留在本软件内，不需要打开第二个工具。</div>
+        </div>
+
+        <div class="fg-choice-grid">
+          <button type="button" class="fg-choice-card" data-fg-open="smooth">
+            <div class="fg-choice-head">
+              <span class="fg-choice-icon">SM</span>
+              <span class="nav-beta">Beta</span>
+            </div>
+            <div class="fg-choice-title" data-i18n="fg.smoothTitle">英伟达 Smooth Motion</div>
+            <div class="fg-choice-desc" data-i18n="fg.smoothDesc">驱动级 AI 插帧，直接写入 NVIDIA 驱动 profile。RTX 40/50 使用官方驱动，RTX 20/30 使用内置补丁；适合原本没有帧生成的游戏。</div>
+            <div class="fg-choice-tags">
+              <span data-i18n="fg.smoothTag1">RTX 40/50 官方</span>
+              <span data-i18n="fg.smoothTag2">RTX 20/30 补丁</span>
+              <span data-i18n="fg.smoothTag3">2X</span>
+            </div>
+            <div class="fg-choice-enter"><span data-i18n="fg.enter">进入设置</span><span>→</span></div>
+          </button>
+
+          <button type="button" class="fg-choice-card" data-fg-open="hsf">
+            <div class="fg-choice-head">
+              <span class="fg-choice-icon hsf">HSF</span>
+              <span class="nav-beta">Beta</span>
+            </div>
+            <div class="fg-choice-title" data-i18n="fg.hsfTitle">HSF 帧生成</div>
+            <div class="fg-choice-desc" data-i18n="fg.hsfDesc">ReShade 捕获画面插帧，把游戏画面、深度和运动数据交给 NVIDIA DLSS-G。支持 DX9 / DX11 / DX12 / Vulkan，最高可到 6X；建议安装 LaunchPad 光流源。</div>
+            <div class="fg-choice-tags">
+              <span data-i18n="fg.hsfTag1">LaunchPad 推荐</span>
+              <span data-i18n="fg.hsfTag2">最高 6X</span>
+              <span data-i18n="fg.hsfTag3">全 API</span>
+            </div>
+            <div class="fg-choice-enter"><span data-i18n="fg.enter">进入设置</span><span>→</span></div>
+          </button>
+        </div>
+
+        <div class="fg-footnote" data-i18n="fg.tip">提示：HSF 安装 LaunchPad 后的光流质量比默认 NVOF 更好，鬼影会明显减少；Vulkan 游戏建议使用窗口模式，无边框/全屏可能看不到补帧画面。</div>
+      </div>
+
       <div id="pageSmooth" class="page-pane hidden">
+        <div class="fg-back-row">
+          <button type="button" class="fg-back" data-fg-back><span>←</span><span data-i18n="fg.back">返回帧生成mod</span></button>
+        </div>
         <div class="doc-card sm-hero">
           <div class="sm-hero-top">
             <div>
@@ -273,11 +340,110 @@
         </div>
       </div>
 
+      <div id="pageHsf" class="page-pane hidden">
+        <div class="fg-back-row">
+          <button type="button" class="fg-back" data-fg-back><span>←</span><span data-i18n="fg.back">返回帧生成mod</span></button>
+        </div>
+        <div class="doc-card sm-hero">
+          <div class="sm-hero-top">
+            <div>
+              <div class="sm-hero-title" data-i18n="hsf.title">HSF 帧生成</div>
+              <div class="sm-hero-sub" data-i18n="hsf.sub">Hunter's Sloppy Frames：把游戏画面喂给 NVIDIA DLSS 帧生成，不需要打开第二个软件。</div>
+            </div>
+            <span class="sm-badge" id="hsfBadge" data-i18n="hsf.checking">检测中…</span>
+          </div>
+          <div class="sm-meta">
+            <div class="sm-meta-item"><span data-i18n="hsf.package">内置包</span><b id="hsfPackage">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="hsf.gpu">显卡</span><b id="hsfGpu">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="hsf.addon">Add-on</span><b id="hsfAddon">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="hsf.reshade">ReShade</span><b id="hsfReShade">—</b></div>
+          </div>
+          <div class="sm-support-note" id="hsfSupportNote"></div>
+          <div class="sm-support-note" data-i18n="hsf.auxHint">Vulkan / DX11 缺光流源时，点游戏卡片里的「安装 LaunchPad」；LaunchPad 的光流质量比默认 NVOF 更好，鬼影会明显减少，建议优先安装。RTX 20/30/40 想开 3X-6X，点「安装 MFG-Unlocker」。全部在软件内完成，不需要再打开第二个工具。</div>
+          <div class="sm-quality-callout">
+            <span class="sm-quality-label" data-i18n="hsf.qualityLabel">画质提示</span>
+            <span data-i18n="hsf.launchpadQuality">安装 LaunchPad 后的光流质量比默认 NVOF 更好，鬼影会明显减少。DX9 / DX11 / Vulkan 和没有原生 DLSS 数据的 DX12 游戏，优先装 LaunchPad。</span>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="hsf.languageTitle">HSF 菜单语言</div>
+              <div class="set-desc" data-i18n="hsf.languageDesc">选择安装哪一版 HSF add-on：中文使用汉化版，English 使用 HSF 0.9.9 原版英文 add-on。已安装的游戏可以在卡片上直接切换菜单语言。</div>
+            </div>
+            <select class="set-select" id="hsfMenuLanguage">
+              <option value="0" data-i18n="hsf.languageFollow">跟随软件语言</option>
+              <option value="1" data-i18n="hsf.languageChinese">简体中文（汉化版）</option>
+              <option value="2" data-i18n="hsf.languageEnglish">English（原版 HSF）</option>
+            </select>
+          </div>
+          <div class="set-desc" data-i18n="hsf.languageTip">切换只影响之后的安装；已经装过 HSF 的游戏，点卡片上的「切换为英文原版 / 切换为中文版」，软件会先按记录还原旧文件，再安装目标语言。</div>
+        </div>
+
+        <div class="doc-card api-card">
+          <div class="doc-h" data-i18n="hsf.apiTitle">API 兼容性</div>
+          <div class="api-grid">
+            <div class="api-item">
+              <b>DX9 · 起源引擎</b>
+              <span data-i18n="hsf.apiDx9">Source 1 引擎的 DX9 游戏，ReShade/HSF 必须装到游戏根目录的 bin 子目录，装到根目录不会生效；本软件会读取 PE 导入表和 shaderapidx9.dll 自动识别，也可以在游戏卡片上手动覆盖安装目录。</span>
+              <em data-i18n="hsf.apiDx9Tag">自动识别 bin</em>
+            </div>
+            <div class="api-item">
+              <b>DX11</b>
+              <span data-i18n="hsf.apiDx11">HSF helper 路线，全屏和窗口都正常；建议安装 LaunchPad，光流更稳、鬼影更少。</span>
+              <em data-i18n="hsf.apiDx11Tag">推荐 LaunchPad</em>
+            </div>
+            <div class="api-item">
+              <b>DX12 · 原生 DLSS</b>
+              <span data-i18n="hsf.apiDx12Native">HSF 读取游戏自己的 DLSS 数据，通常原生只有 2X；3X-6X 需要 MFG-Unlocker，且受游戏 provider 上限限制。</span>
+              <em data-i18n="hsf.apiDx12NativeTag">2X 原生 / MFG 解锁</em>
+            </div>
+            <div class="api-item">
+              <b>DX12 · 无 DLSS</b>
+              <span data-i18n="hsf.apiDx12NoDlss">走 HSF helper，需要 LaunchPad 或 LumeniteFX 提供光流；3X-6X 需要 MFG-Unlocker。</span>
+              <em data-i18n="hsf.apiDx12NoDlssTag">必须光流源</em>
+            </div>
+            <div class="api-item warn">
+              <b>Vulkan</b>
+              <span data-i18n="hsf.apiVulkan">HSF helper 路线，建议使用窗口模式；无边框/全屏可能生成帧在跑但画面被游戏盖住，实测部分游戏只有窗口模式可见。</span>
+              <em data-i18n="hsf.apiVulkanTag">仅建议窗口模式</em>
+            </div>
+          </div>
+          <div class="sm-support-note" data-i18n="hsf.apiFoot">兼容性提示只说明 HSF 的工作方式，不代表每个游戏都能达到相同倍率；最终以游戏自己的 DLSS-G / 驱动上限为准。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="sm-toolbar">
+            <div>
+              <div class="doc-h" data-i18n="hsf.gamesTitle">按游戏安装</div>
+              <div class="set-desc" data-i18n="hsf.gamesDesc">安装会把 ReShade 6.8 add-on 和 HSF 写进游戏目录；起源引擎 DX9 游戏会自动装到 bin 子目录，也可以在卡片上手动切换「自动识别 / 游戏根目录 / bin 子目录」。还原只删除软件自己写入的文件。装之前请先完全退出游戏。</div>
+            </div>
+            <div class="sm-actions">
+              <button class="pill" id="hsfRefreshBtn" data-i18n="hsf.refresh">刷新</button>
+              <button class="pill" id="hsfOpenPatchBtn" data-i18n="hsf.openPatch">打开补丁目录</button>
+              <button class="pill" id="hsfOpenDocsBtn" data-i18n="hsf.openDocs">官方说明</button>
+            </div>
+          </div>
+          <div class="sm-list" id="hsfGameList"></div>
+          <div class="sm-empty hidden" id="hsfGameEmpty" data-i18n="hsf.noGames">列表里还没有游戏。先在主页添加游戏，再回来安装 HSF。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="hsf.notesTitle">说明</div>
+          <div class="doc-li" data-i18n="hsf.note1">· HSF 不是独立程序，而是 ReShade add-on：本页会安装/复用 ReShade 6.8 add-on 版，再放入 hsf.addon64/32、HSF_streamline、HSF.fx 和 HSF.ini。</div>
+          <div class="doc-li" data-i18n="hsf.note2">· DX12 游戏如果自身已启用 DLSS，可以直接读取游戏的 DLSS 数据；DX9 / DX11 / Vulkan 和没有 DLSS 的 DX12 游戏，可点游戏卡片里的「安装 LaunchPad」一键补齐 iMMERSE LaunchPad 光流源（从 iMMERSE 官方 GitHub 下载，不随本软件分发）。LaunchPad 的光流质量比默认 NVOF 更好，鬼影会明显减少，建议优先安装。</div>
+          <div class="doc-li" data-i18n="hsf.note3">· RTX 50 原生支持高倍率；RTX 20/30/40 原生通常只有 2X，点游戏卡片里的「安装 MFG-Unlocker」即可在 HSF helper 的 mods 目录里解锁 3X-6X。DX12 游戏的原生路线仍需按 MFG-Unlocker 官方说明把 DLL 改名放到游戏 exe 旁；如果游戏 provider 报告 max frames 1，3X+ 仍然开不了。</div>
+          <div class="doc-li" data-i18n="hsf.note4">· 仅限单机游戏。任何带在线反作弊的游戏都不要使用；HSF 目前是 0.9.9 preview，部分游戏可能崩溃或 HUD 重影。</div>
+          <div class="doc-li" data-i18n="hsf.note5">· 装好后进游戏按 Home 打开 ReShade 菜单，在 Add-ons 里启用 HSF；切换 API、改分辨率或更新游戏后建议重新进一次。</div>
+        </div>
+      </div>
+
       <div id="pageDownload" class="page-pane hidden">
         <div id="downloadEmpty" class="doc-card download-empty">
           <div class="download-empty-icon">ZIP</div>
           <div class="download-empty-title" data-i18n="download.emptyTitle">暂无下载任务</div>
-          <div class="download-empty-desc" data-i18n="download.emptyDesc">从“检查更新”或设置页的“下载最新版本”开始下载后，任务会显示在这里。</div>
+          <div class="download-empty-desc" data-i18n="download.emptyDesc">从“检查更新”“下载最新版本”或 HSF 页面的“安装 LaunchPad”开始下载后，任务会显示在这里。</div>
         </div>
         <div id="downloadList" class="download-list"></div>
       </div>
@@ -433,7 +599,7 @@
         <div class="doc-card about-card">
           <div class="about-logo"><img src="app-icon-256.png" alt="DLSS Toolbox" draggable="false" /></div>
           <div class="about-name" data-i18n="about.name">多帧生成 + DLSS5 开启工具</div>
-          <div class="about-ver" id="aboutVer">版本：V1.50.0.0</div>
+          <div class="about-ver" id="aboutVer">版本：V1.62.0.0</div>
           <div class="about-line" data-i18n="about.devlang">开发语言：C# + WebView2 + 自绘 HTML</div>
           <div class="about-line" data-i18n="about.openSource">本软件已免费开源，欢迎 Star 和 Fork！</div>
         </div>
@@ -474,6 +640,9 @@
             <li data-i18n="about.thanks4">• GITC DLSS5（ghostinthecamera）</li>
             <li data-i18n="about.thanks5">• DLSSG for SM86 / SM86 多帧生成补丁（sdli1995、pipotoufikxyz-lgtm 及社区分支）</li>
             <li data-i18n="about.thanks6">• Smooth Motion Mod（ItsAdeline / NVSmooth30；RTXMFG SmoothMotion-next 社区版）</li>
+            <li data-i18n="about.thanks7">• HSF 0.9.9（Capt-Hunter）</li>
+            <li data-i18n="about.thanks8">• MFG-Unlocker（Michael Robles / dashdogy，MIT License）</li>
+            <li data-i18n="about.thanks9">• iMMERSE LaunchPad（Pascal Gilcher / Marty McFly；按原作者许可仅从官方 GitHub 下载，不随本软件分发）</li>
           </ul>
         </div>
 
@@ -564,7 +733,8 @@
 
   <div id="toast" class="toast"></div>
 </div>
-<script src="app.js?v=1.50.0"></script>
+<script src="app.js?v=1.62.0"></script>
 </body>
 </html>
+
 

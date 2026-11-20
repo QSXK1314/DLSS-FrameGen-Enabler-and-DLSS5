@@ -46,8 +46,9 @@
     currentPage: 'home',
     smooth: null,
     smoothTab: 'official',
-    download: null,
-    version: '1.50',
+    hsf: null,
+    downloads: {},
+    version: '1.62',
     isBeta: false,
     bigView: true
   };
@@ -58,21 +59,118 @@
 
   var EN = {
     'app.brand': 'Frame Gen + DLSS5 Enabler',
-    'app.sub': 'V1.50-Beta',
+    'app.sub': 'V1.62-Beta',
     'app.brandSub': 'Frame Gen + DLSS5',
     'nav.home': 'Home',
     'nav.usage': 'Usage Guide',
     'nav.update': 'Update Log',
     'nav.smooth': 'Smooth Motion',
+    'nav.hsf': 'HSF Frame Gen',
+    'nav.framegen': 'Frame Gen Mods',
+    'fg.title': 'Frame Gen Mods',
+    'fg.sub': 'Choose a frame generation path. Both stay inside this app; no second tool needed.',
+    'fg.smoothTitle': 'NVIDIA Smooth Motion',
+    'fg.smoothDesc': 'Driver-level AI frame interpolation written straight into the NVIDIA profile. RTX 40/50 use the official driver; RTX 20/30 use the built-in patch. Best for games without native frame generation.',
+    'fg.smoothTag1': 'RTX 40/50 official',
+    'fg.smoothTag2': 'RTX 20/30 patch',
+    'fg.smoothTag3': '2X',
+    'fg.hsfTitle': 'HSF Frame Generation',
+    'fg.hsfDesc': 'ReShade capture frame interpolation feeding the game’s frames, depth and motion data to NVIDIA DLSS-G. Supports DX9 / DX11 / DX12 / Vulkan, up to 6X; LaunchPad is recommended.',
+    'fg.hsfTag1': 'LaunchPad recommended',
+    'fg.hsfTag2': 'Up to 6X',
+    'fg.hsfTag3': 'All APIs',
+    'fg.enter': 'Open settings',
+    'fg.back': 'Back to Frame Gen Mods',
+    'fg.tip': 'Tip: HSF with LaunchPad has better optical flow than the default NVOF and significantly less ghosting. Vulkan games should use windowed mode; borderless/fullscreen may hide generated frames.',
+    'hsf.apiTitle': 'API compatibility',
+    'hsf.apiDx9': 'For Source 1 engine DX9 games, ReShade/HSF must be installed in the game root’s bin folder; installing to the root will not load. This app detects it from the PE import table and shaderapidx9.dll, and lets you override the install folder on the game card.',
+    'hsf.apiDx9Tag': 'Auto-detect bin',
+    'hsf.apiDx11': 'HSF helper route; fullscreen and windowed both work. Install LaunchPad for steadier flow and less ghosting.',
+    'hsf.apiDx11Tag': 'LaunchPad recommended',
+    'hsf.apiDx12Native': 'HSF reads the game’s own DLSS data; usually native 2X only. 3X-6X needs MFG-Unlocker and is limited by the game provider.',
+    'hsf.apiDx12NativeTag': '2X native / MFG unlock',
+    'hsf.apiDx12NoDlss': 'HSF helper route; needs LaunchPad or LumeniteFX for flow. 3X-6X needs MFG-Unlocker.',
+    'hsf.apiDx12NoDlssTag': 'Flow source required',
+    'hsf.apiVulkan': 'HSF helper route; windowed mode recommended. Borderless/fullscreen may run generation but hide the generated frames; some games only show them in windowed mode.',
+    'hsf.apiVulkanTag': 'Windowed recommended',
+    'hsf.apiFoot': 'Compatibility notes describe how HSF works, not a guarantee of the same multiplier in every game. The game’s DLSS-G / driver limits still apply.',
+    'hsf.qualityLabel': 'Image quality',
+    'hsf.launchpadQuality': 'LaunchPad’s optical flow is better than the default NVOF and significantly reduces ghosting. Prioritize it for DX9 / DX11 / Vulkan and DX12 games without native DLSS data.',
     'nav.download': 'Downloads',
     'nav.settings': 'Settings',
     'nav.about': 'About',
+    'hsf.title': 'HSF Frame Generation',
+    'hsf.sub': "Hunter's Sloppy Frames: feed the game's frames to NVIDIA DLSS Frame Generation without opening a second app.",
+    'hsf.checking': 'Checking…',
+    'hsf.package': 'Built-in pack',
+    'hsf.gpu': 'GPU',
+    'hsf.addon': 'Add-on',
+    'hsf.reshade': 'ReShade',
+    'hsf.gamesTitle': 'Install per game',
+    'hsf.gamesDesc': 'Install writes ReShade 6.8 add-on support and HSF into the game folder; Source 1 DX9 games are automatically installed into the bin subfolder, and you can switch Auto / Game root / bin on the game card. Restore removes only files this app added. Fully exit the game first.',
+    'hsf.auxHint': 'Vulkan / DX11 without a flow source: click “Install LaunchPad” on the game card. LaunchPad’s optical flow is better than the default NVOF and significantly reduces ghosting, so install it first. RTX 20/30/40 that need 3X-6X: click “Install MFG-Unlocker”. Everything stays inside this app.',
+    'hsf.refresh': 'Refresh',
+    'hsf.openPatch': 'Open patch folder',
+    'hsf.openDocs': 'Official guide',
+    'hsf.noGames': 'No games in the list yet. Add games on Home, then come back to install HSF.',
+    'hsf.notesTitle': 'Notes',
+    'hsf.note1': "· HSF is not a standalone app but a ReShade add-on: this page installs or reuses ReShade 6.8 add-on support, then adds hsf.addon64/32, HSF_streamline, HSF.fx and HSF.ini.",
+    'hsf.note2': '· DX12 games with DLSS enabled can feed HSF with the game’s own DLSS data. DX9 / DX11 / Vulkan and DX12 games without DLSS can click “Install LaunchPad” to add the iMMERSE LaunchPad flow source (downloaded from the official iMMERSE GitHub; not redistributed with this app). LaunchPad’s optical flow is better than the default NVOF and significantly reduces ghosting, so install it first.',
+    'hsf.note3': '· RTX 50 supports high multipliers natively; RTX 20/30/40 are normally limited to 2X. Click “Install MFG-Unlocker” to put it into the HSF helper mods folder and unlock 3X-6X. For native DX12, still follow the official MFG-Unlocker guide and rename the DLL next to the game exe; if the game provider reports max frames 1, 3X+ still cannot be enabled.',
+    'hsf.note4': '· Single-player games only. Never use with online anti-cheat. HSF 0.9.9 is a preview; some games may crash or show HUD ghosting.',
+    'hsf.note5': '· After installing, press Home in game to open ReShade and enable HSF under Add-ons. Restart after changing API, resolution or game updates.',
+    'hsf.ready': 'Ready',
+    'hsf.missing': 'Missing',
+    'hsf.installed': 'HSF installed',
+    'hsf.notInstalled': 'Not installed',
+    'hsf.partial': 'Incomplete files',
+    'hsf.conflict': 'Cannot install',
+    'hsf.install': 'Install HSF',
+    'hsf.launchpadInstall': 'Install LaunchPad',
+    'hsf.mfgInstall': 'Install MFG-Unlocker',
+    'hsf.flowLaunchPad': 'Flow: LaunchPad',
+    'hsf.flowLumenite': 'Flow: LumeniteFX',
+    'hsf.flowMissing': 'Flow: not installed',
+    'hsf.mfgInstalled': 'Multiplier: MFG-Unlocker',
+    'hsf.mfgNative': 'Multiplier: 2X native',
+    'hsf.launchpadDownloading': 'Downloading LaunchPad from the official iMMERSE GitHub…',
+    'hsf.mfgInstalling': 'Installing MFG-Unlocker into the HSF helper mods folder…',
+    'hsf.restore': 'Restore',
+    'hsf.openGame': 'Open game folder',
+    'hsf.openLog': 'Open ReShade log',
+    'hsf.reshadeOk': 'ReShade 6.8 add-on ready',
+    'hsf.reshadeReuse': 'Existing ReShade 6.8 add-on',
+    'hsf.reshadeNone': 'Will install built-in ReShade 6.8',
+    'hsf.vulkanWarn': 'Vulkan: install ReShade 6.8 add-on first',
+    'hsf.gpuOfficial': 'RTX 50: native high multipliers',
+    'hsf.gpuUnlocker': 'RTX 20/30/40: MFG-Unlocker needed for 3X+',
+    'hsf.gpuUnsupported': 'HSF needs an NVIDIA RTX 20/30/40/50',
+    'hsf.packMissing': 'Built-in HSF pack is incomplete',
+    'hsf.languageTitle': 'HSF menu language',
+    'hsf.languageDesc': 'Choose which HSF add-on gets installed. Chinese uses the translated build; English uses the original HSF 0.9.9 add-on. Installed games can switch directly from their card.',
+    'hsf.languageFollow': 'Follow app language',
+    'hsf.languageChinese': '简体中文（汉化版）',
+    'hsf.languageEnglish': 'English (original HSF)',
+    'hsf.languageTip': 'Changing this only affects new installs. For a game that already has HSF, click “Switch to English” or “Switch to Chinese” on its card; the app restores the old install first, then installs the target language.',
+    'update.v1621': '· Render API detection now reads the PE import table instead of guessing from the exe bitness or a d3d9.dll file; DX9 no longer gets confused by ReShade’s own proxy DLL.',
+    'update.v1622': '· Source 1 DX9 games are detected automatically and ReShade/HSF are installed into the game’s bin subfolder; the game card shows the actual install folder and lets you override Auto / Game root / bin before installing.',
+    'update.v1623': '· HSF install, restore, LaunchPad, MFG-Unlocker and ReShade proxy checks now all use the recorded install folder; older root-folder installs still restore correctly and show a migration hint.',
+    'update.v1624': '· API compatibility now includes a DX9 / Source engine entry; Vulkan, DX12 and DX11 behavior is unchanged.',
+    'update.v1611': '· HSF menu language: Chinese installs the translated HSF add-on; English installs the original HSF 0.9.9 add-on. “Follow app language” keeps the HSF menu consistent with the UI.',
+    'update.v1612': '· ReShade shell language follows the selected HSF language: Chinese writes zh-CN + MiSans, English writes en-US without forcing the Chinese font.',
+    'update.v1613': '· Existing HSF installs can switch menu language from the game card: the app restores the old files first, then reinstalls with the selected language.',
+    'hsf.busy': 'HSF is busy, please wait',
+    'hsf.installFail': 'HSF install failed',
+    'hsf.restoreFail': 'HSF restore failed',
+    'hsf.done': 'HSF installed',
+    'hsf.restored': 'HSF restored',
     'download.title': 'Downloads',
-    'download.sub': 'GitHub release packages · keep using the app while downloading',
+    'download.sub': 'GitHub releases · HSF components · background downloads',
     'download.openFolder': 'Open download folder',
     'download.emptyTitle': 'No downloads yet',
-    'download.emptyDesc': 'Start from “Check for updates” or “Download latest version” in Settings. The active task will appear here.',
+    'download.emptyDesc': 'Start from “Check for updates”, “Download latest version”, or “Install LaunchPad” on the HSF page. Active tasks appear here.',
     'download.saveTo': 'Save to: ',
+    'download.installTo': 'Install to: ',
     'download.downloading': 'Downloading',
     'download.paused': 'Paused',
     'download.completed': 'Completed',
@@ -209,8 +307,14 @@
     'update.v1455': '· Poster view: added a 9:16 game cover view that reads covers from the game library; fixed incomplete cover display.',
     'update.v1457': '· Fixes and cleanup: removed 8-Zip false detection; improved auto scan and running-game detection; fixed some game list state display issues.',
     'update.v1458': '· Downloads: moved downloads to a separate Downloads page with pause/resume, cancel and open-location actions; the main UI stays usable while downloading.',
-    'update.v1501': '· Integrated Smooth Motion: AI frame interpolation for games that do not support native frame generation.',
-    'update.v1502': '· Smooth Motion is currently in Beta; the navigation item now carries a Beta badge. RTX 40/50 use the official driver path, RTX 20/30 use the built-in patch.',
+    'update.v1601': '· Added HSF frame generation: a ReShade add-on that feeds the game image, depth and motion data to NVIDIA DLSS-G. Supports DX9 / DX11 / DX12 / Vulkan, up to 6X; MFG-Unlocker unlocks 3X-6X through the HSF helper mods folder.',
+    'update.v1602': '· Frame Gen Mods: Smooth Motion and HSF are merged into one navigation entry. Choose “NVIDIA Smooth Motion” or “HSF Frame Generation”; each sub-page can return to the selector.',
+    'update.v1603': '· The HSF page now includes API compatibility notes for DX11, native-DLSS DX12, DX12 without DLSS, and Vulkan. Vulkan games should use windowed mode.',
+    'update.v1604': '· Stronger LaunchPad guidance: LaunchPad optical flow is better than the default NVOF and significantly reduces ghosting; the game-card button is now “Install LaunchPad (recommended)”.',
+    'update.v1605': '· The Downloads page now shows real LaunchPad download progress; the “Downloads” navigation item shows the number of active download tasks.',
+    'update.v1501': '· Added Smooth Motion: AI frame interpolation for some games without native frame generation. Currently only 2X, and only DX11+ and Vulkan are supported. This feature is in testing!',
+    'update.v1501sub': '(If an error pops up when selecting a single render mode, ignore it — the app simply did not get administrator rights, and it will automatically fall back to the default adjustment.)',
+    'update.v1502': '· Reduced source-directory files and overall app size (the app itself is only 70 MB, while related patches take about 2.6 GB).',
     'update.b1': '· New SM86 scheme for frame generation: after choosing Advanced, a dialog lets you pick MFG or SM86.',
     'update.b2': '· MFG is balanced between image quality and frame rate; SM86 does not replace original game files, includes kernel optimizations and allows DLSS upscaling + XeSS frame generation.',
     'update.b3': '· SM86 config panel: after enabling, click "Configure" on the card to change proxy DLL, frame generation engine and levels, super resolution, XeSS-FG, and log level.',
@@ -294,6 +398,9 @@
     'about.thanks4': '• GITC DLSS5 (ghostinthecamera)',
     'about.thanks5': '• DLSSG for SM86 / SM86 frame-gen patch (sdli1995, pipotoufikxyz-lgtm and community branches)',
     'about.thanks6': '• Smooth Motion Mod (ItsAdeline / NVSmooth30; RTXMFG SmoothMotion-next community build)',
+    'about.thanks7': '• HSF 0.9.9 (Capt-Hunter)',
+    'about.thanks8': '• MFG-Unlocker (Michael Robles / dashdogy, MIT License)',
+    'about.thanks9': '• iMMERSE LaunchPad (Pascal Gilcher / Marty McFly; downloaded from the official GitHub under the author’s licence, not redistributed with this app)',
     'about.disclaimerTitle': 'Disclaimer',
     'about.disclaimer': 'This software is for learning and communication only, not for commercial use. Not recommended for online games or games with anti-cheat. This software modifies game files, which may result in account bans. We are not responsible for any bans.',
     'common.cancel': 'Cancel',
@@ -310,8 +417,10 @@
       home: ['主页', '本地库 · 一键开关 · 状态总览'],
       usage: ['使用说明', '完整指引 · 功能说明'],
       update: ['更新内容', '版本更新记录'],
+      framegen: ['帧生成mod', 'Smooth Motion 与 HSF · 二选一进入'],
       smooth: ['Smooth Motion', '驱动 profile · 按游戏开关 · 20/30 Mod'],
-      download: ['下载', 'GitHub 发行包 · 后台下载'],
+      hsf: ['HSF 帧生成', 'ReShade 插件 · 内置安装 · 按游戏还原'],
+      download: ['下载', 'GitHub 发行包 · HSF 组件 · 后台下载'],
       settings: ['设置', '外观、启动、显卡与备份'],
       about: ['关于', '版本与说明']
     },
@@ -319,8 +428,10 @@
       home: ['Home', 'Library · one-click toggles · status overview'],
       usage: ['Usage Guide', 'Full guide · feature overview'],
       update: ['Update Log', 'Version history'],
+      framegen: ['Frame Gen Mods', 'Smooth Motion and HSF · choose one'],
       smooth: ['Smooth Motion', 'Driver profile · per-game toggle · 20/30 Mod'],
-      download: ['Downloads', 'GitHub releases · background downloads'],
+      hsf: ['HSF Frame Gen', 'ReShade add-on · built-in install · per-game restore'],
+      download: ['Downloads', 'GitHub releases · HSF components · background downloads'],
       settings: ['Settings', 'Appearance, startup, GPU and backups'],
       about: ['About', 'Version and notes']
     }
@@ -436,7 +547,7 @@
 
   // ---------------- 语言 ----------------
   function updateAboutVer() {
-    var v = state.version || '1.50';
+    var v = state.version || '1.62';
     document.getElementById('aboutVer').textContent =
       L('版本：', 'Version: ') + 'V' + v + (state.isBeta ? ' · Beta' : '');
   }
@@ -478,6 +589,7 @@
     render();
     renderDownload();
     renderSmooth();
+    renderHsf();
     updateViewControl();
     renderSettingsMeta();
     refreshSelects();
@@ -782,31 +894,60 @@
     return L('正在下载', 'Downloading');
   }
 
+  function downloadFinished(status) {
+    return status === 'completed' || status === 'failed' || status === 'cancelled';
+  }
+
+  function downloadItems() {
+    var items = [];
+    Object.keys(state.downloads || {}).forEach(function (id) {
+      var d = state.downloads[id];
+      if (!d) return;
+      items.push(d);
+    });
+    return items;
+  }
+
+  function downloadProgressText(d) {
+    var status = d.status || 'downloading';
+    var total = Number(d.totalBytes) || 0;
+    var done = Number(d.downloadedBytes) || 0;
+    var pct = Math.max(0, Math.min(100, Number(d.percent) || 0));
+    if (status !== 'downloading') return downloadStatusText(status);
+    var speedText = Number(d.speed) > 0 ? fmtBytes(d.speed) + '/s · ' : '';
+    if (total > 0) return speedText + pct.toFixed(1) + '%';
+    return speedText + fmtBytes(done);
+  }
+
   function downloadCardHtml(d) {
     var status = d.status || 'downloading';
+    var id = d.id || 'release';
+    var isHsf = d.kind === 'hsfLaunchPad';
     var total = Number(d.totalBytes) || 0;
     var done = Number(d.downloadedBytes) || 0;
     var pct = Math.max(0, Math.min(100, Number(d.percent) || 0));
     var name = d.fileName || 'release.zip';
     var path = d.targetPath || '';
+    var pathLabel = isHsf ? L('安装到：', 'Install to: ') : L('保存到：', 'Save to: ');
     var sizeText = total > 0 ? (fmtBytes(done) + ' / ' + fmtBytes(total)) : fmtBytes(done);
-    var rightText = status === 'downloading'
-      ? ((Number(d.speed) > 0 ? fmtBytes(d.speed) + '/s · ' : '') + pct.toFixed(1) + '%')
-      : downloadStatusText(status);
+    var rightText = downloadProgressText(d);
+    var barClass = total > 0 ? 'download-bar' : 'download-bar indeterminate';
     var toggleLabel = status === 'paused' ? L('继续下载', 'Resume') : L('暂停下载', 'Pause');
-    var toggleBtn = status === 'completed' ? '' :
-      '<button type="button" class="mini" data-download-op="toggle">' + esc(toggleLabel) + '</button>';
-    var secondBtn = status === 'completed'
+    var toggleBtn = (!isHsf && status !== 'completed' && status !== 'failed' && status !== 'cancelled')
+      ? '<button type="button" class="mini" data-download-op="toggle">' + esc(toggleLabel) + '</button>'
+      : '';
+    var secondBtn = downloadFinished(status)
       ? '<button type="button" class="mini ghost" data-download-op="clear">' + esc(L('移除记录', 'Remove')) + '</button>'
       : '<button type="button" class="mini danger" data-download-op="cancel">' + esc(L('取消下载', 'Cancel')) + '</button>';
-    var openBtn = '<button type="button" class="mini" data-download-op="open">' +
-      esc(L('打开下载位置', 'Open location')) + '</button>';
-    return '<div class="download-card ' + esc(status) + '" data-status="' + esc(status) + '">' +
-      '<div class="download-icon">ZIP</div>' +
+    var openBtn = (!isHsf && path && status !== 'failed' && status !== 'cancelled')
+      ? '<button type="button" class="mini" data-download-op="open">' + esc(L('打开下载位置', 'Open location')) + '</button>'
+      : '';
+    return '<div class="download-card ' + esc(status) + '" data-id="' + esc(id) + '" data-status="' + esc(status) + '">' +
+      '<div class="download-icon">' + (isHsf ? 'HSF' : 'ZIP') + '</div>' +
       '<div class="download-main">' +
         '<div class="download-name">' + esc(name) + '</div>' +
-        '<div class="download-path">' + esc(L('保存到：', 'Save to: ')) + esc(path) + '</div>' +
-        '<div class="download-progress"><div class="download-bar" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+        '<div class="download-path">' + esc(pathLabel) + esc(path) + '</div>' +
+        '<div class="download-progress"><div class="' + barClass + '" style="width:' + (total > 0 ? pct.toFixed(1) : 0) + '%"></div></div>' +
         '<div class="download-meta"><span>' + esc(sizeText) + '</span><span>' + esc(rightText) + '</span></div>' +
       '</div>' +
       '<div class="download-actions">' + toggleBtn + secondBtn + openBtn + '</div>' +
@@ -817,17 +958,19 @@
     var total = Number(d.totalBytes) || 0;
     var done = Number(d.downloadedBytes) || 0;
     var pct = Math.max(0, Math.min(100, Number(d.percent) || 0));
+    var isHsf = d.kind === 'hsfLaunchPad';
     var sizeText = total > 0 ? (fmtBytes(done) + ' / ' + fmtBytes(total)) : fmtBytes(done);
-    var rightText = 'downloading' === (d.status || 'downloading')
-      ? ((Number(d.speed) > 0 ? fmtBytes(d.speed) + '/s · ' : '') + pct.toFixed(1) + '%')
-      : downloadStatusText(d.status);
+    var rightText = downloadProgressText(d);
     var bar = card.querySelector('.download-bar');
     var name = card.querySelector('.download-name');
     var path = card.querySelector('.download-path');
     var meta = card.querySelector('.download-meta');
-    if (bar) bar.style.width = pct.toFixed(1) + '%';
+    if (bar) {
+      bar.classList.toggle('indeterminate', total <= 0);
+      bar.style.width = total > 0 ? pct.toFixed(1) + '%' : '0%';
+    }
     if (name) name.textContent = d.fileName || 'release.zip';
-    if (path) path.textContent = L('保存到：', 'Save to: ') + (d.targetPath || '');
+    if (path) path.textContent = (isHsf ? L('安装到：', 'Install to: ') : L('保存到：', 'Save to: ')) + (d.targetPath || '');
     if (meta && meta.children.length >= 2) {
       meta.children[0].textContent = sizeText;
       meta.children[1].textContent = rightText;
@@ -835,24 +978,40 @@
   }
 
   function renderDownload() {
-    var d = state.download;
+    var items = downloadItems();
     var empty = document.getElementById('downloadEmpty');
     var list = document.getElementById('downloadList');
     var dot = document.getElementById('downloadNavDot');
-    if (empty) empty.classList.toggle('hidden', !!d);
+    if (empty) empty.classList.toggle('hidden', items.length > 0);
     if (list) {
-      if (!d) {
-        list.innerHTML = '';
+      var cards = list.querySelectorAll('.download-card');
+      var rebuild = cards.length !== items.length;
+      if (!rebuild) {
+        for (var i = 0; i < items.length; i++) {
+          var card = cards[i];
+          var d = items[i];
+          if (!card || card.getAttribute('data-id') !== (d.id || 'release') ||
+              card.getAttribute('data-status') !== (d.status || 'downloading')) {
+            rebuild = true;
+            break;
+          }
+        }
+      }
+      if (rebuild) {
+        list.innerHTML = items.map(downloadCardHtml).join('');
       } else {
-        var card = list.querySelector('.download-card');
-        if (!card || card.getAttribute('data-status') !== (d.status || 'downloading')) {
-          list.innerHTML = downloadCardHtml(d);
-        } else {
-          updateDownloadCard(card, d);
+        for (var j = 0; j < items.length; j++) {
+          updateDownloadCard(cards[j], items[j]);
         }
       }
     }
-    if (dot) dot.classList.toggle('hidden', !d || d.status === 'completed' || d.status === 'failed' || d.status === 'cancelled');
+    var activeCount = items.filter(function (d) {
+      return d.status === 'downloading' || d.status === 'paused';
+    }).length;
+    if (dot) {
+      dot.classList.toggle('hidden', activeCount === 0);
+      dot.textContent = String(activeCount);
+    }
   }
 
   // ---------------- Smooth Motion ----------------
@@ -1177,13 +1336,297 @@
     }
   }
 
+  // ---------------- HSF ----------------
+
+  var hsfData = null;
+
+  function findHsfGame(exe) {
+    if (!hsfData || !hsfData.games) return null;
+    for (var i = 0; i < hsfData.games.length; i++) {
+      if (hsfData.games[i].exe === exe) return hsfData.games[i];
+    }
+    return null;
+  }
+
+  function renderHsf() {
+    var badge = document.getElementById('hsfBadge');
+    if (!badge) return;
+
+    if (!hsfData) {
+      badge.className = 'sm-badge';
+      badge.textContent = L('检测中…', 'Checking…');
+      var loadingIds = ['hsfPackage', 'hsfGpu', 'hsfAddon', 'hsfReShade'];
+      loadingIds.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = '—';
+      });
+      var loadingNote = document.getElementById('hsfSupportNote');
+      if (loadingNote) loadingNote.textContent = '';
+      return;
+    }
+
+    var pack = (hsfData && hsfData.package) || {};
+    var gpu = (hsfData && hsfData.gpu) || {};
+    var games = (hsfData && hsfData.games) || [];
+
+    var packEl = document.getElementById('hsfPackage');
+    if (packEl) {
+      packEl.textContent = pack.ready
+        ? ('HSF ' + (pack.version || '0.9.9') + ' · ' + L('就绪', 'Ready'))
+        : L('缺失', 'Missing');
+    }
+    var gpuEl = document.getElementById('hsfGpu');
+    if (gpuEl) gpuEl.textContent = gpu.name || '—';
+    var addonEl = document.getElementById('hsfAddon');
+    if (addonEl) {
+      if (pack.addon64Ready || pack.addon32Ready) {
+        var parts = [];
+        if (pack.addon64Ready) parts.push('64 ' + formatBytes(pack.addon64Size));
+        if (pack.addon32Ready) parts.push('32 ' + formatBytes(pack.addon32Size));
+        addonEl.textContent = parts.join(' / ');
+      } else {
+        addonEl.textContent = L('未内置', 'Not bundled');
+      }
+    }
+    var reshadeEl = document.getElementById('hsfReShade');
+    if (reshadeEl) {
+      reshadeEl.textContent = (pack.reshade64Ready && pack.reshade32Ready)
+        ? L('6.8 add-on 已内置', '6.8 add-on bundled')
+        : L('缺少基础 DLL', 'Base DLL missing');
+    }
+
+    if (badge) {
+      badge.className = 'sm-badge';
+      if (!pack.ready) {
+        badge.classList.add('bad');
+        badge.textContent = L('内置包缺失', 'Pack missing');
+      } else if (!gpu.supported) {
+        badge.classList.add('bad');
+        badge.textContent = L('显卡不支持', 'Unsupported GPU');
+      } else if (gpu.official) {
+        badge.classList.add('ok');
+        badge.textContent = L('可直接使用', 'Ready');
+      } else if (gpu.needsUnlocker) {
+        badge.classList.add('warn');
+        badge.textContent = L('3X+ 需解锁', 'Unlock 3X+');
+      } else {
+        badge.classList.add('warn');
+        badge.textContent = L('需要解锁', 'Needs unlock');
+      }
+    }
+
+    var note = document.getElementById('hsfSupportNote');
+    if (note) {
+      if (!pack.ready) {
+        note.textContent = pack.error || L('内置 HSF 文件不完整，请重新安装完整软件包。', 'The built-in HSF pack is incomplete. Reinstall the full package.');
+      } else if (!gpu.supported) {
+        note.textContent = L('HSF 需要 NVIDIA RTX 20/30/40/50；当前显卡是 ' + (gpu.name || '未知') + '。',
+          'HSF needs an NVIDIA RTX 20/30/40/50; current GPU: ' + (gpu.name || 'unknown') + '.');
+      } else if (gpu.official) {
+        note.textContent = L('RTX 50 原生支持高倍率；安装后进游戏按 Home，在 Add-ons 里启用。',
+          'RTX 50 supports high multipliers natively. After installing, press Home in game and enable it under Add-ons.');
+      } else {
+        note.textContent = L('RTX 20/30/40 原生通常只有 2X；点游戏卡片里的「安装 MFG-Unlocker」即可解锁 3X-6X（Vulkan / DX11 走 helper，DX12 原生路线按官方说明放到 exe 旁）。',
+          'RTX 20/30/40 are normally limited to 2X. Click “Install MFG-Unlocker” on a game card to unlock 3X-6X (Vulkan / DX11 via the helper; for native DX12, place it next to the exe as the official guide says).');
+      }
+    }
+
+    var langSelect = document.getElementById('hsfMenuLanguage');
+    if (langSelect) {
+      var menuMode = typeof hsfData.menuLanguage === 'number' ? hsfData.menuLanguage : 0;
+      langSelect.value = String(menuMode);
+      if (langSelect.__sync) langSelect.__sync();
+    }
+
+    renderHsfGames(games, pack);
+  }
+
+  function renderHsfGames(games, pack) {
+    var list = document.getElementById('hsfGameList');
+    var empty = document.getElementById('hsfGameEmpty');
+    if (!list) return;
+    if (!games || !games.length) {
+      list.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    var html = '';
+    games.forEach(function (g) {
+      var installed = !!g.installed;
+      var partial = !!g.partial;
+      var conflict = !!g.conflict;
+      var canInstall = !!g.canInstall && !!pack.ready;
+      var cls = 'off';
+      var label = L('未安装', 'Not installed');
+      if (installed) {
+        cls = 'ok';
+        label = L('已安装 HSF ' + (g.version || '0.9.9'), 'HSF installed');
+      } else if (partial) {
+        cls = 'warn';
+        label = L('文件不完整', 'Incomplete files');
+      } else if (conflict) {
+        cls = 'bad';
+        label = L('无法安装', 'Cannot install');
+      }
+
+      html += '<div class="sm-game" data-exe="' + esc(g.exe) + '">';
+      html += '<div class="sm-game-main">';
+      html += '<div class="sm-game-name">' + esc(g.name || g.exe) + '</div>';
+      html += '<div class="sm-game-sub">' + esc(g.exe) + '</div>';
+      html += '<div class="hsf-chips">';
+      html += '<span class="sm-mini">' + esc(g.arch || '—') + '</span>';
+      html += '<span class="sm-mini">' + esc(g.api || '—') + '</span>';
+      var installDir = g.installDir || '';
+      var installDirIsBin = /[\\\/]bin[\\\/]?$/i.test(installDir);
+      var installDirLabel = installDirIsBin ? 'bin' : L('根目录', 'Game root');
+      html += '<span class="sm-mini' + (g.sourceEngine ? ' ok' : '') + '" title="' + esc(installDir) + '">' +
+        esc(L('安装目录：', 'Install dir: ') + (installDirLabel || '—')) + '</span>';
+      if (g.reshadePresent) {
+        html += '<span class="sm-mini ' + (g.reshadeReady ? 'ok' : 'warn') + '">' +
+          L('ReShade ', 'ReShade ') + esc(g.reshadeVersion || g.reshadeProxy || '') + '</span>';
+      } else {
+        html += '<span class="sm-mini">' + L('将装内置 ReShade', 'Built-in ReShade will be installed') + '</span>';
+      }
+      if (installed) {
+        var flowName = g.flowSource || '';
+        html += '<span class="sm-mini ' + (flowName ? 'ok' : 'warn') + '">' +
+          (flowName ? esc(L('光流：', 'Flow: ') + flowName) : L('光流：未安装', 'Flow: not installed')) + '</span>';
+        html += '<span class="sm-mini ' + (g.mfgUnlockerInstalled ? 'ok' : '') + '">' +
+          (g.mfgUnlockerInstalled ? L('倍率：MFG-Unlocker', 'Multiplier: MFG-Unlocker') : L('倍率：2X 原生', 'Multiplier: 2X native')) + '</span>';
+        var installedLang = g.installedLanguage === 'en-US'
+          ? L('英文原版菜单', 'English menu')
+          : (g.installedLanguage === 'zh-CN' ? L('中文菜单', 'Chinese menu') : L('菜单语言未知', 'Menu language unknown'));
+        html += '<span class="sm-mini ' + (g.languageMismatch ? 'warn' : '') + '">' + esc(installedLang) + '</span>';
+      } else {
+        var mode = g.installMode || 'auto';
+        html += '<select class="hsf-dir-select" data-hsf-dir="' + esc(g.exe) + '" title="' +
+          esc(L('选择 HSF 安装目录', 'Choose HSF install directory')) + '">' +
+          '<option value="auto"' + (mode === 'auto' ? ' selected' : '') + '>' + esc(L('自动识别', 'Auto')) + '</option>' +
+          '<option value="root"' + (mode === 'root' ? ' selected' : '') + '>' + esc(L('游戏根目录', 'Game root')) + '</option>' +
+          '<option value="bin"' + (mode === 'bin' ? ' selected' : '') + '>' + esc(L('bin 子目录', 'bin folder')) + '</option>' +
+          '</select>';
+      }
+      html += '</div>';
+      if (g.message) {
+        html += '<div class="sm-mod-msg ' + cls + '">' + esc(g.message) + '</div>';
+      }
+      html += '</div>';
+      html += '<div class="sm-game-right">';
+      html += '<span class="sm-status ' + cls + '">' + esc(label) + '</span>';
+      if (installed) {
+        var targetLang = g.installedLanguage === 'en-US' ? 'zh-CN' : 'en-US';
+        var switchLabel = targetLang === 'en-US'
+          ? L('切换为英文原版', 'Switch to English')
+          : L('切换为中文版', 'Switch to Chinese');
+        html += '<button class="pill primary" data-hsf-switch="' + esc(g.exe) + '" data-hsf-switch-lang="' + targetLang + '">' +
+          esc(switchLabel) + '</button>';
+        if (!g.flowSource && g.canInstallLaunchPad) {
+          html += '<button class="pill primary" data-hsf-launchpad="' + esc(g.exe) + '">' +
+            L('安装 LaunchPad（推荐）', 'Install LaunchPad (recommended)') + '</button>';
+        }
+        if (!g.mfgUnlockerInstalled && g.canInstallMfg) {
+          html += '<button class="pill primary" data-hsf-mfg="' + esc(g.exe) + '">' +
+            L('安装 MFG-Unlocker', 'Install MFG-Unlocker') + '</button>';
+        }
+        html += '<button class="pill danger" data-hsf-restore="' + esc(g.exe) + '">' + L('还原', 'Restore') + '</button>';
+      } else {
+        html += '<button class="pill primary" data-hsf-install="' + esc(g.exe) + '"' + (canInstall ? '' : ' disabled') + '>' +
+          L('安装 HSF', 'Install HSF') + '</button>';
+      }
+      html += '<button class="pill" data-hsf-open-game="' + esc(g.exe) + '">' + L('游戏目录', 'Game folder') + '</button>';
+      if (installed || partial) {
+        html += '<button class="pill" data-hsf-open-log="' + esc(g.exe) + '">' + L('ReShade 日志', 'ReShade log') + '</button>';
+      }
+      html += '</div></div>';
+    });
+    list.innerHTML = html;
+  }
+
+  function setupHsfEvents() {
+    var refreshBtn = document.getElementById('hsfRefreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', function () { post({ type: 'hsfRefresh' }); });
+    var patchBtn = document.getElementById('hsfOpenPatchBtn');
+    if (patchBtn) patchBtn.addEventListener('click', function () { post({ type: 'hsfOpenPatch' }); });
+    var docsBtn = document.getElementById('hsfOpenDocsBtn');
+    if (docsBtn) docsBtn.addEventListener('click', function () { post({ type: 'hsfOpenDocs' }); });
+
+    var langSelect = document.getElementById('hsfMenuLanguage');
+    if (langSelect) {
+      langSelect.addEventListener('change', function () {
+        var mode = parseInt(langSelect.value, 10);
+        post({ type: 'setSetting', key: 'hsfLanguage', value: isNaN(mode) ? 0 : mode });
+      });
+    }
+
+    var list = document.getElementById('hsfGameList');
+    if (!list) return;
+    list.addEventListener('change', function (e) {
+      var dirSelect = e.target.closest ? e.target.closest('[data-hsf-dir]') : null;
+      if (!dirSelect) return;
+      post({
+        type: 'hsfSetInstallMode',
+        exe: dirSelect.getAttribute('data-hsf-dir'),
+        mode: dirSelect.value
+      });
+    });
+    list.addEventListener('click', function (e) {
+      var switchLang = e.target.closest ? e.target.closest('[data-hsf-switch]') : null;
+      if (switchLang) {
+        switchLang.disabled = true;
+        post({
+          type: 'hsfSwitchLanguage',
+          exe: switchLang.getAttribute('data-hsf-switch'),
+          lang: switchLang.getAttribute('data-hsf-switch-lang')
+        });
+        return;
+      }
+      var install = e.target.closest ? e.target.closest('[data-hsf-install]') : null;
+      if (install) {
+        install.disabled = true;
+        post({ type: 'hsfInstall', exe: install.getAttribute('data-hsf-install') });
+        return;
+      }
+      var launchPad = e.target.closest ? e.target.closest('[data-hsf-launchpad]') : null;
+      if (launchPad) {
+        launchPad.disabled = true;
+        post({ type: 'hsfInstallLaunchPad', exe: launchPad.getAttribute('data-hsf-launchpad') });
+        return;
+      }
+      var mfg = e.target.closest ? e.target.closest('[data-hsf-mfg]') : null;
+      if (mfg) {
+        mfg.disabled = true;
+        post({ type: 'hsfInstallMfg', exe: mfg.getAttribute('data-hsf-mfg') });
+        return;
+      }
+      var restore = e.target.closest ? e.target.closest('[data-hsf-restore]') : null;
+      if (restore) {
+        restore.disabled = true;
+        post({ type: 'hsfRestore', exe: restore.getAttribute('data-hsf-restore') });
+        return;
+      }
+      var openGame = e.target.closest ? e.target.closest('[data-hsf-open-game]') : null;
+      if (openGame) {
+        post({ type: 'hsfOpenGame', exe: openGame.getAttribute('data-hsf-open-game') });
+        return;
+      }
+      var openLog = e.target.closest ? e.target.closest('[data-hsf-open-log]') : null;
+      if (openLog) {
+        post({ type: 'hsfOpenLog', exe: openLog.getAttribute('data-hsf-open-log') });
+      }
+    });
+  }
+
   // ---------------- 页面切换 ----------------
 
   var PAGE_PANES = {
     home: 'homePane',
     usage: 'pageUsage',
     update: 'pageUpdate',
+    framegen: 'pageFrameGen',
     smooth: 'pageSmooth',
+    hsf: 'pageHsf',
     download: 'pageDownload',
     settings: 'pageSettings',
     about: 'pageAbout'
@@ -1193,8 +1636,9 @@
   function activatePage(page) {
     if (!PAGE_PANES[page]) page = 'home';
     state.currentPage = page;
+    var navPage = (page === 'smooth' || page === 'hsf') ? 'framegen' : page;
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (i) {
-      i.classList.toggle('active', i.getAttribute('data-page') === page);
+      i.classList.toggle('active', i.getAttribute('data-page') === navPage);
     });
     Object.keys(PAGE_PANES).forEach(function (key) {
       var pane = document.getElementById(PAGE_PANES[key]);
@@ -1214,11 +1658,27 @@
       renderSmooth();
       post({ type: 'smoothRefresh' });
     }
+    if (page === 'hsf') {
+      renderHsf();
+      post({ type: 'hsfRefresh' });
+    }
   }
 
   Array.prototype.forEach.call(navItems, function (item) {
     item.addEventListener('click', function () {
       activatePage(item.getAttribute('data-page') || 'home');
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fg-open]'), function (item) {
+    item.addEventListener('click', function () {
+      activatePage(item.getAttribute('data-fg-open') || 'framegen');
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fg-back]'), function (item) {
+    item.addEventListener('click', function () {
+      activatePage('framegen');
     });
   });
 
@@ -1244,6 +1704,7 @@
   });
 
   setupSmoothEvents();
+  setupHsfEvents();
 
   // ---------------- 设置 ----------------
   function setSwitch(key, on) {
@@ -1568,27 +2029,33 @@
     downloadList.addEventListener('click', function (e) {
       var btn = e.target && e.target.closest ? e.target.closest('[data-download-op]') : null;
       if (!btn) return;
+      var card = btn.closest ? btn.closest('.download-card') : null;
+      var id = card ? (card.getAttribute('data-id') || 'release') : 'release';
       var op = btn.getAttribute('data-download-op');
+      var item = state.downloads[id];
       if (op === 'toggle') {
-        if (!state.download) return;
-        if (state.download.status === 'paused') {
-          post({ type: 'downloadResume' });
+        if (!item) return;
+        if (item.status === 'paused') {
+          post({ type: 'downloadResume', id: id });
           toast(L('正在继续下载…', 'Resuming download…'));
         } else {
-          post({ type: 'downloadPause' });
+          post({ type: 'downloadPause', id: id });
           toast(L('正在暂停下载…', 'Pausing download…'));
         }
       } else if (op === 'cancel') {
+        var isHsf = item && item.kind === 'hsfLaunchPad';
         confirmDialog(
           L('取消下载？', 'Cancel download?'),
-          L('未完成的 .part 临时文件会被删除，之后可以重新下载。', 'The unfinished .part file will be deleted. You can download again later.'),
+          isHsf
+            ? L('将停止下载 LaunchPad 并清理临时文件，之后可以重新安装。', 'The LaunchPad download will stop and temporary files will be cleaned up. You can install again later.')
+            : L('未完成的 .part 临时文件会被删除，之后可以重新下载。', 'The unfinished .part file will be deleted. You can download again later.'),
           L('取消下载', 'Cancel download'),
-          function () { post({ type: 'downloadCancel' }); }
+          function () { post({ type: 'downloadCancel', id: id }); }
         );
       } else if (op === 'open') {
-        post({ type: 'downloadOpenFolder' });
+        post({ type: 'downloadOpenFolder', id: id });
       } else if (op === 'clear') {
-        post({ type: 'downloadClear' });
+        post({ type: 'downloadClear', id: id });
       }
     });
   }
@@ -2099,31 +2566,28 @@
       } else if (d.type === 'navigate') {
         if (d.page) activatePage(d.page);
       } else if (d.type === 'downloadState') {
-        var prevDownloadStatus = state.download ? state.download.status : '';
-        if (d.status === 'cancelled' || d.status === 'failed') {
-          state.download = null;
-          renderDownload();
-          if (d.navigate) activatePage('download');
-          if (d.status === 'failed' && d.error) {
-            toast(d.error);
-          } else if (d.status === 'cancelled') {
-            toast(L('下载已取消', 'Download cancelled'));
-          }
-          return;
-        }
-        state.download = d;
+        var downloadId = d.id || 'release';
+        var prevDownload = state.downloads[downloadId];
+        var prevDownloadStatus = prevDownload ? prevDownload.status : '';
+        d.id = downloadId;
+        state.downloads[downloadId] = d;
         renderDownload();
         if (d.navigate) activatePage('download');
         if (d.status === 'completed' && prevDownloadStatus !== 'completed') {
           toast(L('下载完成', 'Download complete'));
         } else if (d.status === 'paused' && prevDownloadStatus !== 'paused') {
           toast(L('下载已暂停', 'Download paused'));
+        } else if (d.status === 'failed' && prevDownloadStatus !== 'failed') {
+          if (d.error) toast(d.error);
+          else toast(L('下载失败', 'Download failed'));
+        } else if (d.status === 'cancelled' && prevDownloadStatus !== 'cancelled') {
+          toast(L('下载已取消', 'Download cancelled'));
         }
       } else if (d.type === 'downloadClear') {
-        state.download = null;
+        delete state.downloads[d.id || 'release'];
         renderDownload();
       } else if (d.type === 'appinfo') {
-        state.version = d.version || '1.50';
+        state.version = d.version || '1.62';
         state.isBeta = !!d.isBeta;
         document.getElementById('setDataPath').textContent = d.dataPath || '—';
         document.getElementById('setLogPath').textContent = d.logPath || '—';
@@ -2157,6 +2621,11 @@
         renderSmooth();
       } else if (d.type === 'smoothError') {
         toast(d.message || L('Smooth Motion 操作失败', 'Smooth Motion failed'));
+      } else if (d.type === 'hsfState') {
+        hsfData = d;
+        renderHsf();
+      } else if (d.type === 'hsfError') {
+        toast(d.message || L('HSF 操作失败', 'HSF failed'));
       } else if (d.type === 'troubleshootFiles') {
         if (d.items && d.items.length) {
           openTroubleshootDialog(d.exe || '', d.items);
