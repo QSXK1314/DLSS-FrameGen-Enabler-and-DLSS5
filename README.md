@@ -3,6 +3,12 @@
 一款用于开启游戏 DLSS5 和多帧生成（Frame Generation）功能的 Windows 桌面工具。
 A Windows desktop tool for enabling DLSS5 and Frame Generation in games.
 
+- ## 下载哪个版本？
+
+- 稳定版用户：先下载 **V1.30 基线完整包**，再应用最新稳定版增量包。
+- 测试版用户：先下载 **V1.61-Beta 基线完整包**，再应用最新测试版增量包。
+- 新用户：也可以直接下载当前完整包。
+
 - 当前稳定版 / Current stable version：**V1.20.0.0**
 - 稳定版源码分支 / Stable source branch：`master`
 - 测试版与 WebUI 版为独立发布，不在本仓库的稳定版源码内 / Beta and WebUI builds are released separately.
