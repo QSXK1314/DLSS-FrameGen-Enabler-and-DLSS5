@@ -33,11 +33,16 @@ public class SettingsService
 
 	public int Language { get; set; }
 
+	/// <summary>HSF 菜单语言：0=跟随软件，1=简体中文，2=English。</summary>
+	public int HsfMenuLanguage { get; set; }
+
+	public int FontSize { get; set; }
+
 	public int BackdropType { get; set; }
 
 	public string CustomWallpaperPath { get; set; } = "";
 
-	public string XiaoheiheUrl { get; set; } = "https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&h_src=YXBwX3NoYXJl&link_id=f255727103c5&new_post_share_style=true";
+	public string XiaoheiheUrl { get; set; } = "https://www.xiaoheihe.cn/app/user/profile/33117847";
 
 	public string GithubUrl { get; set; } = "https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5";
 
@@ -85,8 +90,8 @@ public class SettingsService
 			if (File.Exists(SettingsPath))
 			{
 				SettingsService settingsService = JsonSerializer.Deserialize<SettingsService>(File.ReadAllText(SettingsPath)) ?? new SettingsService();
-				string xiaoheiheUrl = "https://api.xiaoheihe.cn/v3/bbs/app/api/web/share?h_camp=link&h_src=YXBwX3NoYXJl&link_id=f255727103c5&new_post_share_style=true";
-				if (!string.IsNullOrEmpty(settingsService.XiaoheiheUrl) && !settingsService.XiaoheiheUrl.Contains("link_id=f255727103c5"))
+				string xiaoheiheUrl = "https://www.xiaoheihe.cn/app/user/profile/33117847";
+				if (string.IsNullOrEmpty(settingsService.XiaoheiheUrl) || settingsService.XiaoheiheUrl != xiaoheiheUrl)
 				{
 					settingsService.XiaoheiheUrl = xiaoheiheUrl;
 					settingsService.Save();
@@ -94,10 +99,31 @@ public class SettingsService
 				return settingsService;
 			}
 		}
+		catch (Exception ex)
+		{
+			WriteSaveDebug("设置加载失败：" + ex.Message + "\n" + ex.StackTrace);
+		}
+		return new SettingsService();
+	}
+
+	internal static void WriteSaveDebug(string message)
+	{
+		try
+		{
+			string? directory = Path.GetDirectoryName(SettingsPath);
+			if (string.IsNullOrEmpty(directory))
+			{
+				return;
+			}
+			Directory.CreateDirectory(directory);
+			File.AppendAllText(
+				Path.Combine(directory, "save_debug.log"),
+				$"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}\n",
+				Encoding.UTF8);
+		}
 		catch
 		{
 		}
-		return new SettingsService();
 	}
 
 	public void Save()
@@ -111,8 +137,9 @@ public class SettingsService
 			});
 			File.WriteAllText(SettingsPath, contents);
 		}
-		catch
+		catch (Exception ex)
 		{
+			WriteSaveDebug("设置保存失败：" + ex.Message + "\n" + ex.StackTrace);
 		}
 	}
 

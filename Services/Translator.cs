@@ -134,6 +134,11 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             ["Dlg_FrameGen_Restored"] = ("多帧生成已还原", "Frame Gen restored"),
             ["Dlg_FrameGen_NotSupported"] = ("当前游戏不支持多帧生成", "This game does not support Frame Gen"),
             ["Dlg_FrameGen_GpuNotSupported"] = ("当前显卡不支持多帧生成", "Current GPU does not support Frame Gen"),
+            ["Dlg_FrameGen_MethodTitle"] = ("选择多帧生成方案", "Select Frame Gen Method"),
+            ["Dlg_FrameGen_MFG"] = ("MFG 方案", "MFG Method"),
+            ["Dlg_FrameGen_MFGDesc"] = ("基于 MFG Unlocker 的 version.dll 代理，适合新驱动与 RTX 40/50 系，兼容性最广，支持 4X 多帧", "MFG Unlocker version.dll proxy, best for new drivers and RTX 40/50, widest compatibility, supports 4X multi-frame"),
+            ["Dlg_FrameGen_SM86"] = ("SM86 方案", "SM86 Method"),
+            ["Dlg_FrameGen_SM86Desc"] = ("基于 dlssg_for_sm86，自带优化内核，适用于 RTX 20/30/40/50 系，支持 4X/6X（6X 需游戏自身支持），与 MFG 方案二选一", "dlssg_for_sm86 with built-in optimized kernels, works on RTX 20/30/40/50, 4X/6X (6X needs game support), mutually exclusive with MFG"),
 
             // DLSS5
             ["Dlg_Dlss5_Title"] = ("选择DLSS5方案", "Select DLSS5 Method"),

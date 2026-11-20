@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace DLSSFrameGenEnabler_WinUI3.Services
 {
@@ -125,7 +124,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             public string ExePath { get; set; } = "";
             public long MemoryMB { get; set; }
             public string GameName { get; set; } = "";
-            public BitmapImage? Icon { get; set; }
+            public string IconDataUrl { get; set; } = "";
         }
 
         // 需要排除的系统进程/非游戏进程关键词
@@ -232,48 +231,11 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         };
 
         /// <summary>
-        /// 获取exe文件的图标
+        /// 获取exe文件的图标（base64 dataURL，供 HTML 使用）
         /// </summary>
-        private static BitmapImage? GetExeIcon(string exePath)
+        public static string GetExeIconDataUrl(string exePath)
         {
-            try
-            {
-                if (!File.Exists(exePath)) return null;
-
-                var shfi = new SHFILEINFO();
-                IntPtr hImg = SHGetFileInfo(exePath, 0, ref shfi,
-                    (uint)Marshal.SizeOf(typeof(SHFILEINFO)),
-                    SHGFI_ICON | SHGFI_SMALLICON);
-
-                if (shfi.hIcon == IntPtr.Zero) return null;
-
-                try
-                {
-                    using (var icon = Icon.FromHandle(shfi.hIcon))
-                    {
-                        using (var bitmap = icon.ToBitmap())
-                        {
-                            using (var ms = new MemoryStream())
-                            {
-                                bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                                ms.Position = 0;
-
-                                var bitmapImage = new BitmapImage();
-                                bitmapImage.SetSource(ms.AsRandomAccessStream());
-                                return bitmapImage;
-                            }
-                        }
-                    }
-                }
-                finally
-                {
-                    DestroyIcon(shfi.hIcon);
-                }
-            }
-            catch
-            {
-                return null;
-            }
+            return IconExtractor.GetDataUrl(exePath);
         }
 
         /// <summary>
@@ -340,7 +302,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                         }
 
                         // 获取exe图标
-                        var icon = GetExeIcon(exePath);
+                        string icon = GetExeIconDataUrl(exePath);
 
                         var info = new GameProcessInfo
                         {
@@ -350,7 +312,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                             ExePath = exePath,
                             MemoryMB = memoryMB,
                             GameName = Path.GetFileNameWithoutExtension(exeName),
-                            Icon = icon
+                            IconDataUrl = icon
                         };
 
                         result.Add(info);

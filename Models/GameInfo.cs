@@ -3,8 +3,6 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using DLSSFrameGenEnabler_WinUI3.Services;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 
 namespace DLSSFrameGenEnabler_WinUI3.Models;
 
@@ -34,11 +32,17 @@ public class GameInfo : INotifyPropertyChanged
 
 	private bool _dx9Dlss5Enabled;
 
+	private string _renderApi = "";
+
+	private bool _isSourceEngine;
+
+	private string _hsfInstallMode = "auto";
+
 	private string _frameGenMode = "";
 
-	private string _gpuSeries = "";
+	private string _gitcVersion = "1.7.0";
 
-	private ImageSource? _icon;
+	private string _gpuSeries = "";
 
 	private string _remark = "";
 
@@ -158,6 +162,50 @@ public class GameInfo : INotifyPropertyChanged
 		}
 	}
 
+	/// <summary>PE 导入表识别出的渲染 API：DX9 / DX11 / DX12 / Vulkan / OpenGL。</summary>
+	public string RenderApi
+	{
+		get
+		{
+			return _renderApi;
+		}
+		set
+		{
+			_renderApi = value;
+			OnPropertyChanged("RenderApi");
+		}
+	}
+
+	/// <summary>是否为 Source 1 引擎（ReShade/HSF 需要装到 bin）。</summary>
+	public bool IsSourceEngine
+	{
+		get
+		{
+			return _isSourceEngine;
+		}
+		set
+		{
+			_isSourceEngine = value;
+			OnPropertyChanged("IsSourceEngine");
+		}
+	}
+
+	/// <summary>HSF 安装目录模式：auto / root / bin。默认自动。</summary>
+	public string HsfInstallMode
+	{
+		get
+		{
+			return string.IsNullOrWhiteSpace(_hsfInstallMode) ? "auto" : _hsfInstallMode;
+		}
+		set
+		{
+			string mode = string.IsNullOrWhiteSpace(value) ? "auto" : value.Trim().ToLowerInvariant();
+			if (mode != "auto" && mode != "root" && mode != "bin") mode = "auto";
+			_hsfInstallMode = mode;
+			OnPropertyChanged("HsfInstallMode");
+		}
+	}
+
 	public bool SupportsFrameGen
 	{
 		get
@@ -253,6 +301,20 @@ public class GameInfo : INotifyPropertyChanged
 		}
 	}
 
+	/// <summary>GITC DLSS5 补丁版本：1.7.0 或 2.0.0</summary>
+	public string GitcVersion
+	{
+		get
+		{
+			return _gitcVersion;
+		}
+		set
+		{
+			_gitcVersion = value;
+			OnPropertyChanged("GitcVersion");
+		}
+	}
+
 	public string GpuSeries
 	{
 		get
@@ -263,20 +325,6 @@ public class GameInfo : INotifyPropertyChanged
 		{
 			_gpuSeries = value;
 			OnPropertyChanged("GpuSeries");
-		}
-	}
-
-	[JsonIgnore]
-	public ImageSource? Icon
-	{
-		get
-		{
-			return _icon;
-		}
-		set
-		{
-			_icon = value;
-			OnPropertyChanged("Icon");
 		}
 	}
 
@@ -329,15 +377,11 @@ public class GameInfo : INotifyPropertyChanged
 	}
 
 	[JsonIgnore]
-	public Visibility HasRemarkTags
+	public bool HasRemarkTags
 	{
 		get
 		{
-			if (string.IsNullOrWhiteSpace(Remark) && string.IsNullOrWhiteSpace(Tags))
-			{
-				return Visibility.Collapsed;
-			}
-			return Visibility.Visible;
+			return !string.IsNullOrWhiteSpace(Remark) || !string.IsNullOrWhiteSpace(Tags);
 		}
 	}
 

@@ -132,6 +132,11 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                     "plugin", "plugins", "translator", "autotranslator",
                     "ext.protocol", "executor.exe", "protocol.exe"
                 };
+                // PBZ（影之刃零）目录中夹带的 8-Zip 控制台工具，绝不是游戏主程序
+                if (fileName == "8za_v2.exe" || fileName == "8za.exe")
+                {
+                    return false;
+                }
                 foreach (var keyword in excludeKeywords)
                 {
                     if (fileName.Contains(keyword)) return false;
@@ -266,7 +271,13 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                         var displayName = GetJsonValue(json, "DisplayName");
                         if (!string.IsNullOrEmpty(installLocation) && Directory.Exists(installLocation))
                         {
-                            var game = AnalyzeGameDirectory(installLocation, displayName, looseExeCheck: true);
+                            // Epic 的 DisplayName 跟随客户端语言：英文界面下不能拿中文名当显示名
+                            string? overrideName = displayName;
+                            if (Translator.IsEnglish && GameNameDatabase.HasChinese(overrideName))
+                            {
+                                overrideName = null;
+                            }
+                            var game = AnalyzeGameDirectory(installLocation, overrideName, looseExeCheck: true);
                             if (game != null) games.Add(game);
                         }
                     }
@@ -377,17 +388,24 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                     gameName = productName;
                 }
             }
+            if (Translator.IsEnglish) {
+                gameName = GameNameDatabase.EnglishFallback(gameName, exePath, gameRoot);
+            }
             
-            // 检测DX支持情况
-            var (supportsDX9, supportsDX11) = CheckDXSupport(exeDir, gameRoot);
+            // 检测渲染 API 与引擎。优先读 PE 导入表和 Source 目录结构，不再用位数猜。
+            RendererInfo renderer = RendererDetector.Detect(exePath, gameRoot);
+            bool supportsDX9 = isDx9Manual || renderer.IsDX9;
+            bool supportsDX11 = isDx9Manual ? false : renderer.SupportsDX11;
             
             var game = new GameInfo
             {
                 Name = gameName,
                 GamePath = gameRoot,
                 ExePath = exePath,
-                IsDX9 = isDx9Manual || supportsDX9,
-                SupportsDX11 = isDx9Manual ? false : supportsDX11,
+                IsDX9 = supportsDX9,
+                SupportsDX11 = supportsDX11,
+                RenderApi = isDx9Manual ? "DX9（手动指定）" : renderer.Api,
+                IsSourceEngine = renderer.IsSourceEngine,
                 IsREEngine = CheckREEngine(gameRoot),
                 Is2077 = gameName.Contains("Cyberpunk", StringComparison.OrdinalIgnoreCase),
                 IsYanYun = gameName.Contains("燕云", StringComparison.OrdinalIgnoreCase) || gameName.Contains("yysls", StringComparison.OrdinalIgnoreCase),
@@ -768,8 +786,10 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 }
             }
 
-            // 检测DX支持情况
-            var (supportsDX9, supportsDX11) = CheckDXSupport(exeDir, gamePath);
+            // 检测渲染 API 与引擎。优先读 PE 导入表和 Source 目录结构，不再用位数猜。
+            RendererInfo renderer = RendererDetector.Detect(exeFile ?? Path.Combine(exeDir, gameName + ".exe"), gamePath);
+            bool supportsDX9 = renderer.IsDX9;
+            bool supportsDX11 = renderer.SupportsDX11;
             // 只有游戏目录中有 nvngx_dlssg.dll 文件才允许开启多帧生成（游戏原生支持帧生成）
             var supportsFrameGen = supportsDX11 && CheckNativeFrameGenSupport(gamePath, exeDir);
             
@@ -779,6 +799,7 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 supportsFrameGen = true;
                 supportsDX9 = false;
                 supportsDX11 = true;
+                renderer.Api = "DX11 / DX12";
             }
 
             
@@ -795,6 +816,9 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                     }
                 }
             }
+            if (Translator.IsEnglish) {
+                gameName = GameNameDatabase.EnglishFallback(gameName, exeFile, gamePath);
+            }
             var game = new GameInfo
             {
                 Name = gameName,
@@ -803,6 +827,8 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
                 IsREEngine = isREEngine,
                 IsDX9 = supportsDX9,  // 是否支持DX9
                 SupportsDX11 = supportsDX11,  // 是否支持DX11/12
+                RenderApi = renderer.Api,
+                IsSourceEngine = renderer.IsSourceEngine,
                 Is2077 = is2077,
                 IsYanYun = isYanYun,
                 SupportsFrameGen = supportsFrameGen
@@ -855,6 +881,14 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             // 赛博朋克2077
             var cp2077Dir = Path.Combine(gamePath, "bin", "x64");
             if (Directory.Exists(cp2077Dir) && FindGameExe(cp2077Dir) != null) return cp2077Dir;
+
+            // 影之刃零 / PBZ：真正的游戏主程序在 platform\steam\PBZ.exe，
+            // 不能使用 ProjectPBZ\Binaries\Win64 下的 8za_v2.exe（那是 8-Zip 控制台工具）
+            var pbzSteamDir = Path.Combine(gamePath, "platform", "steam");
+            if (Directory.Exists(pbzSteamDir) && File.Exists(Path.Combine(pbzSteamDir, "PBZ.exe")))
+            {
+                return pbzSteamDir;
+            }
 
             // ========== RE引擎：根目录 ==========
             if (CheckREEngine(gamePath))
@@ -1142,105 +1176,28 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
             return DirectoryContainsFile(gamePath, "re_chunk_000.pak");
         }
 
-        // 检测游戏的DX支持情况
+        // 检测游戏的DX支持情况（兼容旧调用；新代码优先用 RendererDetector）
         public static (bool supportsDX9, bool supportsDX11) CheckDXSupport(string exeDir, string gamePath)
         {
-            bool supportsDX9 = false;
-            bool supportsDX11 = false;
-            
-            // 检查目录结构
-            bool hasBin32 = Directory.Exists(Path.Combine(exeDir, "Bin32")) || 
-                           Directory.Exists(Path.Combine(gamePath, "Bin32")) ||
-                           Directory.Exists(Path.Combine(exeDir, "bin")) ||
-                           Directory.Exists(Path.Combine(gamePath, "bin"));
-            bool hasBin64 = Directory.Exists(Path.Combine(exeDir, "Bin64")) || 
-                           Directory.Exists(Path.Combine(gamePath, "Bin64")) ||
-                           Directory.Exists(Path.Combine(exeDir, "bin64")) ||
-                           Directory.Exists(Path.Combine(gamePath, "bin64")) ||
-                           Directory.Exists(Path.Combine(exeDir, "Win64")) ||
-                           Directory.Exists(Path.Combine(gamePath, "Win64")) ||
-                           Directory.Exists(Path.Combine(exeDir, "x64")) ||
-                           Directory.Exists(Path.Combine(gamePath, "x64"));
-            
-            if (hasBin64) supportsDX11 = true;
-            if (hasBin32 && !hasBin64) supportsDX9 = true;
-            
-            // 检查exe位数（主要判断依据）
-            try
+            string? exeFile = FindGameExe(exeDir);
+            if (exeFile == null || !File.Exists(exeFile))
             {
-                var exeFile = FindGameExe(exeDir);
-                if (exeFile != null)
-                {
-                    bool is32Bit = Is32BitExe(exeFile);
-                    
-                    if (is32Bit)
-                    {
-                        // 32位exe：很可能支持DX9
-                        supportsDX9 = true;
-                        // 32位exe也可能支持DX11（通过兼容层），但默认认为不支持
-                        // 除非有明确的DX11特征文件
-                    }
-                    else
-                    {
-                        // 64位exe：通常支持DX11/12，不支持纯DX9
-                        supportsDX11 = true;
-                        supportsDX9 = false;
-                    }
-                }
-            }
-            catch { }
-            
-            // 检查是否有d3d9.dll（DX9游戏特征）
-            if (File.Exists(Path.Combine(exeDir, "d3d9.dll")))
-            {
-                supportsDX9 = true;
-            }
-            
-            // 检查是否有DX11/12特征文件（这些通常是mod注入的，不是游戏自带的）
-            var dx11Files = new[] { "d3d11.dll", "d3d12.dll", "dxgi.dll", "D3D12Core.dll" };
-            foreach (var file in dx11Files)
-            {
-                if (File.Exists(Path.Combine(exeDir, file)))
-                {
-                    supportsDX11 = true;
-                    break;
-                }
+                // 没有可执行文件时不要凭空判 DX9；交给调用方按未知处理。
+                return (false, true);
             }
 
-            // 检查是否有D3D12文件夹（游戏原生支持DX12的特征）
-            if (Directory.Exists(Path.Combine(exeDir, "D3D12")) ||
-                Directory.Exists(Path.Combine(gamePath, "D3D12")))
-            {
-                supportsDX11 = true;
-            }
-            
-            // 如果两个都不支持，默认认为支持DX11（现代游戏居多）
-            if (!supportsDX9 && !supportsDX11)
-            {
-                supportsDX11 = true;
-            }
-            
-            // 如果是64位exe，强制不支持纯DX9（64位DX9游戏极少）
-            try
-            {
-                var exeFile = FindGameExe(exeDir);
-                if (exeFile != null && !Is32BitExe(exeFile))
-                {
-                    supportsDX9 = false;
-                    supportsDX11 = true;
-                }
-            }
-            catch { }
-            
-            return (supportsDX9, supportsDX11);
+            RendererInfo info = RendererDetector.Detect(exeFile, gamePath);
+            return (info.IsDX9, info.SupportsDX11);
         }
         
         // 检测是否DX9游戏（保留兼容）
         public static bool CheckIsDX9(string exeDir)
         {
-            var (supportsDX9, supportsDX11) = CheckDXSupport(exeDir, exeDir);
+            string? exeFile = FindGameExe(exeDir);
+            if (exeFile == null || !File.Exists(exeFile)) return false;
+            RendererInfo info = RendererDetector.Detect(exeFile, exeDir);
             // 只支持DX9，不支持DX11，才认为是纯DX9游戏
-            return supportsDX9 && !supportsDX11;
+            return info.IsDX9 && !info.SupportsDX11;
         }
         
         // 检测exe是否是32位
@@ -1556,19 +1513,24 @@ namespace DLSSFrameGenEnabler_WinUI3.Services
         {
             // 向上查找游戏根目录（增加查找深度到10级，覆盖目录结构深的游戏）
             var dir = exeDir;
+            string childDir = exeDir;
             string bestRoot = exeDir; // 默认返回exe目录
             
             for (int i = 0; i < 10; i++)
             {
                 var parent = Directory.GetParent(dir);
                 if (parent == null) break;
+                childDir = dir;
                 dir = parent.FullName;
                 
-                // 如果找到steamapps/common或Epic Games，这就是游戏根目录
-                if (dir.Contains("steamapps\\common", StringComparison.OrdinalIgnoreCase) || 
-                    dir.Contains("Epic Games", StringComparison.OrdinalIgnoreCase))
+                // 到达 Steam / Epic 库的公共父目录时，上一级 childDir 才是具体游戏目录；
+                // 不能把 steamapps\common 或 Epic Games 本身当成游戏根目录。
+                if (dir.EndsWith("steamapps" + Path.DirectorySeparatorChar + "common", StringComparison.OrdinalIgnoreCase) ||
+                    dir.EndsWith("steamapps/common", StringComparison.OrdinalIgnoreCase) ||
+                    dir.EndsWith(Path.DirectorySeparatorChar + "Epic Games", StringComparison.OrdinalIgnoreCase) ||
+                    dir.EndsWith("/Epic Games", StringComparison.OrdinalIgnoreCase))
                 {
-                    return dir;
+                    return childDir;
                 }
                 
                 // 检查是否有游戏特征文件/目录（这些通常在游戏根目录）

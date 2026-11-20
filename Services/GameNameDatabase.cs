@@ -524,6 +524,70 @@ public static class GameNameDatabase
         return null;
     }
 
+    /// <summary>名字里是否含汉字。</summary>
+    public static bool HasChinese(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+        foreach (char c in text)
+        {
+            if (c >= '\u4e00' && c <= '\u9fff')
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 英文界面的兜底：当前名字含中文、又没被上面的数据库收录时，改用不含中文的目录名或 exe 文件名。
+    /// 都找不到合适的英文名就保留原值——宁可显示中文，也不要显示空名字。
+    /// </summary>
+    public static string EnglishFallback(string current, string? exePath, string gamePath)
+    {
+        if (!HasChinese(current))
+        {
+            return current;
+        }
+        string dirName = Path.GetFileName(gamePath.TrimEnd('\\', '/'));
+        if (!string.IsNullOrWhiteSpace(dirName) && !HasChinese(dirName) && dirName.Length > 2)
+        {
+            return dirName;
+        }
+        if (!string.IsNullOrEmpty(exePath))
+        {
+            string exeName = Path.GetFileNameWithoutExtension(exePath);
+            if (!string.IsNullOrWhiteSpace(exeName) && !HasChinese(exeName) && exeName.Length > 2)
+            {
+                return exeName;
+            }
+        }
+        return current;
+    }
+
+    /// <summary>
+    /// 把"正好等于数据库里某个官方中文名"的名字换成英文名（英文界面切换语言、读取旧列表时用）。
+    /// 只认完全相同的官方中文名，所以不会动用户自己改过的名字。
+    /// </summary>
+    public static string TranslateToEnglishIfKnown(string name)
+    {
+        if (!HasChinese(name))
+        {
+            return name;
+        }
+        string trimmed = name.Trim();
+        foreach (var item in _database)
+        {
+            if (item.Value.Chinese.Equals(trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                return item.Value.English;
+            }
+        }
+        return name;
+    }
+
     /// <summary>
     /// 尝试从exe的文件版本信息中获取产品名称
     /// </summary>

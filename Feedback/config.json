@@ -1,0 +1,8 @@
+{
+  "smtpServer": "smtp.qq.com",
+  "smtpPort": 587,
+  "fromEmail": "3343798200@qq.com",
+  "fromPassword": "请在这里填写你的QQ邮箱授权码",
+  "toEmail": "3343798200@qq.com",
+  "enableSsl": true
+}

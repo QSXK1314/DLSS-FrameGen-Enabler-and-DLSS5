@@ -11,6 +11,10 @@ public class FilePatcher
 {
 	private static readonly string PatchesBaseDir = Path.Combine(AppContext.BaseDirectory, "Patches");
 
+	// SM86 方案自带的 6 个代理名，以及它们出厂时的文件大小（用来认人，避免误删同名的其它 MOD）
+	private static readonly string[] Sm86ProxyNames = new string[6] { "version.dll", "winmm.dll", "dbghelp.dll", "dinput8.dll", "dxgi.dll", "d3d12.dll" };
+	private static readonly long[] Sm86ProxySizes = new long[5] { 815240L, 825992L, 832648L, 814216L, 815752L };
+
 	private static readonly string SharedPatchDir = Path.Combine(PatchesBaseDir, "_Shared");
 
 	private static readonly string BackupBaseDir = Path.Combine(AppContext.BaseDirectory, "backup");
@@ -369,6 +373,109 @@ public class FilePatcher
 		}
 	}
 
+	/// <summary>
+	/// 根据 Steam / Epic / GOG 的库目录结构反推真实游戏根目录。
+	/// 例如 D:\SteamLibrary\steamapps\common\PBZ\Engine\... 返回 ...\PBZ。
+	/// </summary>
+	private static string? FindLibraryGameRoot(string sourceFile)
+	{
+		try
+		{
+			string full = Path.GetFullPath(sourceFile);
+			string root = Path.GetPathRoot(full) ?? "";
+			if (root.Length == 0) return null;
+			string[] parts = full.Substring(root.Length)
+				.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+			for (int i = 0; i < parts.Length; i++)
+			{
+				if (i + 2 < parts.Length &&
+					parts[i].Equals("steamapps", StringComparison.OrdinalIgnoreCase) &&
+					parts[i + 1].Equals("common", StringComparison.OrdinalIgnoreCase))
+				{
+					return Path.Combine(root, string.Join(Path.DirectorySeparatorChar.ToString(), parts.Take(i + 3)));
+				}
+				if (i + 1 < parts.Length &&
+					(parts[i].Equals("Epic Games", StringComparison.OrdinalIgnoreCase) ||
+					 parts[i].Equals("GOG Games", StringComparison.OrdinalIgnoreCase)))
+				{
+					return Path.Combine(root, string.Join(Path.DirectorySeparatorChar.ToString(), parts.Take(i + 2)));
+				}
+			}
+		}
+		catch
+		{
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// 备份时的镜像根：源文件在 gameRootDir 下就直接用；
+	/// 否则用两者最近共同父目录（例如 PBZ\platform\steam 与 PBZ\Engine 的共同父目录是 PBZ）。
+	/// </summary>
+	private static string? FindBackupMirrorRoot(string gameRootDir, string sourceFile)
+	{
+		try
+		{
+			string rootDir = Path.GetFullPath(gameRootDir).TrimEnd('\\', '/');
+			string fullSource = Path.GetFullPath(sourceFile);
+			string sourceDir = Path.GetDirectoryName(fullSource) ?? "";
+			if (rootDir.Length == 0 || sourceDir.Length == 0) return null;
+			if (!string.Equals(Path.GetPathRoot(rootDir), Path.GetPathRoot(sourceDir), StringComparison.OrdinalIgnoreCase))
+			{
+				return null;
+			}
+			string relative = Path.GetRelativePath(rootDir, fullSource);
+			if (!Path.IsPathRooted(relative) && relative != ".." &&
+				!relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
+				!relative.StartsWith("../", StringComparison.Ordinal))
+			{
+				return rootDir;
+			}
+			return FindCommonDirectory(rootDir, sourceDir);
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	private static string? FindCommonDirectory(string dirA, string dirB)
+	{
+		try
+		{
+			string a = Path.GetFullPath(dirA).TrimEnd('\\', '/');
+			string b = Path.GetFullPath(dirB).TrimEnd('\\', '/');
+			string root = Path.GetPathRoot(a) ?? "";
+			if (root.Length == 0 || !string.Equals(root, Path.GetPathRoot(b), StringComparison.OrdinalIgnoreCase))
+			{
+				return null;
+			}
+			string[] pa = a.Substring(root.Length).Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+			string[] pb = b.Substring(root.Length).Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+			int count = 0;
+			while (count < pa.Length && count < pb.Length &&
+				pa[count].Equals(pb[count], StringComparison.OrdinalIgnoreCase))
+			{
+				count++;
+			}
+			// 至少要有“盘符 + 一级目录”，且不能停在游戏库的公共父目录。
+			if (count < 2) return null;
+			string last = pa[count - 1];
+			if (last.Equals("common", StringComparison.OrdinalIgnoreCase) ||
+				last.Equals("steamapps", StringComparison.OrdinalIgnoreCase) ||
+				last.Equals("Epic Games", StringComparison.OrdinalIgnoreCase) ||
+				last.Equals("GOG Games", StringComparison.OrdinalIgnoreCase))
+			{
+				return null;
+			}
+			return Path.Combine(root, string.Join(Path.DirectorySeparatorChar.ToString(), pa.Take(count)));
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
 	private static void BackupFile(string sourceFile, string backupDir, string gameRootDir = null)
 	{
 		if (!File.Exists(sourceFile))
@@ -378,16 +485,50 @@ public class FilePatcher
 		string fileName = Path.GetFileName(sourceFile);
 		string relativePath = fileName;
 		string text;
-		
-		// 如果传入了游戏根目录，就按照原文件的目录结构备份
-		if (!string.IsNullOrEmpty(gameRootDir) && sourceFile.StartsWith(gameRootDir, StringComparison.OrdinalIgnoreCase))
+
+		// 备份目录里记录了游戏根目录；优先使用它，避免调用方只传 exeDir 时
+		// 把 bin\x64\Fonts 之类的文件平铺到备份根。
+		string? recordedRoot = null;
+		try
 		{
-			relativePath = sourceFile.Substring(gameRootDir.Length).TrimStart('\\', '/');
-			text = Path.Combine(backupDir, relativePath);
-			string backupFileDir = Path.GetDirectoryName(text);
-			if (!string.IsNullOrEmpty(backupFileDir) && !Directory.Exists(backupFileDir))
+			string gamePathFile = Path.Combine(backupDir, "game_path.txt");
+			if (File.Exists(gamePathFile))
 			{
-				Directory.CreateDirectory(backupFileDir);
+				recordedRoot = File.ReadAllText(gamePathFile).Trim();
+			}
+		}
+		catch
+		{
+		}
+		string? effectiveRoot = !string.IsNullOrWhiteSpace(recordedRoot) ? recordedRoot : gameRootDir;
+
+		// 优先按 Steam / Epic / GOG 的库结构找真实游戏根。
+		// 例如 GamePath 被错误记录成 ...\PBZ\platform\steam 时，
+		// nvngx_dlss.dll 在 ...\PBZ\Engine\...，仍必须镜像成 Engine\...。
+		string? mirrorRoot = FindLibraryGameRoot(sourceFile);
+		if (mirrorRoot == null && !string.IsNullOrWhiteSpace(effectiveRoot))
+		{
+			mirrorRoot = FindBackupMirrorRoot(effectiveRoot, sourceFile);
+		}
+
+		if (mirrorRoot != null)
+		{
+			string rel = Path.GetRelativePath(mirrorRoot, Path.GetFullPath(sourceFile));
+			if (!Path.IsPathRooted(rel) && rel != ".." &&
+				!rel.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
+				!rel.StartsWith("../", StringComparison.Ordinal))
+			{
+				relativePath = rel;
+				text = Path.Combine(backupDir, relativePath);
+				string backupFileDir = Path.GetDirectoryName(text);
+				if (!string.IsNullOrEmpty(backupFileDir) && !Directory.Exists(backupFileDir))
+				{
+					Directory.CreateDirectory(backupFileDir);
+				}
+			}
+			else
+			{
+				text = Path.Combine(backupDir, fileName);
 			}
 		}
 		else
@@ -1183,7 +1324,7 @@ private static string? FindNvngxDlss(string gamePath, string exeDir, bool skipEx
 				}
 			}
 
-			// 3. 新增 version.dll（MFGUnlocker v1.7.0）
+			// 3. 新增 version.dll（MFGUnlocker v1.7.1）
 			string versionPath = Path.Combine(exeDir, "version.dll");
 			bool versionExists = File.Exists(versionPath);
 			if (versionExists)
@@ -1251,6 +1392,161 @@ private static string? FindNvngxDlss(string gamePath, string exeDir, bool skipEx
 		}
 	}
 
+	/// <summary>
+	/// 高级模式 - SM86 方案（dlssg_for_sm86 0.4.2）
+	/// 把 version.dll、dlssg_sm86.ini 和整个 dlssg_sm86\ 目录放到渲染 exe 同目录。
+	/// 与 MFG 方案互斥：两者都占用 version.dll 代理位，只能二选一。
+	/// </summary>
+	/// <summary>判断某个 DLL 是不是 SM86 自带的代理程序（按出厂文件大小识别，避免误删 ReShade 等同名 DLL）。</summary>
+	public static bool IsSm86ProxyFile(string path)
+	{
+		try
+		{
+			if (!File.Exists(path))
+			{
+				return false;
+			}
+			long length = new FileInfo(path).Length;
+			foreach (long size in Sm86ProxySizes)
+			{
+				if (length == size)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
+	/// <summary>返回游戏目录里当前生效的 SM86 代理文件名；一个都没有时返回空串。</summary>
+	public static string DetectSm86Proxy(string exeDir)
+	{
+		foreach (string name in Sm86ProxyNames)
+		{
+			if (IsSm86ProxyFile(Path.Combine(exeDir, name)))
+			{
+				return name;
+			}
+		}
+		return "";
+	}
+
+	/// <summary>
+	/// 把 SM86 的代理从当前那个换成指定的那个（一次只留一个）。
+	/// 只删按出厂大小认出来的 SM86 代理；目标位置已有别的 MOD 的同名 DLL 时拒绝并说明，不动它。
+	/// </summary>
+	public static bool SwitchSm86Proxy(string exeDir, string proxyName, out string error)
+	{
+		error = "";
+		string patchDir = GetPatchDir("SM86多帧生成");
+		string source = (proxyName.Equals("version.dll", StringComparison.OrdinalIgnoreCase)
+			? Path.Combine(patchDir, "version.dll")
+			: Path.Combine(patchDir, "alternatives", proxyName));
+		if (!File.Exists(source))
+		{
+			error = (Translator.IsEnglish ? "Proxy file not found: " : "找不到代理文件：") + proxyName;
+			return false;
+		}
+		foreach (string name in Sm86ProxyNames)
+		{
+			if (name.Equals(proxyName, StringComparison.OrdinalIgnoreCase))
+			{
+				continue;
+			}
+			string other = Path.Combine(exeDir, name);
+			if (!IsSm86ProxyFile(other))
+			{
+				continue;
+			}
+			try
+			{
+				File.Delete(other);
+			}
+			catch
+			{
+				error = (Translator.IsEnglish ? "Cannot remove the old proxy (is the game still running?): " : "旧代理删不掉（游戏是否还在运行？）：") + name;
+				return false;
+			}
+		}
+		string target = Path.Combine(exeDir, proxyName);
+		if (File.Exists(target) && !IsSm86ProxyFile(target))
+		{
+			error = (Translator.IsEnglish ? "A non-SM86 " : "游戏目录里已有一个不是 SM86 的 ") + proxyName + (Translator.IsEnglish ? " already exists. Move it away first." : "，请先移走再切换。");
+			return false;
+		}
+		try
+		{
+			File.Copy(source, target, overwrite: true);
+			return true;
+		}
+		catch
+		{
+			error = (Translator.IsEnglish ? "Failed to copy the proxy DLL." : "复制代理 DLL 失败。");
+			return false;
+		}
+	}
+
+	public static bool InstallAdvancedSM86FrameGen(GameInfo game)
+	{
+		try
+		{
+			EnsurePatchesExtracted();
+			string exeDir = GetExeDir(game);
+			string backupDir = GetBackupDir(game, "FrameGen_SM86", true);
+			string patchDir = GetPatchDir("SM86多帧生成");
+			if (!Directory.Exists(patchDir))
+			{
+				return false;
+			}
+
+			// 1. version.dll 代理
+			string versionPath = Path.Combine(exeDir, "version.dll");
+			bool versionExists = File.Exists(versionPath);
+			if (versionExists)
+			{
+				BackupFile(versionPath, backupDir);
+			}
+			File.Copy(Path.Combine(patchDir, "version.dll"), versionPath, overwrite: true);
+			if (!versionExists)
+			{
+				RecordAddedFile(backupDir, versionPath);
+			}
+
+			// 2. dlssg_sm86.ini（出厂：DLSS 引擎、4X、逐位一致加速、超分 Off）
+			string iniPath = Path.Combine(exeDir, "dlssg_sm86.ini");
+			bool iniExists = File.Exists(iniPath);
+			if (iniExists)
+			{
+				BackupFile(iniPath, backupDir);
+			}
+			File.Copy(Path.Combine(patchDir, "dlssg_sm86.ini"), iniPath, overwrite: true);
+			if (!iniExists)
+			{
+				RecordAddedFile(backupDir, iniPath);
+			}
+
+			// 3. dlssg_sm86 目录：backend / kernels / runtime / sr / xefg
+			string srcDir = Path.Combine(patchDir, "dlssg_sm86");
+			string dstDir = Path.Combine(exeDir, "dlssg_sm86");
+			if (Directory.Exists(srcDir))
+			{
+				CopyDirectory(srcDir, dstDir, overwrite: true, includeSharedFiles: false, backupDir, exeDir);
+			}
+
+			game.FrameGenEnabled = true;
+			game.FrameGenMode = "高级模式SM86";
+			return true;
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
 	public static bool Install2077FrameGen(GameInfo game)
 	{
 		try
@@ -1303,7 +1599,7 @@ private static string? FindNvngxDlss(string gamePath, string exeDir, bool skipEx
 	/// <param name="api">渲染API：dx12 / dx9 / vulkan</param>
 	/// <param name="installSubDir">安装子目录，比如起源引擎填"bin"，默认空</param>
 	/// <param name="is32bit">游戏是否为32位，默认false（64位）</param>
-	public static bool InstallGITCDLSS5_Base(GameInfo game, string api, string installSubDir = "", bool is32bit = false)
+	public static bool InstallGITCDLSS5_Base(GameInfo game, string api, string installSubDir = "", bool is32bit = false, string gitcVersion = "1.7.0")
 	{
 		try
 		{
@@ -1359,6 +1655,36 @@ private static string? FindNvngxDlss(string gamePath, string exeDir, bool skipEx
 			File.Copy(dllSource, dllDest, overwrite: true);
 			// 记录新增的主dll，还原时按清单删除；若同名文件原本存在，前面CopyDirectory已备份
 			RecordAddedFile(backupDir, dllDest);
+
+			// 2.0.0 版本：用 versions\2.0.0 里的新版 addon 与 Uplift 着色器覆盖 1.7.0 基础文件。
+			// 这些路径在 CopyDirectory 阶段已经备份/登记过，这里直接覆盖，不能再备份一次，否则还原会恢复成 1.7.0 文件。
+			if (!string.IsNullOrEmpty(gitcVersion) && gitcVersion != "1.7.0")
+			{
+				string versionDir = GetPatchDir($"GITC-DLSS5补丁\\versions\\{gitcVersion}");
+				if (Directory.Exists(versionDir))
+				{
+					foreach (string name in new[] { "gitc-uplift.addon64", "gitc-uplift.addon32", "gitc-uplift-helper64.exe" })
+					{
+						string srcFile = Path.Combine(versionDir, name);
+						if (File.Exists(srcFile))
+						{
+							File.Copy(srcFile, Path.Combine(targetDir, name), overwrite: true);
+						}
+					}
+					string shaderDir = Path.Combine(targetDir, "reshade-shaders", "Shaders");
+					if (Directory.Exists(shaderDir))
+					{
+						foreach (string name in new[] { "Uplift.fx", "UpliftMask.fx" })
+						{
+							string srcFile = Path.Combine(versionDir, name);
+							if (File.Exists(srcFile))
+							{
+								File.Copy(srcFile, Path.Combine(shaderDir, name), overwrite: true);
+							}
+						}
+					}
+				}
+			}
 
 			// RE引擎游戏自动适配：检测到re_chunk_000.pak就额外复制RE框架dinput8.dll绕过完整性检查
 			if (GameScanner.CheckREEngine(gamePath))
@@ -2342,6 +2668,46 @@ try
         }
         catch { }
     }
+}
+catch { }
+// 清理 SM86 方案（dlssg_for_sm86）的补丁目录与配置：added_files 只删文件，这里连目录一起清掉
+try
+{
+	string sm86Dir = Path.Combine(exeDir, "dlssg_sm86");
+	if (Directory.Exists(sm86Dir))
+	{
+		Directory.Delete(sm86Dir, recursive: true);
+		num2++;
+	}
+	string sm86Ini = Path.Combine(exeDir, "dlssg_sm86.ini");
+	if (File.Exists(sm86Ini))
+	{
+		File.Delete(sm86Ini);
+		num2++;
+	}
+	// 配置窗口保存时自动生成的备份，也要一起清掉
+	string sm86IniBak = Path.Combine(exeDir, "dlssg_sm86.ini.bak");
+	if (File.Exists(sm86IniBak))
+	{
+		File.Delete(sm86IniBak);
+		num2++;
+	}
+	// 代理 DLL 可能被换成 winmm / dbghelp / dinput8 / dxgi / d3d12：按出厂大小认出来再删，避免误删同名 MOD
+	foreach (string proxyName in Sm86ProxyNames)
+	{
+		string proxyPath = Path.Combine(exeDir, proxyName);
+		if (IsSm86ProxyFile(proxyPath))
+		{
+			try
+			{
+				File.Delete(proxyPath);
+				num2++;
+			}
+			catch
+			{
+			}
+		}
+	}
 }
 catch { }
 // 还原被替换的文件（根据backup_manifest.txt记录精准还原，支持子目录备份）

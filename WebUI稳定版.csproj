@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>WebUI.Stable</RootNamespace>
+    <AssemblyName>WebUI</AssemblyName>
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <PublishRepositoryUrl>false</PublishRepositoryUrl>
+    <EmbedUntrackedSources>false</EmbedUntrackedSources>
+    <Version>1.40.0.0</Version>
+    <FileVersion>1.40.0.0</FileVersion>
+    <ProductVersion>1.40.0.0</ProductVersion>
+    <AssemblyTitle>DLSS 多帧生成 + DLSS5 开启工具（WebUI 稳定版）</AssemblyTitle>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3719.77" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="app.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Patches\SmoothMotion\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Patches\HSF\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Feedback\**\*.cs" />
+    <Compile Remove="Launcher\**\*.cs" />
+    <None Remove="Feedback\**" />
+    <None Remove="Launcher\**" />
+  </ItemGroup>
+  <Target Name="CopySmoothMotionPatchesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <SmoothMotionPatchFiles Include="$(MSBuildProjectDirectory)\Patches\SmoothMotion\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SmoothMotionPatchFiles)" DestinationFiles="@(SmoothMotionPatchFiles->'$(PublishDir)Patches\SmoothMotion\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+  <Target Name="CopyHsfPatchesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <HsfPatchFiles Include="$(MSBuildProjectDirectory)\Patches\HSF\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HsfPatchFiles)" DestinationFiles="@(HsfPatchFiles->'$(PublishDir)Patches\HSF\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+</Project>
