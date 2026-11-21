@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DFGE · DLSS 5 / 多帧生成开启工具</title>
+<meta name="description" content="DFGE 是一款面向 Windows 的 DLSS 5、多帧生成、Smooth Motion 与 HSF 帧生成统一开启工具。支持 RTX 20/30/40/50，覆盖 DX9 / DX11 / DX12 / Vulkan。">
+<meta name="theme-color" content="#080b0a">
+<link rel="icon" href="assets/favicon.ico">
+<script>document.documentElement.classList.add('js');</script>
+<style>
+:root{
+  --bg:#070a09;
+  --bg-2:#0a0f0d;
+  --panel:#0e1412;
+  --panel-2:#121a17;
+  --line:rgba(255,255,255,.09);
+  --line-strong:rgba(255,255,255,.15);
+  --text:#f3f7f2;
+  --muted:#94a29b;
+  --muted-2:#68766f;
+  --lime:#b7ff3f;
+  --lime-2:#7be63c;
+  --lime-soft:rgba(183,255,63,.12);
+  --amber:#ffc766;
+  --cyan:#6cd7ff;
+  --max:1180px;
+  --radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{
+  min-height:100vh;
+  overflow-x:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;
+  font-size:16px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+img{display:block;max-width:100%}
+svg{display:block}
+::selection{background:var(--lime);color:#071006}
+:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+.skip-link{
+  position:fixed;left:16px;top:-60px;z-index:80;
+  padding:10px 14px;border-radius:8px;background:var(--lime);color:#071006;
+  font-weight:700;transition:top .2s;
+}
+.skip-link:focus{top:16px}
+
+/* ===== 背景 ===== */
+.bg-grid,.bg-glow{position:fixed;inset:0;pointer-events:none;z-index:-2}
+.bg-grid{
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:52px 52px;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),transparent 78%);
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),transparent 78%);
+  opacity:.45;
+}
+.bg-glow{
+  z-index:-1;
+  background:
+    radial-gradient(600px 420px at 78% 6%,rgba(183,255,63,.10),transparent 65%),
+    radial-gradient(720px 520px at 14% 30%,rgba(108,215,255,.055),transparent 70%),
+    radial-gradient(700px 500px at 50% 88%,rgba(183,255,63,.04),transparent 72%);
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+  opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:soft-light;
+}
+
+/* ===== 导航 ===== */
+.nav{
+  position:sticky;top:0;z-index:50;
+  border-bottom:1px solid var(--line);
+  background:rgba(7,10,9,.72);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+}
+.nav-inner{
+  max-width:var(--max);height:72px;margin:0 auto;padding:0 24px;
+  display:flex;align-items:center;gap:32px;
+}
+.brand{display:flex;align-items:center;gap:11px;flex:none}
+.brand img{width:34px;height:34px;border-radius:9px;box-shadow:0 0 0 1px rgba(183,255,63,.22),0 8px 22px rgba(0,0,0,.35)}
+.brand-name{font-size:17px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.brand-sub{font-size:9px;color:var(--muted);letter-spacing:.2em;line-height:1;margin-top:6px}
+.nav-links{display:flex;align-items:center;gap:26px;margin-left:auto;font-size:13.5px;color:var(--muted)}
+.nav-links a{position:relative;padding:8px 0;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-links a::after{content:"";position:absolute;left:0;right:100%;bottom:2px;height:1px;background:var(--lime);transition:right .2s}
+.nav-links a:hover::after{right:0}
+.nav-cta{
+  display:inline-flex;align-items:center;gap:8px;flex:none;
+  padding:9px 14px;border:1px solid var(--line-strong);border-radius:9px;
+  font-size:13px;font-weight:700;color:var(--text);
+  transition:border-color .2s,background .2s,transform .2s;
+}
+.nav-cta:hover{border-color:rgba(183,255,63,.5);background:var(--lime-soft);transform:translateY(-1px)}
+.nav-toggle{display:none;width:40px;height:40px;border:1px solid var(--line);border-radius:9px;align-items:center;justify-content:center}
+.nav-toggle span{display:block;width:18px;height:1.5px;background:var(--text);position:relative}
+.nav-toggle span::before,.nav-toggle span::after{content:"";position:absolute;left:0;width:18px;height:1.5px;background:var(--text);transition:transform .2s,top .2s}
+.nav-toggle span::before{top:-6px}.nav-toggle span::after{top:6px}
+.nav.open .nav-toggle span{background:transparent}
+.nav.open .nav-toggle span::before{top:0;transform:rotate(45deg)}
+.nav.open .nav-toggle span::after{top:0;transform:rotate(-45deg)}
+
+/* ===== 通用 ===== */
+.container{max-width:var(--max);margin:0 auto;padding:0 24px}
+.eyebrow,.kicker{
+  display:inline-flex;align-items:center;gap:8px;
+  color:var(--lime);font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+}
+.eyebrow::before,.kicker::before{content:"";width:22px;height:1px;background:var(--lime);opacity:.8}
+.section{padding:105px 0 0}
+.section-head{max-width:800px;margin-bottom:38px}
+.section-head h2{
+  margin-top:16px;font-size:clamp(30px,4.2vw,48px);line-height:1.14;
+  letter-spacing:-.045em;font-weight:800;
+}
+.section-head h2 span{color:var(--muted-2)}
+.section-head p{max-width:650px;margin-top:18px;color:var(--muted);font-size:15.5px}
+.reveal{transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:var(--delay,0s)}
+.js .reveal{opacity:0;transform:translateY(18px)}
+.js .reveal.is-visible{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .js .reveal{opacity:1;transform:none;transition:none}
+  .strip-track{animation:none!important}
+}
+
+/* ===== Hero ===== */
+.hero{
+  position:relative;
+  max-width:var(--max);margin:0 auto;padding:86px 24px 64px;
+  display:grid;grid-template-columns:1.03fr .97fr;gap:52px;align-items:center;
+  min-height:680px;
+}
+.hero-copy{position:relative;z-index:2;min-width:0;width:100%}
+.eyebrow{
+  padding:7px 10px;border:1px solid rgba(183,255,63,.24);border-radius:7px;
+  background:rgba(183,255,63,.055);letter-spacing:.13em;
+}
+.eyebrow::before{display:none}
+.hero h1{
+  margin-top:22px;
+  font-size:clamp(39px,5.4vw,72px);
+  line-height:1.04;letter-spacing:-.055em;font-weight:850;
+}
+.hero h1 .line{display:block}
+.hero h1 .accent{display:block;color:var(--lime);text-shadow:0 0 44px rgba(183,255,63,.15)}
+.hero-lede{
+  max-width:560px;margin-top:22px;color:var(--muted);font-size:16.5px;line-height:1.75;
+}.hero-lede strong{color:var(--text);font-weight:650}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  min-height:46px;padding:12px 18px;border-radius:10px;
+  font-size:13.5px;font-weight:750;letter-spacing:.01em;
+  transition:transform .2s,background .2s,border-color .2s,box-shadow .2s;
+}
+.btn svg{width:17px;height:17px}
+.btn-primary{
+  background:var(--lime);color:#071006;box-shadow:0 8px 28px rgba(183,255,63,.14);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(183,255,63,.22)}
+.btn-secondary{border:1px solid var(--line-strong);color:var(--text);background:rgba(255,255,255,.025)}
+.btn-secondary:hover{transform:translateY(-2px);border-color:rgba(183,255,63,.44);background:var(--lime-soft)}
+.hero-note{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:17px;color:var(--muted-2);font-size:11.5px}
+.hero-note span{display:inline-flex;align-items:center;gap:6px}
+.hero-note i{width:4px;height:4px;border-radius:50%;background:var(--lime);box-shadow:0 0 8px rgba(183,255,63,.8)}
+.hero-stats{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+  margin-top:36px;border-top:1px solid var(--line);padding-top:18px;
+}
+.hero-stats div{padding-right:12px}
+.hero-stats div+div{padding-left:18px;border-left:1px solid var(--line)}
+.hero-stats strong{display:block;font-size:24px;letter-spacing:-.04em;line-height:1.1}
+.hero-stats strong em{font-style:normal;color:var(--lime);font-size:14px;margin-left:2px}
+.hero-stats span{display:block;margin-top:5px;color:var(--muted-2);font-size:10.5px;letter-spacing:.02em}
+
+/* ===== 软件界面示意 ===== */
+.hero-visual{position:relative;min-width:0}
+.hero-visual::before{
+  content:"";position:absolute;inset:2% -4% 8% 4%;
+  background:radial-gradient(ellipse at center,rgba(183,255,63,.14),transparent 64%);
+  filter:blur(28px);z-index:-1;
+}
+.app-window{
+  position:relative;overflow:hidden;width:100%;
+  border:1px solid rgba(183,255,63,.17);border-radius:20px;
+  background:linear-gradient(145deg,rgba(19,27,23,.98),rgba(8,12,10,.98));
+  box-shadow:0 34px 90px rgba(0,0,0,.56),inset 0 1px 0 rgba(255,255,255,.06);
+  transform:perspective(1400px) rotateY(-6deg) rotateX(2deg);
+  transform-origin:center right;
+}
+.win-bar{
+  height:39px;display:flex;align-items:center;gap:7px;padding:0 14px;
+  border-bottom:1px solid var(--line);
+  background:rgba(255,255,255,.025);
+}
+.win-dot{width:7px;height:7px;border-radius:50%;background:#3c4a43}
+.win-dot:nth-child(2){background:#4d5944}
+.win-dot:nth-child(3){background:#5f6e48}
+.win-title{margin-left:8px;color:var(--muted-2);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase}
+.win-live{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:8.5px;color:var(--lime);letter-spacing:.04em}
+.win-live i{width:5px;height:5px;border-radius:50%;background:var(--lime);box-shadow:0 0 8px var(--lime)}
+.win-body{display:grid;grid-template-columns:132px 1fr;min-height:370px}
+.mini-nav{padding:14px 10px;border-right:1px solid var(--line);background:rgba(0,0,0,.17)}
+.mini-brand{display:flex;align-items:center;gap:7px;padding:0 6px 17px}
+.mini-brand img{width:21px;height:21px;border-radius:5px}
+.mini-brand b{font-size:10px;letter-spacing:-.02em}
+.mini-tab{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 8px;margin-bottom:3px;border-radius:6px;
+  color:#78867e;font-size:9px;
+}
+.mini-tab.active{background:rgba(183,255,63,.1);color:var(--lime)}
+.mini-tab i{width:12px;height:12px;border:1px solid currentColor;border-radius:3px;opacity:.8}
+.mini-tab span{margin-left:auto;font-size:8px;color:inherit;opacity:.65}
+.mini-tab .badge{min-width:14px;height:14px;border-radius:4px;background:var(--lime);color:#071006;display:grid;place-items:center;font-size:7px;font-weight:800;opacity:1}
+.mini-main{padding:18px 18px 15px;min-width:0}
+.mini-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.mini-head small{font-size:7.5px;letter-spacing:.16em;color:var(--muted-2)}
+.mini-head h3{font-size:17px;letter-spacing:-.04em;line-height:1.2;margin-top:4px}
+.mini-add{padding:6px 8px;border:1px solid var(--line);border-radius:5px;color:var(--muted);font-size:8px;white-space:nowrap}
+.mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:17px}
+.game-card{
+  position:relative;overflow:hidden;min-width:0;
+  border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.025);
+}
+.game-poster{height:78px;position:relative;overflow:hidden}
+.game-poster::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(5,8,6,.9),transparent 65%)}
+.poster-a{background:linear-gradient(135deg,#e2bd25,#f1511a 45%,#2b1111)}
+.poster-b{background:linear-gradient(135deg,#c19154,#5e3e27 48%,#12100c)}
+.poster-c{background:linear-gradient(135deg,#2e7990,#123242 55%,#182a1c)}
+.game-poster span{
+  position:absolute;left:7px;bottom:6px;z-index:1;
+  padding:2px 4px;border-radius:3px;background:rgba(0,0,0,.45);
+  font-size:6px;letter-spacing:.06em;color:rgba(255,255,255,.75);
+}
+.game-info{padding:7px 7px 8px}
+.game-title{font-size:8px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.game-meta{display:flex;align-items:center;justify-content:space-between;margin-top:5px;font-size:6.5px;color:var(--muted-2)}
+.game-meta i{width:4px;height:4px;border-radius:50%;background:var(--lime);box-shadow:0 0 6px rgba(183,255,63,.8)}
+.game-card.selected{border-color:rgba(183,255,63,.42);box-shadow:0 0 0 1px rgba(183,255,63,.07),0 8px 24px rgba(0,0,0,.2)}
+.mini-switches{display:flex;gap:6px;margin-top:13px}
+.mini-switch{
+  flex:1;padding:6px 5px;border:1px solid var(--line);border-radius:5px;
+  color:var(--muted-2);font-size:6.5px;text-align:center;white-space:nowrap;
+}
+.mini-switch.on{border-color:rgba(183,255,63,.22);background:rgba(183,255,63,.065);color:var(--lime)}
+.mini-switch b{display:block;font-size:7px;margin-top:2px;color:var(--text)}
+.mini-footer{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:11px;border-top:1px solid var(--line)}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 6px;border-radius:4px;background:rgba(183,255,63,.09);color:var(--lime);font-size:6.5px;white-space:nowrap}
+.status-pill i{width:4px;height:4px;border-radius:50%;background:var(--lime);box-shadow:0 0 6px var(--lime)}
+.meter{flex:1;height:4px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.07)}
+.meter span{display:block;height:100%;width:79%;border-radius:inherit;background:linear-gradient(90deg,var(--lime-2),var(--lime))}
+.fps{display:flex;align-items:baseline;gap:3px;white-space:nowrap}
+.fps strong{font-size:13px;color:var(--lime);letter-spacing:-.04em}
+.fps small{font-size:5.5px;color:var(--muted-2);letter-spacing:.1em}
+.mockup-note{position:absolute;right:18px;bottom:-27px;color:var(--muted-2);font-size:10px;letter-spacing:.02em}
+.mockup-note::before{content:"";display:inline-block;width:4px;height:4px;margin-right:6px;border-radius:50%;background:var(--lime);vertical-align:1px}
+
+/* ===== 滚动字条 ===== */
+.strip{
+  margin-top:64px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  overflow:hidden;background:rgba(255,255,255,.012);
+}
+.strip-track{
+  display:inline-flex;align-items:center;gap:30px;white-space:nowrap;
+  padding:13px 0;min-width:max-content;
+  animation:marquee 32s linear infinite;
+  color:#65756d;font-size:10.5px;font-weight:650;letter-spacing:.18em;text-transform:uppercase;
+}
+.strip-track b{color:var(--lime);font-weight:700}
+.strip-track span{display:inline-flex;align-items:center;gap:30px}
+.strip-track span::after{content:"/";color:#3c4942;font-weight:400}
+@keyframes marquee{to{transform:translateX(-50%)}}
+
+/* ===== 功能 ===== */
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.feature-card{
+  min-height:220px;padding:22px 20px 18px;
+  border:1px solid var(--line);border-radius:14px;
+  background:linear-gradient(145deg,rgba(18,26,23,.85),rgba(10,14,12,.85));
+  transition:border-color .25s,transform .25s,background .25s;
+}
+.feature-card:hover{transform:translateY(-3px);border-color:rgba(183,255,63,.22);background:linear-gradient(145deg,rgba(20,30,25,.95),rgba(10,14,12,.9))}
+.feature-icon{
+  width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(183,255,63,.16);
+  border-radius:9px;background:rgba(183,255,63,.06);color:var(--lime);
+}
+.feature-icon svg{width:19px;height:19px}
+.feature-card h3{margin-top:18px;font-size:17px;letter-spacing:-.025em}
+.feature-card p{margin-top:8px;color:var(--muted);font-size:13px;line-height:1.7}
+.feature-tag{display:inline-block;margin-top:14px;color:var(--muted-2);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+
+/* ===== 三条路线 ===== */
+.routes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.route-card{
+  position:relative;overflow:hidden;padding:24px 21px;
+  border:1px solid var(--line);border-radius:15px;
+  background:linear-gradient(160deg,rgba(18,27,23,.88),rgba(8,11,10,.9));
+}
+.route-card::after{content:"";position:absolute;right:-40px;top:-50px;width:150px;height:150px;border-radius:50%;background:var(--lime);opacity:.035;filter:blur(4px)}
+.route-no{font-size:42px;line-height:1;font-weight:850;letter-spacing:-.06em;color:rgba(183,255,63,.24)}
+.route-card h3{margin-top:13px;font-size:20px;letter-spacing:-.035em}
+.route-card p{margin-top:9px;color:var(--muted);font-size:13px;line-height:1.7;min-height:66px}
+.route-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.chip{padding:4px 7px;border:1px solid var(--line);border-radius:5px;color:var(--muted);font-size:9.5px;letter-spacing:.03em}
+.chip.hot{border-color:rgba(183,255,63,.2);color:var(--lime);background:rgba(183,255,63,.05)}
+
+/* ===== 下载 ===== */
+.download-shell{
+  position:relative;overflow:hidden;
+  padding:34px;
+  border:1px solid var(--line);border-radius:24px;
+  background:
+    radial-gradient(600px 280px at 88% 0%,rgba(183,255,63,.08),transparent 65%),
+    linear-gradient(145deg,rgba(16,24,20,.95),rgba(8,11,10,.97));
+}
+.download-shell::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,255,255,.022),transparent);transform:translateX(-100%);animation:sheen 8s ease-in-out infinite}
+@keyframes sheen{0%,60%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.download-head{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:25px;border-bottom:1px solid var(--line)}
+.download-head h3{font-size:24px;letter-spacing:-.04em}
+.download-head p{max-width:620px;margin-top:7px;color:var(--muted);font-size:13px}
+.download-head .channel-note{flex:none;max-width:250px;padding:9px 11px;border:1px solid rgba(255,199,102,.18);border-radius:7px;background:rgba(255,199,102,.045);color:#d9b276;font-size:10.5px;line-height:1.6}
+.download-grid{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px}
+.version-card{
+  display:flex;flex-direction:column;min-width:0;padding:23px 22px 20px;
+  border:1px solid var(--line);border-radius:15px;background:rgba(0,0,0,.16);
+}
+.version-card.stable{border-color:rgba(183,255,63,.24)}
+.version-card.beta{border-color:rgba(255,199,102,.2)}
+.version-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.channel{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:4px;font-size:9px;font-weight:750;letter-spacing:.1em}
+.channel.stable{background:rgba(183,255,63,.12);color:var(--lime)}
+.channel.beta{background:rgba(255,199,102,.1);color:var(--amber)}
+.channel i{width:4px;height:4px;border-radius:50%;background:currentColor}
+.build{color:var(--muted-2);font-family:"Cascadia Mono","Consolas",monospace;font-size:10px;letter-spacing:.03em}
+.version-card h4{margin-top:17px;font-size:27px;letter-spacing:-.045em;line-height:1}
+.version-card h4 small{display:block;margin-top:7px;color:var(--muted);font-size:11px;font-weight:400;letter-spacing:.02em}
+.version-card ul{display:grid;gap:7px;margin-top:19px;padding:0;list-style:none}
+.version-card li{display:flex;align-items:flex-start;gap:8px;color:#b1beb6;font-size:12px;line-height:1.55}
+.version-card li svg{width:13px;height:13px;flex:none;margin-top:2px;color:var(--lime)}
+.version-card.beta li svg{color:var(--amber)}
+.version-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.version-actions .btn{flex:1;min-height:42px;padding:10px 12px;font-size:11.5px}
+.version-actions .btn-primary{color:#071006}
+.version-card.beta .btn-primary{background:var(--amber);color:#1c1204;box-shadow:0 8px 24px rgba(255,199,102,.12)}
+.fine{margin-top:13px;color:var(--muted-2);font-size:10px;line-height:1.6}
+.download-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin-top:22px;padding-top:17px;border-top:1px solid var(--line);color:var(--muted-2);font-size:10.5px}
+.download-foot a{color:var(--muted);transition:color .2s}
+.download-foot a:hover{color:var(--lime)}
+.download-foot span{display:inline-flex;align-items:center;gap:6px}
+.download-foot i{width:4px;height:4px;border-radius:50%;background:var(--lime)}
+
+/* ===== 兼容性 ===== */
+.compat-layout{display:grid;grid-template-columns:.88fr 1.12fr;gap:38px;align-items:start}
+.compat-copy p{color:var(--muted);font-size:14px;line-height:1.8}
+.compat-copy p+p{margin-top:14px}
+.compat-callout{
+  margin-top:22px;padding:14px 15px;border-left:2px solid var(--lime);
+  background:rgba(183,255,63,.045);color:#b5c2ba;font-size:12px;line-height:1.7;
+}
+.spec-panel{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:rgba(10,14,12,.6)}
+.spec-row{display:grid;grid-template-columns:118px 1fr;gap:16px;padding:15px 17px;border-bottom:1px solid var(--line)}
+.spec-row:last-child{border-bottom:0}
+.spec-key{color:var(--muted-2);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;padding-top:3px}
+.spec-val{color:#c3cec7;font-size:12.5px;line-height:1.7}
+.spec-val strong{color:var(--text);font-weight:650}
+.spec-val .mini-chip{display:inline-block;margin:2px 3px 2px 0;padding:2px 6px;border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:9.5px}
+.warn{margin-top:16px;padding:10px 12px;border:1px solid rgba(255,199,102,.17);border-radius:7px;background:rgba(255,199,102,.04);color:#cfb07f;font-size:11px;line-height:1.65}
+
+/* ===== FAQ ===== */
+.faq-list{display:grid;gap:9px;max-width:880px}
+.faq-item{border:1px solid var(--line);border-radius:11px;background:rgba(12,17,15,.65);overflow:hidden}
+.faq-item summary{
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  padding:16px 17px;list-style:none;cursor:pointer;
+  font-size:13.5px;font-weight:650;color:#dbe4dd;
+}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary::after{content:"+";color:var(--lime);font-size:18px;line-height:1;font-weight:400;transition:transform .2s}
+.faq-item[open] summary::after{transform:rotate(45deg)}
+.faq-item p{padding:0 17px 17px;color:var(--muted);font-size:12.5px;line-height:1.8;max-width:780px}
+.faq-item p b{color:#ced9d2;font-weight:650}
+
+/* ===== Footer ===== */
+.footer{margin-top:110px;border-top:1px solid var(--line);background:linear-gradient(to bottom,rgba(12,17,15,.35),rgba(7,10,9,.9))}
+.footer-inner{max-width:var(--max);margin:0 auto;padding:44px 24px 26px}
+.footer-top{display:grid;grid-template-columns:1.5fr repeat(3,.8fr);gap:34px}
+.footer-brand{display:flex;align-items:flex-start;gap:11px}
+.footer-brand img{width:38px;height:38px;border-radius:9px;box-shadow:0 0 0 1px rgba(183,255,63,.18)}
+.footer-brand b{font-size:17px;letter-spacing:-.03em}
+.footer-brand p{max-width:280px;margin-top:8px;color:var(--muted-2);font-size:11.5px;line-height:1.7}
+.footer-col h5{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted-2);margin-bottom:12px}
+.footer-col a{display:block;padding:3px 0;color:var(--muted);font-size:11.5px;transition:color .2s}
+.footer-col a:hover{color:var(--lime)}
+.footer-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 22px;margin-top:38px;padding-top:17px;border-top:1px solid var(--line);color:var(--muted-2);font-size:10px;line-height:1.6}
+.footer-bottom .risk{max-width:760px}
+.footer-bottom .risk b{color:#9ca9a1;font-weight:650}
+
+/* ===== 响应式 ===== */
+@media (max-width:1040px){
+  .hero{grid-template-columns:1fr;gap:54px;padding-top:66px;min-height:auto}
+  .hero-copy{max-width:760px}
+  .hero-visual{max-width:620px;margin:0 auto;width:100%}
+  .app-window{transform:none}
+  .mockup-note{bottom:-24px}
+  .feature-grid{grid-template-columns:repeat(2,1fr)}
+  .routes-grid{grid-template-columns:1fr 1fr}
+  .footer-top{grid-template-columns:1.5fr 1fr 1fr}
+  .footer-col:last-child{grid-column:2/4}
+}
+@media (max-width:860px){
+  .nav-links{
+    position:absolute;left:16px;right:16px;top:64px;
+    display:none;flex-direction:column;align-items:stretch;gap:0;
+    padding:10px;border:1px solid var(--line);border-radius:12px;
+    background:rgba(8,12,10,.98);box-shadow:0 18px 50px rgba(0,0,0,.5);
+  }
+  .nav.open .nav-links{display:flex}
+  .nav-links a{padding:11px 10px;border-radius:7px}
+  .nav-links a:hover{background:rgba(255,255,255,.04)}
+  .nav-links a::after{display:none}
+  .nav-toggle{display:flex}
+  .nav-cta{display:none}
+  .hero h1{font-size:clamp(38px,8vw,64px)}
+  .section{padding-top:80px}
+  .download-grid{grid-template-columns:1fr}
+  .download-head{flex-direction:column}
+  .download-head .channel-note{max-width:none}
+  .compat-layout{grid-template-columns:1fr;gap:24px}
+  .spec-row{grid-template-columns:96px 1fr}
+}
+@media (max-width:620px){
+  .container,.hero,.nav-inner,.footer-inner{padding-left:18px;padding-right:18px}
+  .hero{padding-top:48px;padding-bottom:48px}
+  .hero h1{font-size:clamp(34px,10vw,52px)}
+  .hero-lede{font-size:14.5px;max-width:100%}
+  .hero-note{max-width:100%}
+  .hero-note span{white-space:normal;overflow-wrap:anywhere}
+  .hero-actions .btn{flex:1 1 100%;max-width:100%}
+  .hero-stats{grid-template-columns:1fr 1fr;gap:14px 0;padding-top:16px}
+  .hero-stats div:nth-child(3){padding-left:0;border-left:0}
+  .hero-stats div:nth-child(4){border-left:1px solid var(--line)}
+  .feature-grid,.routes-grid{grid-template-columns:1fr}
+  .section-head h2{font-size:31px}
+  .download-shell{padding:20px 16px}
+  .version-card{padding:19px 16px 17px}
+  .version-actions .btn{flex:1 1 100%}
+  .footer-top{grid-template-columns:1fr 1fr;gap:24px}
+  .footer-brand{grid-column:1/-1}
+  .footer-col:last-child{grid-column:auto}
+  .spec-row{grid-template-columns:1fr;gap:4px}
+  .spec-key{padding-top:0}
+  .win-body{grid-template-columns:1fr}
+  .mini-nav{display:none}
+  .mini-grid{grid-template-columns:1fr 1fr}
+  .mini-grid .game-card:last-child{display:none}
+  .mockup-note{right:0}
+}
+@media (max-width:380px){
+  .brand-sub{display:none}
+  .mini-head h3{font-size:15px}
+  .mini-add{display:none}
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-glow" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top" aria-label="DFGE 首页">
+      <img src="assets/app-icon.png" alt="DFGE 图标" width="34" height="34">
+      <span>
+        <span class="brand-name">DFGE</span>
+        <span class="brand-sub">DLSS / FRAME GEN</span>
+      </span>
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="主导航">
+      <a href="#features">功能</a>
+      <a href="#routes">路线</a>
+      <a href="#download">下载</a>
+      <a href="#compatibility">兼容性</a>
+      <a href="#faq">常见问题</a>
+    </nav>
+    <a class="nav-cta" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5" target="_blank" rel="noopener">
+      GitHub
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+    </a>
+    <button class="nav-toggle" id="navToggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="navLinks"><span></span></button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" id="top">
+    <div class="hero-copy">
+      <div class="eyebrow">WINDOWS 10 / 11 · WEBVIEW2</div>
+      <h1>
+        <span class="line">把 DLSS 5</span>
+        <span class="line">和多帧生成，</span>
+        <span class="accent">一次打开。</span>
+      </h1>
+      <p class="hero-lede">
+        一个界面统一管理 <strong>DLSS 5</strong>、<strong>多帧生成</strong>、<strong>Smooth Motion</strong> 与 <strong>HSF 帧生成</strong>。
+        扫描游戏、识别渲染 API、安装或还原补丁，不再需要在一堆文件之间来回翻找。
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#download">
+          选择版本下载
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
+        </a>
+        <a class="btn btn-secondary" href="#features">
+          查看功能
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+      <div class="hero-note">
+        <span><i></i>稳定版 V1.40 · 从 V1.30 基线升级</span>
+        <span><i></i>测试版 V1.62 · 从 V1.61-Beta 基线升级</span>
+      </div>
+      <div class="hero-stats" aria-label="产品要点">
+        <div><strong>6<em>X</em></strong><span>最高插帧倍率</span></div>
+        <div><strong>5</strong><span>图形 API 覆盖</span></div>
+        <div><strong>RTX</strong><span>20 / 30 / 40 / 50</span></div>
+        <div><strong>1<em>键</em></strong><span>安装 / 还原</span></div>
+      </div>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <div class="app-window">
+        <div class="win-bar">
+          <span class="win-dot"></span><span class="win-dot"></span><span class="win-dot"></span>
+          <span class="win-title">DFGE / 游戏库</span>
+          <span class="win-live"><i></i>READY</span>
+        </div>
+        <div class="win-body">
+          <aside class="mini-nav">
+            <div class="mini-brand">
+              <img src="assets/app-icon.png" alt="">
+              <b>DFGE</b>
+            </div>
+            <div class="mini-tab active"><i></i>游戏库<span>12</span></div>
+            <div class="mini-tab"><i></i>帧生成<span class="badge">4</span></div>
+            <div class="mini-tab"><i></i>下载<span class="badge">2</span></div>
+            <div class="mini-tab"><i></i>设置</div>
+            <div class="mini-tab"><i></i>关于</div>
+          </aside>
+          <div class="mini-main">
+            <div class="mini-head">
+              <div>
+                <small>GAME LIBRARY</small>
+                <h3>为每款游戏，单独调校。</h3>
+              </div>
+              <span class="mini-add">+ 添加游戏</span>
+            </div>
+            <div class="mini-grid">
+              <div class="game-card selected">
+                <div class="game-poster poster-a"><span>DLSS 5</span></div>
+                <div class="game-info">
+                  <div class="game-title">Cyberpunk 2077</div>
+                  <div class="game-meta"><span>DX12</span><i></i></div>
+                </div>
+              </div>
+              <div class="game-card">
+                <div class="game-poster poster-b"><span>FRAME GEN</span></div>
+                <div class="game-info">
+                  <div class="game-title">黑神话：悟空</div>
+                  <div class="game-meta"><span>DX12</span><i></i></div>
+                </div>
+              </div>
+              <div class="game-card">
+                <div class="game-poster poster-c"><span>HSF</span></div>
+                <div class="game-info">
+                  <div class="game-title">Counter-Strike 2</div>
+                  <div class="game-meta"><span>VULKAN</span><i></i></div>
+                </div>
+              </div>
+            </div>
+            <div class="mini-switches">
+              <div class="mini-switch on">DLSS 5<b>ON</b></div>
+              <div class="mini-switch on">MFG<b>4X</b></div>
+              <div class="mini-switch on">SMOOTH<b>BETA</b></div>
+              <div class="mini-switch">HSF<b>OFF</b></div>
+            </div>
+            <div class="mini-footer">
+              <span class="status-pill"><i></i>帧生成已开启</span>
+              <div class="meter"><span></span></div>
+              <div class="fps"><strong>4X</strong><small>FRAME GEN</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-note">界面示意图 · 实际以软件内为准</div>
+    </div>
+  </section>
+
+  <div class="strip" aria-hidden="true">
+    <div class="strip-track">
+      <span><b>DLSS 5</b></span><span><b>MFG</b></span><span><b>SMOOTH MOTION</b></span><span><b>HSF</b></span><span><b>DX9 / DX11 / DX12 / VULKAN</b></span><span><b>RTX 20–50</b></span>
+      <span><b>DLSS 5</b></span><span><b>MFG</b></span><span><b>SMOOTH MOTION</b></span><span><b>HSF</b></span><span><b>DX9 / DX11 / DX12 / VULKAN</b></span><span><b>RTX 20–50</b></span>
+    </div>
+  </div>
+
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">FEATURES</div>
+        <h2>不是补丁合集，<br><span>是一套统一工作流。</span></h2>
+        <p>从扫描游戏到还原备份，常用操作收进同一个桌面界面。每个开关都对应明确的安装位置和状态。</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card reveal" style="--delay:.03s">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg></div>
+          <h3>DLSS 5 解锁</h3>
+          <p>GITC DLSS5 1.7.0 与 2.0.0 双版本可选，覆盖 DX11 / DX12、RE 引擎、DX9 32/64 位等场景。</p>
+          <span class="feature-tag">GITC 1.7 / 2.0</span>
+        </article>
+        <article class="feature-card reveal" style="--delay:.08s">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16V8m4 8V5m4 11V9m4 7v8m4-4v4"/></svg></div>
+          <h3>多帧生成</h3>
+          <p>MFG 与 SM86 两条路线统一入口，RTX 40 系提供经典 / 高级模式，按游戏单独选择方案。</p>
+          <span class="feature-tag">MFG / SM86</span>
+        </article>
+        <article class="feature-card reveal" style="--delay:.13s">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h3l2-6 4 12 2-6h5"/></svg></div>
+          <h3>Smooth Motion</h3>
+          <p>为不支持原生帧生成的游戏提供 AI 插帧。RTX 40/50 走官方驱动，RTX 20/30 使用内置 Mod。</p>
+          <span class="feature-tag">BETA CHANNEL</span>
+        </article>
+        <article class="feature-card reveal" style="--delay:.18s">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/></svg></div>
+          <h3>HSF 帧生成</h3>
+          <p>ReShade add-on 捕获画面并交给 DLSS-G，支持 DX9 / DX11 / DX12 / Vulkan，最高 6X 插帧。</p>
+          <span class="feature-tag">UP TO 6X</span>
+        </article>
+        <article class="feature-card reveal" style="--delay:.23s">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg></div>
+          <h3>精确 API 识别</h3>
+          <p>读取 PE 普通导入表与延迟导入表，识别 DX9 / DX11 / DX12 / Vulkan / OpenGL，不再靠文件猜。</p>
+          <span class="feature-tag">PE IMPORT SCAN</span>
+        </article>
+        <article class="feature-card reveal" style="--delay:.28s">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v11H4V7Zm3 0V4h10v3M8 13h8"/></svg></div>
+          <h3>安装 / 还原闭环</h3>
+          <p>安装记录、文件备份与一键还原统一管理，旧版根目录安装也能正确恢复后再重新部署。</p>
+          <span class="feature-tag">SAFE ROLLBACK</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="routes">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">FRAME GENERATION ROUTES</div>
+        <h2>三条路线，<span>按游戏选。</span></h2>
+        <p>同一款游戏只保留一种主方案，切换前先还原当前安装。自检状态会跟着游戏卡片一起走。</p>
+      </div>
+      <div class="routes-grid">
+        <article class="route-card reveal" style="--delay:.03s">
+          <div class="route-no">01</div>
+          <h3>MFG / SM86</h3>
+          <p>RTX 40 系高级路线。MFG 与 SM86 二选一，SM86 不替换游戏原文件，可搭配 DLSS 超分与 XeSS 补帧。</p>
+          <div class="route-tags"><span class="chip hot">RTX 40</span><span class="chip">经典 / 高级</span><span class="chip">不替换原文件</span></div>
+        </article>
+        <article class="route-card reveal" style="--delay:.08s">
+          <div class="route-no">02</div>
+          <h3>Smooth Motion</h3>
+          <p>面向没有原生帧生成的游戏。逐游戏开关，可选择组合 API 或单一 API，状态与日志都在页面里。</p>
+          <div class="route-tags"><span class="chip hot">RTX 20–50</span><span class="chip">AI 插帧</span><span class="chip">Beta</span></div>
+        </article>
+        <article class="route-card reveal" style="--delay:.13s">
+          <div class="route-no">03</div>
+          <h3>HSF</h3>
+          <p>ReShade 6.8 add-on + HSF，将画面、深度和运动数据交给 DLSS-G。Vulkan / DX11 / 无 DLSS 的 DX12 可加装 LaunchPad。</p>
+          <div class="route-tags"><span class="chip hot">DX9–Vulkan</span><span class="chip">最高 6X</span><span class="chip">LaunchPad</span></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="download">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">DOWNLOAD</div>
+        <h2>先装基线，<span>再覆盖增量。</span></h2>
+        <p>稳定版和测试版使用不同的基线包。新用户先下载对应基线完整包，老用户再应用最新增量包。</p>
+      </div>
+
+      <div class="download-shell reveal">
+        <div class="download-head">
+          <div>
+            <h3>选择你的更新通道</h3>
+            <p>不确定选哪个，就先用稳定版。喜欢尝鲜、愿意反馈问题，再走测试版。</p>
+          </div>
+          <div class="channel-note">V1.40 与 V1.62 都是增量更新<br>请勿跳过对应的基线完整包</div>
+        </div>
+
+        <div class="download-grid">
+          <article class="version-card stable">
+            <div class="version-head">
+              <span class="channel stable"><i></i>STABLE</span>
+              <span class="build">V1.40.0.0</span>
+            </div>
+            <h4>稳定版 <small>日常使用 · 功能完整</small></h4>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>HSF 帧生成与菜单语言</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>PE 导入表精确识别渲染 API</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>Source 1 DX9 自动安装到 bin</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>启动更新提示顺序修复</li>
+            </ul>
+            <div class="version-actions">
+              <a class="btn btn-primary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.40/DFGE-V1.40.zip" target="_blank" rel="noopener">
+                下载 V1.40
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
+              </a>
+              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener">V1.30 基线包</a>
+            </div>
+            <p class="fine">约 103 MB 增量包 · 新用户先装 V1.30 基线完整包（约 1.62 GB）。</p>
+          </article>
+
+          <article class="version-card beta">
+            <div class="version-head">
+              <span class="channel beta"><i></i>BETA</span>
+              <span class="build">V1.62.0.0</span>
+            </div>
+            <h4>测试版 <small>尝鲜试用 · 可能继续调整</small></h4>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>精确渲染 API 识别与起源引擎适配</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>Source 1 DX9 自动安装到 bin</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>install.json 记录安装目录</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>新增 DX9 · 起源引擎兼容页</li>
+            </ul>
+            <div class="version-actions">
+              <a class="btn btn-primary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases" target="_blank" rel="noopener">
+                查看测试版发布
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </a>
+              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.61-beta/DFGE-V1.61.Beta.zip" target="_blank" rel="noopener">V1.61-Beta 基线</a>
+            </div>
+            <p class="fine">当前源码 V1.62，发布包以 Releases 为准 · 新用户先装 V1.61-Beta 基线（约 1.66 GB）。</p>
+          </article>
+        </div>
+
+        <div class="download-foot">
+          <span><i></i>源码分支：<a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/tree/master" target="_blank" rel="noopener">master（稳定版）</a></span>
+          <span><i></i>源码分支：<a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/tree/beta" target="_blank" rel="noopener">beta（测试版）</a></span>
+          <span><i></i>更新记录：<a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases" target="_blank" rel="noopener">GitHub Releases</a></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="compatibility">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">COMPATIBILITY</div>
+        <h2>先看环境，<span>再装补丁。</span></h2>
+        <p>软件做的是文件级修改，不同游戏、不同反作弊环境的结果会不一样。装之前先确认系统和显卡路线。</p>
+      </div>
+      <div class="compat-layout">
+        <div class="compat-copy reveal">
+          <p>DFGE 将游戏扫描、方案选择、文件安装和还原记录放在同一个流程里。对 Source 1 DX9 游戏，会自动识别 <b>bin</b> 目录，避免把 ReShade / HSF 装错位置。</p>
+          <p>AMD 显卡不再由本软件直接安装补丁；检测到 A 卡时，界面会显示 NeuralHub v0.8.0 操作指引。</p>
+          <div class="compat-callout">建议先在游戏内开启 DLSS / 帧生成相关选项，关闭游戏后再安装。安装或还原前备份游戏文件。</div>
+          <div class="warn">网游、带反作弊的游戏、米哈游系列游戏请谨慎使用或不要使用。修改文件可能导致封号，风险由使用者自行承担。</div>
+        </div>
+        <div class="spec-panel reveal" style="--delay:.06s">
+          <div class="spec-row">
+            <div class="spec-key">System</div>
+            <div class="spec-val"><strong>Windows 10 1809+</strong>，推荐 Windows 11（64 位）</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Runtime</div>
+            <div class="spec-val">Microsoft Edge <strong>WebView2 Runtime</strong> · .NET 8 Runtime（或使用自包含发布）</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">GPU</div>
+            <div class="spec-val"><strong>NVIDIA RTX 20 / 30 / 40 / 50</strong><br>AMD 显卡仅提供 NeuralHub 操作指引，不直接安装补丁</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Graphics API</div>
+            <div class="spec-val"><span class="mini-chip">DX9</span><span class="mini-chip">DX11</span><span class="mini-chip">DX12</span><span class="mini-chip">Vulkan</span><span class="mini-chip">OpenGL</span></div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Install</div>
+            <div class="spec-val">按游戏独立安装 · 支持备份 / 还原 · <strong>install.json</strong> 记录实际安装目录</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Language</div>
+            <div class="spec-val">中文 / English · HSF 菜单语言可跟随软件或单独切换</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">FAQ</div>
+        <h2>下载前，<span>先看这几条。</span></h2>
+      </div>
+      <div class="faq-list reveal">
+        <details class="faq-item">
+          <summary>稳定版和测试版怎么选？</summary>
+          <p>想稳定日常使用，选 <b>稳定版 V1.40</b>；想尝鲜、愿意反馈问题，选 <b>测试版 V1.62</b>。两个版本的基线包不同，不能混用。</p>
+        </details>
+        <details class="faq-item">
+          <summary>为什么必须先下载 V1.30 / V1.61-Beta 基线？</summary>
+          <p>增量包只包含相对基线的变更文件。新用户直接覆盖增量包会缺少运行文件，所以要先装对应的完整基线，再应用最新增量包。稳定版基线是 V1.30，测试版基线是 V1.61-Beta。</p>
+        </details>
+        <details class="faq-item">
+          <summary>测试版显示 V1.62，为什么下载区还有 V1.61-Beta？</summary>
+          <p>V1.62 是当前测试版源码版本；V1.61-Beta 是测试版用户必须首先安装的基线完整包。V1.62 的发布包请以 GitHub Releases 的最新条目为准。</p>
+        </details>
+        <details class="faq-item">
+          <summary>安装后可以还原吗？</summary>
+          <p>可以。软件会记录安装位置并备份被替换的文件，支持按游戏一键还原。旧版根目录安装也能还原，建议还原后重新安装以使用新的目录记录。</p>
+        </details>
+        <details class="faq-item">
+          <summary>需要单独安装 WebView2 吗？</summary>
+          <p>需要 Microsoft Edge WebView2 Runtime。Windows 10/11 通常已经自带；如果界面打不开，先安装 WebView2 Runtime 再启动软件。</p>
+        </details>
+        <details class="faq-item">
+          <summary>支持哪些游戏和显卡？</summary>
+          <p>显卡覆盖 NVIDIA RTX 20/30/40/50；图形 API 覆盖 DX9 / DX11 / DX12 / Vulkan / OpenGL。具体游戏能否生效取决于引擎、DLSS 状态和反作弊环境，建议先看软件内的兼容页。</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <img src="assets/app-icon.png" alt="DFGE 图标" width="38" height="38">
+        <div>
+          <b>DFGE</b>
+          <p>DLSS 5 / 多帧生成 / Smooth Motion / HSF 统一开启工具。免费开源，按游戏独立安装与还原。</p>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h5>产品</h5>
+        <a href="#features">功能特性</a>
+        <a href="#routes">帧生成路线</a>
+        <a href="#download">版本下载</a>
+        <a href="#compatibility">兼容性</a>
+      </div>
+      <div class="footer-col">
+        <h5>资源</h5>
+        <a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5" target="_blank" rel="noopener">GitHub 仓库</a>
+        <a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/tree/master" target="_blank" rel="noopener">稳定版源码</a>
+        <a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/tree/beta" target="_blank" rel="noopener">测试版源码</a>
+      </div>
+      <div class="footer-col">
+        <h5>社区</h5>
+        <a href="https://space.bilibili.com/414911649" target="_blank" rel="noopener">哔哩哔哩</a>
+        <a href="https://www.xiaoheihe.cn/app/user/profile/33117847" target="_blank" rel="noopener">小黑盒</a>
+        <a href="https://github.com/QSXK1314" target="_blank" rel="noopener">GitHub 个人主页</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="risk"><b>免责声明：</b>本软件仅供学习交流使用，请勿用于商业用途。不建议在网游和带反作弊的游戏上使用；修改游戏文件可能导致封号，本软件概不负责。</div>
+      <div>© <span id="year">2026</span> DFGE · Built for Windows</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const nav = document.getElementById('nav');
+  const toggle = document.getElementById('navToggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const open = nav.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', open ? '关闭菜单' : '打开菜单');
+    });
+  }
+  document.querySelectorAll('#navLinks a').forEach(link => {
+    link.addEventListener('click', () => {
+      nav.classList.remove('open');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', '打开菜单');
+      }
+    });
+  });
+
+  const year = document.getElementById('year');
+  if (year) year.textContent = new Date().getFullYear();
+
+  const reveals = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+    reveals.forEach(el => io.observe(el));
+  } else {
+    reveals.forEach(el => el.classList.add('is-visible'));
+  }
+</script>
+</body>
+</html>
