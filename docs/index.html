@@ -355,9 +355,18 @@ body::after{
 .version-card.beta li svg{color:var(--amber)}
 .version-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
 .version-actions .btn{flex:1;min-height:42px;padding:10px 12px;font-size:11.5px}
-.version-actions .btn-primary{color:#071006}
+.version-actions .btn-primary{flex:1 1 100%;color:#071006}
 .version-card.beta .btn-primary{background:var(--amber);color:#1c1204;box-shadow:0 8px 24px rgba(255,199,102,.12)}
 .fine{margin-top:13px;color:var(--muted-2);font-size:10px;line-height:1.6}
+.hash-head{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted-2);font-size:8px;letter-spacing:.1em}
+.hash-head span:last-child{letter-spacing:0;text-transform:none;opacity:.75}
+.hash-list{display:grid;gap:7px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.hash-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:7px;align-items:center}
+.hash-label{color:var(--muted-2);font-family:"Cascadia Mono","Consolas",monospace;font-size:8.5px;letter-spacing:.04em}
+.hash-row code{min-width:0;color:#96a59c;font-family:"Cascadia Mono","Consolas",monospace;font-size:9px;line-height:1.45;word-break:break-all}
+.copy-btn{padding:3px 6px;border:1px solid var(--line);border-radius:4px;color:var(--muted-2);font-size:8.5px;transition:color .2s,border-color .2s,background .2s}
+.copy-btn:hover{color:var(--lime);border-color:rgba(183,255,63,.28);background:rgba(183,255,63,.05)}
+.copy-btn.copied{color:var(--lime);border-color:rgba(183,255,63,.3)}
 .download-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin-top:22px;padding-top:17px;border-top:1px solid var(--line);color:var(--muted-2);font-size:10.5px}
 .download-foot a{color:var(--muted);transition:color .2s}
 .download-foot a:hover{color:var(--lime)}
@@ -458,7 +467,8 @@ body::after{
   .section-head h2{font-size:31px}
   .download-shell{padding:20px 16px}
   .version-card{padding:19px 16px 17px}
-  .version-actions .btn{flex:1 1 100%}
+  .version-actions .btn{flex:1 1 calc(50% - 4px)}
+  .version-actions .btn-primary{flex:1 1 100%}
   .footer-top{grid-template-columns:1fr 1fr;gap:24px}
   .footer-brand{grid-column:1/-1}
   .footer-col:last-child{grid-column:auto}
@@ -729,7 +739,17 @@ body::after{
                 下载 V1.40
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
               </a>
-              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener">V1.30 基线包</a>
+              <a class="btn btn-secondary" href="https://gh-proxy.com/https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.40/DFGE-V1.40.zip" target="_blank" rel="noopener" title="第三方 GitHub 加速，失败请改用 GitHub 官方链接">
+                国内加速
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg>
+              </a>
+              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener">V1.30 基线</a>
+              <a class="btn btn-secondary" href="https://gh-proxy.com/https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener" title="第三方 GitHub 加速，失败请改用 GitHub 官方链接">V1.30 加速</a>
+            </div>
+            <div class="hash-list" aria-label="SHA-256 校验值">
+              <div class="hash-head"><span>SHA-256 校验</span><span>下载后可复制核对</span></div>
+              <div class="hash-row"><span class="hash-label">V1.40</span><code>5542bcf670c1f80e7bbf06956116219cdc715d1213066e69091c1adb0769fab7</code><button class="copy-btn" type="button" data-copy="5542bcf670c1f80e7bbf06956116219cdc715d1213066e69091c1adb0769fab7">复制</button></div>
+              <div class="hash-row"><span class="hash-label">V1.30</span><code>6b977f97a0fd1f05a3da9f390ada0f736d7141a682cb73d44b5807720b88bc10</code><button class="copy-btn" type="button" data-copy="6b977f97a0fd1f05a3da9f390ada0f736d7141a682cb73d44b5807720b88bc10">复制</button></div>
             </div>
             <p class="fine">约 103 MB 增量包 · 新用户先装 V1.30 基线完整包（约 1.62 GB）。</p>
           </article>
@@ -747,11 +767,19 @@ body::after{
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>新增 DX9 · 起源引擎兼容页</li>
             </ul>
             <div class="version-actions">
-              <a class="btn btn-primary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases" target="_blank" rel="noopener">
-                查看测试版发布
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              <a class="btn btn-primary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.61-beta/DFGE-V1.61.Beta.zip" target="_blank" rel="noopener">
+                下载 V1.61-Beta 基线
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
               </a>
-              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.61-beta/DFGE-V1.61.Beta.zip" target="_blank" rel="noopener">V1.61-Beta 基线</a>
+              <a class="btn btn-secondary" href="https://gh-proxy.com/https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.61-beta/DFGE-V1.61.Beta.zip" target="_blank" rel="noopener" title="第三方 GitHub 加速，失败请改用 GitHub 官方链接">
+                国内加速
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg>
+              </a>
+              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases" target="_blank" rel="noopener">Releases</a>
+            </div>
+            <div class="hash-list" aria-label="SHA-256 校验值">
+              <div class="hash-head"><span>SHA-256 校验</span><span>下载后可复制核对</span></div>
+              <div class="hash-row"><span class="hash-label">V1.61</span><code>15deecc85f16484d153665fcff24e162a549f6eac5777fa4d8f65b0302b056f1</code><button class="copy-btn" type="button" data-copy="15deecc85f16484d153665fcff24e162a549f6eac5777fa4d8f65b0302b056f1">复制</button></div>
             </div>
             <p class="fine">当前源码 V1.62，发布包以 Releases 为准 · 新用户先装 V1.61-Beta 基线（约 1.66 GB）。</p>
           </article>
@@ -761,6 +789,7 @@ body::after{
           <span><i></i>源码分支：<a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/tree/master" target="_blank" rel="noopener">master（稳定版）</a></span>
           <span><i></i>源码分支：<a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/tree/beta" target="_blank" rel="noopener">beta（测试版）</a></span>
           <span><i></i>更新记录：<a href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases" target="_blank" rel="noopener">GitHub Releases</a></span>
+          <span><i></i>国内加速：<a href="https://gh-proxy.com/" target="_blank" rel="noopener">GH-Proxy</a>（第三方，失败请用官方链接）</span>
         </div>
       </div>
     </div>
@@ -820,6 +849,10 @@ body::after{
         <details class="faq-item">
           <summary>稳定版和测试版怎么选？</summary>
           <p>想稳定日常使用，选 <b>稳定版 V1.40</b>；想尝鲜、愿意反馈问题，选 <b>测试版 V1.62</b>。两个版本的基线包不同，不能混用。</p>
+        </details>
+        <details class="faq-item">
+          <summary>国内下载很慢怎么办？</summary>
+          <p>下载区每个文件都保留了 GitHub 官方链接，并额外提供“国内加速”按钮，通过第三方 <b>GH-Proxy</b> 代理公开的 Release 资产。加速失败或速度不理想时，直接改用 GitHub 官方链接；下载后请用页面上的 SHA-256 校验文件完整性。</p>
         </details>
         <details class="faq-item">
           <summary>为什么必须先下载 V1.30 / V1.61-Beta 基线？</summary>
@@ -921,6 +954,31 @@ body::after{
   } else {
     reveals.forEach(el => el.classList.add('is-visible'));
   }
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy || '';
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      const old = btn.textContent;
+      btn.textContent = '已复制';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = old;
+        btn.classList.remove('copied');
+      }, 1400);
+    });
+  });
 </script>
 </body>
 </html>
