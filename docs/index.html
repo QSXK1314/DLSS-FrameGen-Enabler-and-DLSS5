@@ -357,6 +357,7 @@ body::after{
 .version-actions .btn{flex:1;min-height:42px;padding:10px 12px;font-size:11.5px}
 .version-actions .btn-primary{flex:1 1 100%;color:#071006}
 .version-card.beta .btn-primary{background:var(--amber);color:#1c1204;box-shadow:0 8px 24px rgba(255,199,102,.12)}
+.version-actions.stable-actions .btn-secondary{flex:1 1 calc(50% - 4px)}
 .fine{margin-top:13px;color:var(--muted-2);font-size:10px;line-height:1.6}
 .hash-head{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted-2);font-size:8px;letter-spacing:.1em}
 .hash-head span:last-child{letter-spacing:0;text-transform:none;opacity:.75}
@@ -734,7 +735,7 @@ body::after{
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>Source 1 DX9 自动安装到 bin</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>启动更新提示顺序修复</li>
             </ul>
-            <div class="version-actions">
+            <div class="version-actions stable-actions">
               <a class="btn btn-primary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.40/DFGE-V1.40.zip" target="_blank" rel="noopener">
                 下载 V1.40
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
@@ -744,8 +745,8 @@ body::after{
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg>
               </a>
               <a class="btn btn-secondary" href="https://gh-proxy.org/https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.40/DFGE-V1.40.zip" target="_blank" rel="noopener" title="备用加速节点；不通请用 GitHub 官方链接">备用加速</a>
-              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener">V1.30 基线</a>
-              <a class="btn btn-secondary" href="https://api.gitproxy.dev/github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener" title="GitProxy 国内加速节点；不通请用 GitHub 官方链接">V1.30 加速</a>
+              <a class="btn btn-secondary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener">V1.30 基线（前提必下）</a>
+              <a class="btn btn-secondary" href="https://api.gitproxy.dev/github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.30/DFGE-V1.30.zip" target="_blank" rel="noopener" title="V1.30 基线加速包（前提必下）；不通请用 GitHub 官方链接">V1.30 加速（前提必下）</a>
             </div>
             <div class="hash-list" aria-label="SHA-256 校验值">
               <div class="hash-head"><span>SHA-256 校验</span><span>下载后可复制核对</span></div>
@@ -769,7 +770,7 @@ body::after{
             </ul>
             <div class="version-actions">
               <a class="btn btn-primary" href="https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.61-beta/DFGE-V1.61.Beta.zip" target="_blank" rel="noopener">
-                下载 V1.61-Beta 基线
+                下载 V1.61-Beta 基线（前提必下）
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
               </a>
               <a class="btn btn-secondary" href="https://api.gitproxy.dev/github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/download/V1.61-beta/DFGE-V1.61.Beta.zip" target="_blank" rel="noopener" title="GitProxy 国内加速节点；不通请换备用加速或官方链接">
