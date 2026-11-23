@@ -41,6 +41,7 @@
     wallpaper: '',
     gpuSelected: '',
     backup: { sizeMb: 0, dirs: [] },
+    installPath: '',
     lang: 0,
     fontSize: 0,
     currentPage: 'home',
@@ -156,6 +157,7 @@
     'update.v1622': '· Source 1 DX9 games are detected automatically and ReShade/HSF are installed into the game’s bin subfolder; the game card shows the actual install folder and lets you override Auto / Game root / bin before installing.',
     'update.v1623': '· HSF install, restore, LaunchPad, MFG-Unlocker and ReShade proxy checks now all use the recorded install folder; older root-folder installs still restore correctly and show a migration hint.',
     'update.v1624': '· API compatibility now includes a DX9 / Source engine entry; Vulkan, DX12 and DX11 behavior is unchanged.',
+    'update.v1625': '· Settings now detect and show the app install folder on every launch; downloaded incremental packages can be installed immediately.',
     'update.v1611': '· HSF menu language: Chinese installs the translated HSF add-on; English installs the original HSF 0.9.9 add-on. “Follow app language” keeps the HSF menu consistent with the UI.',
     'update.v1612': '· ReShade shell language follows the selected HSF language: Chinese writes zh-CN + MiSans, English writes en-US without forcing the Chinese font.',
     'update.v1613': '· Existing HSF installs can switch menu language from the game card: the app restores the old files first, then reinstalls with the selected language.',
@@ -357,6 +359,10 @@
     'set.rememberGamesDesc': 'Turning off clears the saved game list',
     'set.autoUpdate': 'Check for updates on startup',
     'set.autoUpdateDesc': 'Reads the online version on startup and reports new versions',
+    'set.software': 'Software',
+    'set.installPath': 'Install location',
+    'set.openInstallDir': 'Open folder',
+    'set.installPathTip': 'Detected automatically on every launch; updates are extracted over this folder.',
     'set.gpu': 'GPU',
     'set.gpuSelect': 'Select GPU',
     'set.gpuTip': 'Usually auto-detected; if detection is wrong, pick the GPU manually',
@@ -928,13 +934,16 @@
     var pct = Math.max(0, Math.min(100, Number(d.percent) || 0));
     var name = d.fileName || 'release.zip';
     var path = d.targetPath || '';
-    var pathLabel = isHsf ? L('安装到：', 'Install to: ') : L('保存到：', 'Save to: ');
+    var pathLabel = isHsf ? L('安装到：', 'Install to: ') : L('下载到：', 'Downloaded to: ');
     var sizeText = total > 0 ? (fmtBytes(done) + ' / ' + fmtBytes(total)) : fmtBytes(done);
     var rightText = downloadProgressText(d);
     var barClass = total > 0 ? 'download-bar' : 'download-bar indeterminate';
     var toggleLabel = status === 'paused' ? L('继续下载', 'Resume') : L('暂停下载', 'Pause');
     var toggleBtn = (!isHsf && status !== 'completed' && status !== 'failed' && status !== 'cancelled')
       ? '<button type="button" class="mini" data-download-op="toggle">' + esc(toggleLabel) + '</button>'
+      : '';
+    var installBtn = (!isHsf && d.canInstall)
+      ? '<button type="button" class="mini install" data-download-op="install">' + esc(L('安装更新', 'Install update')) + '</button>'
       : '';
     var secondBtn = downloadFinished(status)
       ? '<button type="button" class="mini ghost" data-download-op="clear">' + esc(L('移除记录', 'Remove')) + '</button>'
@@ -950,7 +959,7 @@
         '<div class="download-progress"><div class="' + barClass + '" style="width:' + (total > 0 ? pct.toFixed(1) : 0) + '%"></div></div>' +
         '<div class="download-meta"><span>' + esc(sizeText) + '</span><span>' + esc(rightText) + '</span></div>' +
       '</div>' +
-      '<div class="download-actions">' + toggleBtn + secondBtn + openBtn + '</div>' +
+      '<div class="download-actions">' + installBtn + toggleBtn + secondBtn + openBtn + '</div>' +
     '</div>';
   }
 
@@ -970,7 +979,7 @@
       bar.style.width = total > 0 ? pct.toFixed(1) + '%' : '0%';
     }
     if (name) name.textContent = d.fileName || 'release.zip';
-    if (path) path.textContent = (isHsf ? L('安装到：', 'Install to: ') : L('保存到：', 'Save to: ')) + (d.targetPath || '');
+    if (path) path.textContent = (isHsf ? L('安装到：', 'Install to: ') : L('下载到：', 'Downloaded to: ')) + (d.targetPath || '');
     if (meta && meta.children.length >= 2) {
       meta.children[0].textContent = sizeText;
       meta.children[1].textContent = rightText;
@@ -1952,6 +1961,8 @@
     setSwitch('startupDialog', state.startupDialog);
     setSwitch('rememberGames', state.rememberGames);
     setSwitch('autoUpdate', state.autoUpdate);
+    var installPathEl = document.getElementById('setInstallPath');
+    if (installPathEl) installPathEl.textContent = state.installPath || '—';
   }
 
   function renderSettings(s) {
@@ -2054,6 +2065,9 @@
         );
       } else if (op === 'open') {
         post({ type: 'downloadOpenFolder', id: id });
+      } else if (op === 'install') {
+        post({ type: 'installDownloaded', id: id });
+        toast(L('正在准备安装更新…', 'Preparing to install the update…'));
       } else if (op === 'clear') {
         post({ type: 'downloadClear', id: id });
       }
@@ -2589,8 +2603,10 @@
       } else if (d.type === 'appinfo') {
         state.version = d.version || '1.62';
         state.isBeta = !!d.isBeta;
+        state.installPath = d.installPath || '';
         document.getElementById('setDataPath').textContent = d.dataPath || '—';
         document.getElementById('setLogPath').textContent = d.logPath || '—';
+        document.getElementById('setInstallPath').textContent = d.installPath || '—';
         document.getElementById('setVersion').textContent = d.version || '—';
         if (d.isBeta) {
           var verEl = document.getElementById('setVersion');

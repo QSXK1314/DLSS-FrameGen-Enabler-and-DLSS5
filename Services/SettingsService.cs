@@ -81,6 +81,9 @@ public class SettingsService
 
 	public bool AutoCheckUpdate { get; set; } = true;
 
+	/// <summary>软件安装根目录（包含 DLSS5+MFG Enable 子目录的父目录）。每次启动由主程序重新识别。</summary>
+	public string InstallRoot { get; set; } = "";
+
 	public static SettingsService Instance => _instance ?? (_instance = Load());
 
 	private static SettingsService Load()

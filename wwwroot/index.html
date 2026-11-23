@@ -175,6 +175,7 @@
           <div class="doc-li" data-i18n="update.v1622">· 自动识别 Source 1 引擎 DX9 游戏，把 ReShade / HSF 装到游戏根目录的 bin 子目录；游戏卡片会显示实际安装目录，安装前可手动切换「自动识别 / 游戏根目录 / bin 子目录」。</div>
           <div class="doc-li" data-i18n="update.v1623">· HSF 安装、还原、LaunchPad、MFG-Unlocker 和 ReShade 代理检测全部按安装记录中的目录处理；旧版根目录安装仍能正常还原，并会提示还原后自动迁移到 bin。</div>
           <div class="doc-li" data-i18n="update.v1624">· API 兼容性页新增 DX9 · 起源引擎 条目；DX11、DX12 与 Vulkan 的行为保持不变。</div>
+          <div class="doc-li" data-i18n="update.v1625">· 设置页每次启动自动识别并显示软件安装位置；增量包下载完成后可立即安装</div>
         </div>
         <div class="doc-card">
           <div class="doc-h">V1.61</div>
@@ -536,6 +537,18 @@
             </div>
             <button class="sw" data-setkey="autoUpdate"><i></i></button>
           </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="set.software">软件</div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="set.installPath">软件安装位置</div>
+              <div class="set-desc" id="setInstallPath">—</div>
+            </div>
+            <button class="pill" data-set="install" data-i18n="set.openInstallDir">打开目录</button>
+          </div>
+          <div class="set-tip" data-i18n="set.installPathTip">每次启动自动识别；更新时会把增量包覆盖到此目录。</div>
         </div>
 
         <div class="doc-card">

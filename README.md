@@ -3,12 +3,6 @@
 一款基于 WebView2 + WebUI 界面的 DLSS5 / 多帧生成 / Smooth Motion 开启工具。
 A WebView2-based tool for enabling DLSS5, Frame Generation and Smooth Motion.
 
-- - ## 下载哪个版本？
-
-- 稳定版用户：先下载 **V1.30 基线完整包**，再应用最新稳定版增量包。 / Stable version users: Download the **V1.30 baseline full package** first, then apply the latest stable version incremental package.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases/tag/V1.30
-- 测试版用户：先下载 **V1.61-Beta 基线完整包**，再应用最新测试版增量包。 / Beta users: Download the **V1.61-Beta baseline full package** first, then apply the latest beta incremental package.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
-- 新用户：需要下载 **V1.30 基线完整包**或者下载 **V1.61-Beta 基线完整包**。 / New users: Download either the **V1.30 Baseline Full Package** or the **V1.61-Beta Baseline Full Package**.https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.30 **or** https://github.com/QSXK1314/DLSS-FrameGen-Enabler-and-DLSS5/releases#release-V1.61-beta
-
 - 当前测试版 / Current beta version：**V1.62.0.0**
 - 测试版源码分支 / Beta source branch：`beta`
 - 稳定版源码分支 / Stable source branch：`master`
@@ -31,6 +25,10 @@ A WebView2-based tool for enabling DLSS5, Frame Generation and Smooth Motion.
 4. **API 兼容页 / API compatibility page**
    新增 DX9 · 起源引擎条目，说明 ReShade / HSF 必须装到 `bin`；DX11、DX12 与 Vulkan 行为不变。
    Added a DX9 / Source engine entry explaining that ReShade / HSF must be installed into `bin`; DX11, DX12 and Vulkan behavior is unchanged.
+
+5. **下载后直接安装 / Install directly after download**
+   设置页每次启动自动识别并显示软件安装位置；增量包下载完成后弹出「立即安装 / 稍后」，选择立即安装后主程序退出，独立安装窗口显示解压与覆盖进度，完成后自动启动软件。
+   The Settings page detects and shows the install location on every launch. After an incremental package downloads, a “Install now / Later” prompt appears. Choosing Install now exits the app, an independent installer window shows extraction and overwrite progress, then relaunches the app.
 
 ## V1.61 更新内容 / V1.61 Changelog
 

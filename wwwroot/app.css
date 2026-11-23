@@ -621,6 +621,13 @@ html[data-theme="dark"] .ctx-item.danger:hover { background: #3b2429; }
   color: #b23a4b;
 }
 .mini.danger:hover { background: #fbe0e2; }
+.mini.install {
+  background: #fdf3e3;
+  border-color: #ecd2a8;
+  color: #9a6418;
+  font-weight: 700;
+}
+.mini.install:hover { background: #f8e8ca; color: #7d4e0c; }
 .mini:disabled,
 .mini[disabled] {
   opacity: 0.42;
@@ -1322,6 +1329,12 @@ html[data-theme="dark"] .mini.on { background: var(--on-bg); border-color: #2c4a
 html[data-theme="dark"] .mini.dlss.on { background: #22303d; border-color: #33506a; color: #9dc4e8; }
 html[data-theme="dark"] .mini.danger { background: #3b2429; border-color: #5a3740; color: #efb6c1; }
 html[data-theme="dark"] .mini.danger:hover { background: #48292f; }
+html[data-theme="dark"] .mini.install {
+  background: #352b1b;
+  border-color: #5c4925;
+  color: #e6c07a;
+}
+html[data-theme="dark"] .mini.install:hover { background: #44361f; color: #f3d79f; }
 html[data-theme="dark"] .view-toggle {
   background: var(--card);
   border-color: rgba(255, 255, 255, 0.1);

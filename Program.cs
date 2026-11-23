@@ -15,6 +15,14 @@ internal static class Program
             return;
         }
 
+        // 独立安装模式：由主程序复制到临时目录后启动，只显示安装进度，不加载 WebView。
+        if (UpdateInstallerForm.IsInstallRequest(args))
+        {
+            ApplicationConfiguration.Initialize();
+            UpdateInstallerForm.Run(args);
+            return;
+        }
+
         MainForm.WriteStartupLog("=== WebUI 启动开始 ===");
         MainForm.WriteStartupLog("软件目录: " + AppContext.BaseDirectory);
         MainForm.WriteStartupLog("启动参数: " + (args.Length == 0 ? "(none)" : string.Join(" ", args)));

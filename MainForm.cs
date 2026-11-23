@@ -57,6 +57,7 @@ public class MainForm : Form
     private bool _hsfRefreshPending;
     private int _dialogSeq;
     private DownloadJob? _downloadJob;
+    private readonly string _installRoot;
     private readonly Dictionary<string, LaunchPadDownloadJob> _hsfLaunchPadJobs =
         new Dictionary<string, LaunchPadDownloadJob>();
     private readonly System.Windows.Forms.Timer _windowAnimTimer = new System.Windows.Forms.Timer();
@@ -97,6 +98,12 @@ public class MainForm : Form
         _demoCheckMode = demoCheck;
         _demoBetaMode = demoBeta;
         _demoBigMode = demoBig;
+        _installRoot = UpdateInstallService.DetectInstallRoot();
+        if (!string.Equals(_settings.InstallRoot, _installRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            _settings.InstallRoot = _installRoot;
+            _settings.Save();
+        }
         Translator.CurrentLanguage = (AppLanguage)_settings.Language;
         if (_demoEnglishMode)
         {
@@ -735,6 +742,9 @@ public class MainForm : Form
                 break;
             case "downloadClear":
                 ClearDownloadRecord(GetDownloadId(root));
+                break;
+            case "installDownloaded":
+                _ = InstallDownloadedUpdateAsync(GetDownloadId(root));
                 break;
             case "drag":
                 BeginDragMove();
@@ -1457,7 +1467,8 @@ public class MainForm : Form
             isBeta = DLSSFrameGenEnabler_WinUI3.App.IsBeta,
             dataPath = BetaGamesPath,
             dataDir = Path.GetDirectoryName(BetaGamesPath) ?? "",
-            logPath = Path.Combine(AppContext.BaseDirectory, "error.log")
+            logPath = Path.Combine(AppContext.BaseDirectory, "error.log"),
+            installPath = _installRoot
         });
     }
 
@@ -1474,6 +1485,10 @@ public class MainForm : Form
                     PostStatus("日志文件还不存在，先运行一次再来看");
                     return;
                 }
+            }
+            else if (target == "install")
+            {
+                path = _installRoot;
             }
             else
             {
@@ -1652,6 +1667,7 @@ public class MainForm : Form
             gpuSelected = _settings.SelectedGpuName,
             gpus = gpuItems,
             wallpaper = ReadWallpaperDataUrl(),
+            installPath = _installRoot,
             backup
         });
     }
@@ -2036,14 +2052,39 @@ public class MainForm : Form
             }
 
             JsonElement asset = assets[0];
+            bool hasZip = false;
+            long bestZipSize = long.MaxValue;
+            JsonElement bestZip = default;
             foreach (JsonElement candidate in assets.EnumerateArray())
             {
-                if (candidate.TryGetProperty("name", out JsonElement candidateName) &&
-                    (candidateName.GetString() ?? "").EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                if (!candidate.TryGetProperty("name", out JsonElement candidateName))
                 {
-                    asset = candidate;
+                    continue;
+                }
+                string name = candidateName.GetString() ?? "";
+                if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                long candidateSize = candidate.TryGetProperty("size", out JsonElement candidateSizeElement)
+                    ? candidateSizeElement.GetInt64()
+                    : 0L;
+                if (IsIncrementalAssetName(name))
+                {
+                    bestZip = candidate;
+                    hasZip = true;
                     break;
                 }
+                if (!hasZip || (candidateSize > 0 && candidateSize < bestZipSize))
+                {
+                    bestZip = candidate;
+                    bestZipSize = candidateSize > 0 ? candidateSize : long.MaxValue;
+                    hasZip = true;
+                }
+            }
+            if (hasZip)
+            {
+                asset = bestZip;
             }
 
             string downloadUrl = asset.TryGetProperty("browser_download_url", out JsonElement urlElement)
@@ -2085,10 +2126,10 @@ public class MainForm : Form
             string dialogText = Lang(
                 "版本：" + releaseVersion +
                 (sizeLine.Length > 0 ? "\n" + sizeLine : "") +
-                "\n\n更新说明：\n" + notesText,
+                "\n\n下载完成后会询问是否立即安装。\n\n更新说明：\n" + notesText,
                 "Version: " + releaseVersion +
                 (sizeLine.Length > 0 ? "\n" + sizeLine : "") +
-                "\n\nUpdate notes:\n" + notesText);
+                "\n\nYou will be asked whether to install immediately after the download.\n\nUpdate notes:\n" + notesText);
             string? downloadChoice = await ShowDialogAsync(
                 Lang("发现新版本：" + releaseVersion, "New version available: " + releaseVersion),
                 dialogText,
@@ -2097,8 +2138,9 @@ public class MainForm : Form
                     new DialogOption
                     {
                         Value = "download",
-                        Label = Lang("下载", "Download"),
-                        Desc = Lang("选择保存位置并开始下载", "Choose a save location and start downloading")
+                        Label = Lang("下载并安装", "Download & install"),
+                        Desc = Lang("下载到更新缓存，完成后询问是否安装",
+                            "Download to the update cache and ask whether to install")
                     },
                     new DialogOption
                     {
@@ -2112,18 +2154,6 @@ public class MainForm : Form
                 return;
             }
 
-            using SaveFileDialog save = new SaveFileDialog();
-            save.Title = Lang("保存 GitHub 下载文件", "Save GitHub download");
-            save.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            save.FileName = fileName;
-            save.Filter = Lang("压缩包 (*.zip)|*.zip|所有文件 (*.*)|*.*",
-                "Zip files (*.zip)|*.zip|All files (*.*)|*.*");
-            save.OverwritePrompt = true;
-            if (save.ShowDialog(this) != DialogResult.OK)
-            {
-                return;
-            }
-
             if (_downloadJob != null && !_downloadJob.Completed)
             {
                 PostJson(new { type = "navigate", page = "download" });
@@ -2132,7 +2162,18 @@ public class MainForm : Form
                 return;
             }
 
-            string targetPath = save.FileName;
+            string cacheDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "DLSSFrameGenEnabler",
+                "Updates",
+                SafePathSegment(releaseVersion.Length > 0 ? releaseVersion : "latest"));
+            Directory.CreateDirectory(cacheDir);
+            string safeFileName = Path.GetFileName(fileName);
+            if (string.IsNullOrWhiteSpace(safeFileName))
+            {
+                safeFileName = "update.zip";
+            }
+            string targetPath = Path.Combine(cacheDir, safeFileName);
             string partialPath = targetPath + ".part";
             try
             {
@@ -2212,6 +2253,7 @@ public class MainForm : Form
             job.DownloadedBytes = job.TotalBytes;
             PostDownloadState(job, "completed");
             PostStatus(Lang("下载完成：" + job.FileName, "Download complete: " + job.FileName));
+            await PromptInstallDownloadedAsync(job);
         }
         catch (OperationCanceledException) when (job.Cancelled)
         {
@@ -2238,6 +2280,85 @@ public class MainForm : Form
                 Lang("下载失败，可能是网络问题或 GitHub 访问限制导致。",
                     "Download failed. This may be due to network issues or GitHub access limits."));
             PostStatus(Lang("下载失败：" + job.FileName, "Download failed: " + job.FileName));
+        }
+    }
+
+    private async Task InstallDownloadedUpdateAsync(string id)
+    {
+        DownloadJob? job = _downloadJob;
+        if (job == null || job.Id != id || !job.Completed)
+        {
+            PostStatus(Lang("没有可安装的更新包，请重新下载。",
+                "No downloaded update package is available. Please download again."));
+            return;
+        }
+        await PromptInstallDownloadedAsync(job);
+    }
+
+    private async Task PromptInstallDownloadedAsync(DownloadJob job)
+    {
+        if (job.Kind != "release" || !job.Completed || !File.Exists(job.TargetPath))
+        {
+            PostStatus(Lang("安装包不存在，请重新下载。", "The update package is missing. Please download again."));
+            return;
+        }
+        if (!UpdateInstallService.IsSupportedPackage(job.TargetPath, out string reason))
+        {
+            PostStatus(Lang("下载完成，但压缩包无法自动安装：" + reason,
+                "Download complete, but the package cannot be installed automatically: " + reason));
+            return;
+        }
+
+        string version = string.IsNullOrWhiteSpace(job.ReleaseVersion) ? "新版本" : job.ReleaseVersion;
+        string? choice = await ShowDialogAsync(
+            Lang("安装更新", "Install update"),
+            Lang(
+                "增量包下载完成。\n\n版本：" + version +
+                "\n安装位置：" + _installRoot +
+                "\n\n点击“立即安装”后软件会退出，独立安装界面会把增量包解压并覆盖到软件目录。",
+                "The incremental package has been downloaded.\n\nVersion: " + version +
+                "\nInstall location: " + _installRoot +
+                "\n\nAfter you click \"Install now\", the app will exit and the installer will extract the package over the app directory."),
+            new List<DialogOption>
+            {
+                new DialogOption
+                {
+                    Value = "install",
+                    Label = Lang("立即安装", "Install now"),
+                    Desc = Lang("退出软件并覆盖更新", "Exit the app and apply the update")
+                },
+                new DialogOption
+                {
+                    Value = "later",
+                    Label = Lang("稍后", "Later"),
+                    Desc = Lang("保留安装包，稍后可在下载页安装", "Keep the package and install later from Downloads")
+                }
+            });
+
+        if (choice != "install")
+        {
+            return;
+        }
+
+        try
+        {
+            PostStatus(Lang("正在启动安装程序…", "Starting the installer…"));
+            string appExe = Environment.ProcessPath ?? Application.ExecutablePath;
+            await Task.Run(() => UpdateInstallService.LaunchInstaller(
+                job.TargetPath,
+                _installRoot,
+                appExe,
+                job.ReleaseVersion));
+            Close();
+        }
+        catch (Exception ex)
+        {
+            WriteLog("Launch update installer FAILED: " + ex);
+            await ShowChoiceAsync(
+                Lang("无法启动安装程序", "Could not start the installer"),
+                Lang("安装程序启动失败：\n" + ex.Message + "\n\n请关闭占用安装包的程序后重试，或使用 GitHub 页面手动下载。",
+                    "Failed to start the installer:\n" + ex.Message + "\n\nClose any program using the package and try again, or download manually from GitHub."),
+                new List<(string, string, string)> { ("ok", Lang("知道了", "Got it"), "") });
         }
     }
 
@@ -2580,12 +2701,34 @@ public class MainForm : Form
             fileName = job.FileName,
             targetPath = job.TargetPath,
             releaseVersion = job.ReleaseVersion,
+            canInstall = job.Kind == "release" && job.Completed && File.Exists(job.TargetPath),
             totalBytes = job.TotalBytes,
             downloadedBytes = job.DownloadedBytes,
             percent,
             speed,
             error
         });
+    }
+
+    private static string SafePathSegment(string value)
+    {
+        string result = (value ?? "").Trim();
+        foreach (char invalid in Path.GetInvalidFileNameChars())
+        {
+            result = result.Replace(invalid, '_');
+        }
+        return result.Length == 0 ? "latest" : result;
+    }
+
+    private static bool IsIncrementalAssetName(string name)
+    {
+        string lower = name.ToLowerInvariant();
+        return lower.Contains("增量") ||
+               lower.Contains("incremental") ||
+               lower.Contains("update") ||
+               lower.Contains("patch") ||
+               lower.Contains("hotfix") ||
+               lower.Contains("diff");
     }
 
     private static int CompareVersion(string a, string b)
