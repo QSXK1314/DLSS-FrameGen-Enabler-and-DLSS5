@@ -266,6 +266,7 @@
     'update.v175Title': 'V1.75 Update Notes',
     'update.v1751': '· Beta republished as V1.75.0.0; external capture, OptiScaler defaults and the patch set keep the current configuration. The notes below keep the V1.65 update details and the V1.63.2 history.',
     'update.v1752': '· The OptiScaler menu now follows the app language: switch the app between Chinese and English and the menu updates within about 0.5 seconds, even while capture is running; no capture restart is needed.',
+    'update.v1753': '· Game-card action buttons now have a clearer hover highlight: Frame Gen, DLSS5 and Restore get a stronger border, background and glow, especially in the dark theme.',
     'update.v1651': '· External capture is now part of the beta: a third card under Frame Gen Mods opens the capture page. It writes nothing into the game folder, captures the game window with Windows Graphics Capture, then feeds the bundled OptiCaptureHost 2.12.00 + OptiScaler for upscaling and frame generation.',
     'update.v1652': '· 2.12 real depth: adds an experimental “ReShade real depth” toggle and live depth status. D3D11/D3D12 use GPU shared textures; D3D9/D3D10/OpenGL/Vulkan use CPU shared buffers. Depth only affects the Host’s own FSR/DLSS output scaling and does not fix F5Low/MFG jelly.',
     'update.v1653': '· Capture defaults: F5Low + 3X, with 2X-6X, FSR4.1.2 and Present Classic available; the OptiScaler menu is fully translated into Chinese. Ctrl+Shift+F9 hides/restores the overlay, and the page button still works if the hotkey is taken.',

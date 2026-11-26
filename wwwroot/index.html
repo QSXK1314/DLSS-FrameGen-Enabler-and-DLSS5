@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>多帧生成+DLSS5开启工具</title>
-<link rel="stylesheet" href="app.css?v=1.75.0.3" />
+<link rel="stylesheet" href="app.css?v=1.75.0.5" />
 </head>
 <body>
 <div id="app">
@@ -173,6 +173,7 @@
           <div class="doc-h" data-i18n="update.v175Title">V1.75 更新内容</div>
           <div class="doc-li" data-i18n="update.v1751">· 测试版重新发布为 V1.75.0.0；外置捕获、OptiScaler 默认项和补丁目录保持当前配置，下面保留 V1.65 更新内容与 V1.63.2 历史记录。</div>
           <div class="doc-li" data-i18n="update.v1752">· OptiScaler 菜单语言跟随软件语言：软件在简体中文与 English 之间切换后，菜单约 0.5 秒内同步；捕获运行中切换也生效，无需重启捕获。</div>
+          <div class="doc-li" data-i18n="update.v1753">· 主页卡片小按钮悬停高亮增强：「多帧生成」「DLSS5」「还原」等按钮增加高亮边框、渐变背景和明显外发光，暗色主题下更醒目。</div>
           <div class="doc-li" data-i18n="update.v1651">· 外置捕获正式并入测试版：帧生成 mod 新增第三张卡，从这张卡进入即可使用；不向游戏目录写文件，用 Windows Graphics Capture 捕获游戏窗口，再由内置 OptiCaptureHost 2.12.00 + OptiScaler 完成超分和多帧生成。</div>
           <div class="doc-li" data-i18n="update.v1652">· 2.12 真实深度：新增「ReShade 真实深度（实验）」开关与深度接收状态；D3D11 / D3D12 走 GPU 共享纹理，D3D9 / D3D10 / OpenGL / Vulkan 走 CPU 共享缓冲。深度只作用于 Host 自己的 FSR / DLSS 输出缩放，不改善 F5Low / MFG 的果冻感。</div>
           <div class="doc-li" data-i18n="update.v1653">· 捕获默认：F5Low + 3X，支持 2X-6X、FSR4.1.2、Present Classic；OptiScaler 菜单完成中文汉化，Ctrl+Shift+F9 可隐藏 / 恢复覆盖层，热键被占用时页面按钮仍可用。</div>
@@ -1067,7 +1068,7 @@
 
   <div id="toast" class="toast"></div>
 </div>
-<script src="app.js?v=1.75.0.3"></script>
+<script src="app.js?v=1.75.0.5"></script>
 </body>
 </html>
 
