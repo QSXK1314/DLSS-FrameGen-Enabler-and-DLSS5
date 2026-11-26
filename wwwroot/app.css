@@ -653,7 +653,9 @@ html[data-theme="dark"] .ctx-item.danger:hover { background: #3b2429; }
   width: 540px;
   max-width: calc(100vw - 80px);
   max-height: calc(100vh - 120px);
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -665,8 +667,9 @@ html[data-theme="dark"] .ctx-item.danger:hover { background: #3b2429; }
   background: var(--card);
   backdrop-filter: none;
 }
-.modal-title { font-size: calc(var(--font-scale) * 16.5px); font-weight: 700; color: var(--text); }
+.modal-title { flex: 0 0 auto; font-size: calc(var(--font-scale) * 16.5px); font-weight: 700; color: var(--text); }
 .modal-text {
+  flex: 0 0 auto;
   margin-top: 7px;
   font-size: calc(var(--font-scale) * 12.5px);
   line-height: 1.65;
@@ -675,12 +678,24 @@ html[data-theme="dark"] .ctx-item.danger:hover { background: #3b2429; }
 }
 /* 更新说明等长文本在弹窗内部滚动，保证标题、版本信息和下载按钮始终可见 */
 .modal-text.long {
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: calc(100vh - 380px);
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-gutter: stable;
 }
-.modal-options { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+.modal-options {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 15px;
+  padding-right: 6px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .dlg-option {
   display: flex;
   align-items: center;
@@ -707,7 +722,19 @@ html[data-theme="dark"] .ctx-item.danger:hover { background: #3b2429; }
 .opt-body { display: block; min-width: 0; }
 .opt-label { display: block; font-size: calc(var(--font-scale) * 13.5px); font-weight: 600; color: var(--text); }
 .opt-desc { display: block; margin-top: 3px; font-size: calc(var(--font-scale) * 11.5px); color: var(--text-3); word-break: break-all; }
-.modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.modal-foot {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
 .modal-foot .pill { padding: 7px 18px; }
 
 /* ---- 交流群二维码弹窗 ---- */
@@ -1195,7 +1222,23 @@ html[data-theme="dark"] .about-ico img.gh-icon,
 html[data-theme="dark"] .about-ico img.xhh-icon {
   filter: invert(1);
 }
-.about-link-t { flex: 1; font-size: calc(var(--font-scale) * 12.5px); }
+.about-link-t {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: calc(var(--font-scale) * 12.5px);
+}
+.about-link-name { display: block; font-size: calc(var(--font-scale) * 12.5px); }
+.about-link-sub {
+  display: block;
+  font-size: calc(var(--font-scale) * 10.5px);
+  line-height: 1.45;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.about-patch-links .about-link { padding-top: 10px; padding-bottom: 10px; }
 .about-arrow { color: var(--text-3); font-size: calc(var(--font-scale) * 15px); line-height: 1; }
 
 .about-thx {
@@ -1531,6 +1574,83 @@ html.no-anim .spinner { animation: spin 0.9s linear infinite !important; }
   outline: none;
 }
 .set-select:focus { border-color: var(--outline-line); }
+
+/* 外置捕获：窗口选择按钮，点开后用和主页检测窗口相同的卡片弹窗 */
+.capture-window-picker {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 1 360px;
+  min-width: 0;
+}
+.capture-window-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card-2);
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.capture-window-btn:hover {
+  border-color: var(--outline-line);
+  background: var(--outline-bg);
+}
+.capture-window-btn:disabled {
+  opacity: .55;
+  cursor: default;
+}
+.capture-window-icon {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--chip);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 15px;
+}
+.capture-window-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.capture-window-body {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.capture-window-title,
+.capture-window-desc {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.capture-window-title {
+  font-size: calc(var(--font-scale) * 12.5px);
+  color: var(--text);
+}
+.capture-window-desc {
+  margin-top: 2px;
+  font-size: calc(var(--font-scale) * 10.5px);
+  color: var(--text-3);
+}
+.capture-window-caret {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-size: 18px;
+  line-height: 1;
+}
 
 /* 自定义下拉：统一深浅色与列表项风格 */
 .sel { position: relative; display: inline-block; }
@@ -1997,7 +2117,7 @@ html[data-theme="dark"] .tool-area {
 .fg-kicker { color: var(--accent); font-size: calc(var(--font-scale) * 10px); font-weight: 800; letter-spacing: .16em; }
 .fg-title { margin-top: 5px; font-size: calc(var(--font-scale) * 26px); font-weight: 800; letter-spacing: .2px; }
 .fg-sub { margin-top: 7px; max-width: 760px; color: var(--text-2); font-size: calc(var(--font-scale) * 12.5px); line-height: 1.6; }
-.fg-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 6px; }
+.fg-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 6px; }
 .fg-choice-card {
   display: flex;
   flex-direction: column;
@@ -2031,6 +2151,7 @@ html[data-theme="dark"] .tool-area {
   letter-spacing: .02em;
 }
 .fg-choice-icon.hsf { background: #e8f0fb; color: #2a5c93; }
+.fg-choice-icon.capture { background: #f1e9fb; color: #6d42a1; }
 .fg-choice-title { margin-top: 16px; font-size: calc(var(--font-scale) * 23px); font-weight: 800; line-height: 1.2; }
 .fg-choice-desc { margin-top: 10px; color: var(--text-2); font-size: calc(var(--font-scale) * 12px); line-height: 1.65; }
 .fg-choice-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
@@ -2092,6 +2213,7 @@ html[data-theme="dark"] .tool-area {
 .sm-quality-label { flex: 0 0 auto; font-weight: 700; }
 html[data-theme="dark"] .fg-choice-card:hover { box-shadow: 0 10px 28px rgba(0,0,0,.30); }
 html[data-theme="dark"] .fg-choice-icon.hsf { background: #1d2b3d; color: #9fc3ee; }
+html[data-theme="dark"] .fg-choice-icon.capture { background: #2a1e3b; color: #c8a8ee; }
 html[data-theme="dark"] .sm-quality-callout { background: #172535; border-color: #35506e; color: #b7d2ef; }
 html[data-theme="dark"] .api-item.warn { background: #2a2618; border-color: #6e5a20; }
 html[data-theme="dark"] .api-item.warn em { background: #3d3420; color: #e9c46a; }
@@ -2113,4 +2235,28 @@ html[data-theme="dark"] .sm-badge.bad { background: #3b2429; color: #efb6c1; }
   .sm-game { align-items: flex-start; flex-direction: column; }
   .sm-game-right { width: 100%; flex-wrap: wrap; }
   .sm-game-sub { max-width: 100%; }
+}
+
+/* ---------------- CaptureHost (external capture) ---------------- */
+#pageCapture > .doc-card,
+#pageCapture > .fg-back-row { flex: 0 0 auto; }
+.capture-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.capture-actions .pill { min-height: 32px; }
+.capture-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.capture-stat {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--card-2);
+}
+.capture-stat span { display: block; color: var(--text-3); font-size: calc(var(--font-scale) * 10.5px); margin-bottom: 4px; }
+.capture-stat b { display: block; color: var(--text); font-weight: 700; font-size: calc(var(--font-scale) * 16px); letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.capture-stat.good b { color: var(--on); }
+.capture-stat.warn b { color: #d69a2d; }
+.capture-hero { overflow: hidden; }
+#captureWindowTitle { max-width: 240px; }
+@media (max-width: 980px) {
+  .capture-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #captureWindowTitle { max-width: 100%; }
 }

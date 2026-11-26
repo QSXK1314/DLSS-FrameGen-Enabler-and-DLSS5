@@ -1324,7 +1324,7 @@ private static string? FindNvngxDlss(string gamePath, string exeDir, bool skipEx
 				}
 			}
 
-			// 3. 新增 version.dll（MFGUnlocker v1.7.1）
+			// 3. 新增 version.dll（MFGUnlocker v1.7.2）
 			string versionPath = Path.Combine(exeDir, "version.dll");
 			bool versionExists = File.Exists(versionPath);
 			if (versionExists)

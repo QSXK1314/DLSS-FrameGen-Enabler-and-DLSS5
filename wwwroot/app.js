@@ -49,10 +49,13 @@
     smoothTab: 'official',
     hsf: null,
     downloads: {},
-    version: '1.62',
+    version: '1.75',
     isBeta: false,
     bigView: true
   };
+  var captureData = null;
+  var captureWindowOptions = [];
+  var captureFormInitialized = false;
   try {
     state.bigView = localStorage.getItem('dfge.viewMode') !== 'list';
   } catch (e) { }
@@ -60,7 +63,7 @@
 
   var EN = {
     'app.brand': 'Frame Gen + DLSS5 Enabler',
-    'app.sub': 'V1.62-Beta',
+    'app.sub': 'V1.75-Beta · External Capture Integrated',
     'app.brandSub': 'Frame Gen + DLSS5',
     'nav.home': 'Home',
     'nav.usage': 'Usage Guide',
@@ -69,7 +72,7 @@
     'nav.hsf': 'HSF Frame Gen',
     'nav.framegen': 'Frame Gen Mods',
     'fg.title': 'Frame Gen Mods',
-    'fg.sub': 'Choose a frame generation path. Both stay inside this app; no second tool needed.',
+    'fg.sub': 'Choose a frame generation path. All three stay inside this app; no second tool needed.',
     'fg.smoothTitle': 'NVIDIA Smooth Motion',
     'fg.smoothDesc': 'Driver-level AI frame interpolation written straight into the NVIDIA profile. RTX 40/50 use the official driver; RTX 20/30 use the built-in patch. Best for games without native frame generation.',
     'fg.smoothTag1': 'RTX 40/50 official',
@@ -82,7 +85,114 @@
     'fg.hsfTag3': 'All APIs',
     'fg.enter': 'Open settings',
     'fg.back': 'Back to Frame Gen Mods',
-    'fg.tip': 'Tip: HSF with LaunchPad has better optical flow than the default NVOF and significantly less ghosting. Vulkan games should use windowed mode; borderless/fullscreen may hide generated frames.',
+    'fg.tip': 'Tip: external capture is experimental. It does not modify game files, but some anti-cheat systems may still flag it. Check the risk before using it in online games. HSF with LaunchPad has better optical flow than the default NVOF and significantly less ghosting. Vulkan games should use windowed mode; borderless/fullscreen may hide generated frames.',
+    'fg.captureTitle': 'External Capture (OptiCaptureHost)',
+    'fg.captureDesc': 'Writes nothing into the game folder: Windows Graphics Capture grabs the game window and feeds it to the built-in OptiScaler. Good for games where mods are inconvenient; windowed / borderless only, up to 6X.',
+    'fg.captureTag1': 'No injection',
+    'fg.captureTag2': 'Any window',
+    'fg.captureTag3': 'Up to 6X',
+    'capture.experimentalBadge': 'Experimental',
+    'capture.title': 'External Capture (Experimental)',
+    'capture.sub': 'No files are written into the game folder. Windows Graphics Capture grabs the game window, and the built-in OptiCaptureHost + OptiScaler handle upscaling and multi frame generation. Use windowed or borderless mode.',
+    'capture.notRunning': 'Not running',
+    'capture.engine': 'Capture engine',
+    'capture.window': 'Current window',
+    'capture.fpsIn': 'Capture FPS',
+    'capture.fpsOut': 'Presented FPS',
+    'capture.idleNote': 'Pick a running game window, then press Start. This page never opens OptiCaptureLauncher and never writes into the game folder.',
+    'capture.windowTitle': 'Select game window',
+    'capture.windowDesc': 'Lists visible windows and keeps the largest main window per process. The game must be windowed or borderless; exclusive fullscreen cannot be captured.',
+    'capture.refresh': 'Refresh windows',
+    'capture.openLog': 'Open capture log',
+    'capture.windowSelect': 'Game window',
+    'capture.windowSelectDesc': 'If the game is missing, start it in windowed mode and refresh again.',
+    'capture.chooseWindow': 'Refresh and choose a game window',
+    'capture.start': 'Start capture',
+    'capture.stop': 'Stop capture',
+    'capture.menu': 'Open OptiScaler menu',
+    'capture.focus': 'Return mouse / focus',
+    'capture.overlay': 'Hide overlay / switch out',
+    'capture.hotkeyNote': 'In-game hotkeys: Ctrl+Shift+F9 hides/restores the overlay without stopping capture, Ctrl+Shift+F10 opens the menu, Ctrl+Shift+F11 switches game / overlay focus, Ctrl+Shift+F12 stops capture. With the overlay hidden you can Alt+Tab to other windows; frame generation may pause while the game is out of focus and resume when you return.',
+    'capture.settingsTitle': 'Frame generation and image settings',
+    'capture.settingsDesc': 'These settings are written to the bundled OptiCaptureHost.ini and OptiScaler.ini, never into the game folder. VSync applies live; changing frame-gen mode or multiplier while running restarts capture; upscaling and output scaling need a stop/restart.',
+    'capture.fgMode': 'Frame generation mode',
+    'capture.fgModeDesc': 'Select the frame-generation method used by external capture. F5Low is the default; other modes depend on the GPU and installed runtimes.',
+    'capture.fgF5low': 'F5Low (capture recommended)',
+    'capture.fgXefg': 'XeFG (original compatibility)',
+    'capture.fgDlssg': 'DLSSG (Artur / older GPUs)',
+    'capture.fgCombo': 'Combo MFG (DLSSG + XeFG)',
+    'capture.fgNukem': 'Nukem FG',
+    'capture.fgFsr': 'FSR3-4 FG',
+    'capture.fgNvidia': 'NVIDIA MFG (RTX 50)',
+    'capture.fgOff': 'Frame generation off',
+    'capture.mfg': 'Multi-frame multiplier',
+    'capture.mfgDesc': 'Sets how many frames are generated per source frame. Higher multipliers produce more output; support depends on the frame-generation mode.',
+    'capture.mfgAuto': 'Auto',
+    'capture.upscaler': 'Upscaler',
+    'capture.upscalerDesc': 'Select the OptiScaler upscaling backend. Choose by GPU model and game compatibility.',
+    'capture.upFsr4': 'FSR 4.1.2 (recommended)',
+    'capture.upXess': 'Intel XeSS',
+    'capture.upFsr3': 'AMD FSR 3.1.6',
+    'capture.upDlss': 'NVIDIA DLSS',
+    'capture.upDlss37': 'DLSS 3.7 (AMD / GTX 16)',
+    'capture.upDitto': 'DittoSR',
+    'capture.upscale': 'Output scaling',
+    'capture.upscaleDesc': 'When enabled, Start shrinks the game window and the host scales it to fullscreen; stopping restores the original window.',
+    'capture.upOff': 'Off',
+    'capture.upFsr': 'FSR3/4',
+    'capture.upDlssOut': 'DLSS',
+    'capture.upFsr1': 'FSR 1',
+    'capture.upNis': 'NIS',
+    'capture.upBilinear': 'Bilinear',
+    'capture.upscaleLevel': 'Output scaling level',
+    'capture.upscaleLevelDesc': 'Sets the output-scaling ratio. Native keeps the window size and only applies super-resolution anti-aliasing.',
+    'capture.lvQuality': 'Quality (1.5X)',
+    'capture.lvBalanced': 'Balanced (1.7X)',
+    'capture.lvPerformance': 'Performance (2X)',
+    'capture.lvNative': 'Native (1X)',
+    'capture.depth': 'ReShade true depth (experimental)',
+    'capture.depthDesc': 'When enabled, the host reads the game’s real depth during output scaling to improve edges and occlusion. Output scaling must be on and the ReShade depth add-on installed in the game folder.',
+    'capture.statDepth': 'Depth received',
+    'capture.vsync': 'VSync',
+    'capture.vsyncDesc': 'Controls whether the host uses VSync. Changes apply live.',
+    'capture.presentMode': 'Present mode',
+    'capture.presentModeDesc': 'Selects the host presentation path. Classic has better compatibility; Lossless uses an alternative presentation path.',
+    'capture.pmClassicUnlimited': 'Classic + unlimited (recommended)',
+    'capture.pmClassic': 'Classic',
+    'capture.pmLossless': 'Lossless low latency',
+    'capture.pmAuto': 'Auto',
+    'capture.pmNoWait': 'Never wait',
+    'capture.pmWait': 'Always wait for vblank',
+    'capture.pmHalf': 'Classic + half refresh',
+    'capture.boost': 'Performance mode',
+    'capture.boostDesc': 'Sets the host process priority. Max is the default; weaker GPUs can use a lower priority.',
+    'capture.boostBalanced': 'Balanced (weak GPUs)',
+    'capture.boostLight': 'Light (CPU only)',
+    'capture.boostMax': 'Max (strong GPUs, recommended)',
+    'capture.boostOff': 'Off',
+    'capture.presentDelay': 'Present delay',
+    'capture.presentDelayDesc': 'Milliseconds to wait before each Present; 0 is off. Used to fine-tune presentation pacing.',
+    'capture.basePriority': 'Source-frame priority',
+    'capture.basePriorityDesc': 'Switches to F5Low + 2X + 0 ms to reduce the multiplier’s load on the source frame; it does not turn frame generation off.',
+    'capture.basePriorityBtn': 'Switch to source-frame priority (2X)',
+    'capture.apply': 'Save settings',
+    'capture.openEngine': 'Open capture engine folder',
+    'capture.statsTitle': 'Live status',
+    'capture.statCapture': 'Capture FPS',
+    'capture.statPresent': 'Host base FPS',
+    'capture.statDxgi': 'Presented FPS',
+    'capture.statPresentMs': 'Present time',
+    'capture.statFocus': 'Focus',
+    'capture.statRefresh': 'Display refresh',
+    'capture.notesTitle': 'Notes and limits',
+    'capture.note1': '· This is external capture: by default it does not modify game files; OptiScaler only attaches to the OptiCaptureHost process. Only when you enable ReShade depth and manually install the add-on does it write ReShade depth helper files into the game folder.',
+    'capture.note2': '· Captured frames have no true motion vectors; the host estimates motion on the GPU. ReShade depth only adds depth and does not remove jelly-like motion on fast movement.',
+    'capture.note3': '· The game must be windowed or borderless; exclusive fullscreen cannot be captured. HDR is not a strength here; test with HDR off first.',
+    'capture.note4': '· Online games and anti-cheat games may still treat a captured / resized window as abnormal. ReShade and depth add-ons carry a ban risk in online/anti-cheat games; single-player testing only.',
+    'capture.note5': '· Bundles OptiCaptureHost 2.12.0 (QSXK custom build keeping Ctrl+Shift+F9 overlay hide) and OptiScaler 0.1.39-pre1, both GPL-3.0. License texts and corresponding source archives are under CaptureHost\\licenses and CaptureHost\\source.',
+    'capture.note6': '· ReShade depth: install ReShade 6+ with add-on support in the game → close the game → copy the files under CaptureHost\\ReShade depth into the game exe folder, keeping the folder structure → start the game, enable OptiCaptureDepth in ReShade → enable “ReShade true depth” and output scaling on this page, then start capture.',
+    'capture.note7': '· Low-latency defaults: Input = OptiScaler, Output = NVIDIA Reflex, frame limit = 0. 0 disables the fixed cap so the render rate is not lowered just to be refilled by generated frames. The 516 in the screenshot is a personal setting, not a default.',
+    'capture.note8': '· This build disables OptiCaptureHost’s own RTSS limiter and OptiFps override; every capture start forces Target=0 / Auto=0 / Fps=0 / OptiFps=0, so frame limit 0 is no longer rewritten to the refresh rate or 1/4 refresh rate.',
     'hsf.apiTitle': 'API compatibility',
     'hsf.apiDx9': 'For Source 1 engine DX9 games, ReShade/HSF must be installed in the game root’s bin folder; installing to the root will not load. This app detects it from the PE import table and shaderapidx9.dll, and lets you override the install folder on the game card.',
     'hsf.apiDx9Tag': 'Auto-detect bin',
@@ -153,6 +263,15 @@
     'hsf.languageChinese': '简体中文（汉化版）',
     'hsf.languageEnglish': 'English (original HSF)',
     'hsf.languageTip': 'Changing this only affects new installs. For a game that already has HSF, click “Switch to English” or “Switch to Chinese” on its card; the app restores the old install first, then installs the target language.',
+    'update.v175Title': 'V1.75 Update Notes',
+    'update.v1751': '· Beta republished as V1.75.0.0; external capture, OptiScaler defaults and the patch set keep the current configuration. The notes below keep the V1.65 update details and the V1.63.2 history.',
+    'update.v1752': '· The OptiScaler menu now follows the app language: switch the app between Chinese and English and the menu updates within about 0.5 seconds, even while capture is running; no capture restart is needed.',
+    'update.v1651': '· External capture is now part of the beta: a third card under Frame Gen Mods opens the capture page. It writes nothing into the game folder, captures the game window with Windows Graphics Capture, then feeds the bundled OptiCaptureHost 2.12.00 + OptiScaler for upscaling and frame generation.',
+    'update.v1652': '· 2.12 real depth: adds an experimental “ReShade real depth” toggle and live depth status. D3D11/D3D12 use GPU shared textures; D3D9/D3D10/OpenGL/Vulkan use CPU shared buffers. Depth only affects the Host’s own FSR/DLSS output scaling and does not fix F5Low/MFG jelly.',
+    'update.v1653': '· Capture defaults: F5Low + 3X, with 2X-6X, FSR4.1.2 and Present Classic available; the OptiScaler menu is fully translated into Chinese. Ctrl+Shift+F9 hides/restores the overlay, and the page button still works if the hotkey is taken.',
+    'update.v1654': '· Low-latency defaults: OptiScaler input, NVIDIA Reflex output, frame limit 0. 0 disables the fixed cap and avoids lowering FPS before generating frames; the 516 in the menu is a personal setting, not a recommendation.',
+    'update.v1655': '· Bundled custom 2.12 capture engine without NGX to avoid hanging at NVSDK_NGX_D3D12_Init with nvngx_dlss.dll 310.9.1; the Host’s own DLSS output scaling falls back to FSR1, while F5Low/MFG/OptiScaler still work. For ReShade depth tests, set output scaling to FSR3/4.',
+    'update.v1656': '· All 1.63.x external-capture pages, status, config write-back and Full Pack assets are merged into the 1.65 main beta; the standalone external-capture test package is discontinued from this version.',
     'update.v1621': '· Render API detection now reads the PE import table instead of guessing from the exe bitness or a d3d9.dll file; DX9 no longer gets confused by ReShade’s own proxy DLL.',
     'update.v1622': '· Source 1 DX9 games are detected automatically and ReShade/HSF are installed into the game’s bin subfolder; the game card shows the actual install folder and lets you override Auto / Game root / bin before installing.',
     'update.v1623': '· HSF install, restore, LaunchPad, MFG-Unlocker and ReShade proxy checks now all use the recorded install folder; older root-folder installs still restore correctly and show a migration hint.',
@@ -396,6 +515,15 @@
     'about.ghRepo': 'GitHub Repository',
     'about.bilibili': 'Bilibili',
     'about.xiaoheihe': 'Xiaoheihe',
+    'about.patchLinks': 'Patch Sources',
+    'about.patchLinksIntro': 'Patches integrated into this software and their upstream repositories. Click to open:',
+    'about.patchSmooth': 'Smooth Motion frame generation',
+    'about.patchHsf': 'HSF frame generation',
+    'about.patchSm86': 'SM86 frame generation',
+    'about.patchMfg': 'MFG frame generation',
+    'about.patchDlss5': 'DLSS5',
+    'about.patchCapture': 'OptiCaptureHost external capture',
+    'about.patchOptiScaler': 'OptiScaler upscaling / frame generation',
     'about.thanks': 'Patch Credits',
     'about.thanksIntro': 'The following community projects made this software possible:',
     'about.thanks1': '• Universal RTX 40 MFG Unlock (Community)',
@@ -407,6 +535,8 @@
     'about.thanks7': '• HSF 0.9.9 (Capt-Hunter)',
     'about.thanks8': '• MFG-Unlocker (Michael Robles / dashdogy, MIT License)',
     'about.thanks9': '• iMMERSE LaunchPad (Pascal Gilcher / Marty McFly; downloaded from the official GitHub under the author’s licence, not redistributed with this app)',
+    'about.thanks10': '• OptiCaptureHost (MK-JH / tegraultra, GPL-3.0; external capture host)',
+    'about.thanks11': '• OptiScaler (janblade / OptiScaler-F5-DLSSNR-Multipass, GPL-3.0; upscaling and frame generation)',
     'about.disclaimerTitle': 'Disclaimer',
     'about.disclaimer': 'This software is for learning and communication only, not for commercial use. Not recommended for online games or games with anti-cheat. This software modifies game files, which may result in account bans. We are not responsible for any bans.',
     'common.cancel': 'Cancel',
@@ -423,9 +553,10 @@
       home: ['主页', '本地库 · 一键开关 · 状态总览'],
       usage: ['使用说明', '完整指引 · 功能说明'],
       update: ['更新内容', '版本更新记录'],
-      framegen: ['帧生成mod', 'Smooth Motion 与 HSF · 二选一进入'],
+      framegen: ['帧生成mod', 'Smooth Motion / HSF / 外置捕获 · 三选一进入'],
       smooth: ['Smooth Motion', '驱动 profile · 按游戏开关 · 20/30 Mod'],
       hsf: ['HSF 帧生成', 'ReShade 插件 · 内置安装 · 按游戏还原'],
+      capture: ['外置捕获（实验性）', '不写游戏目录 · 图形捕获 · OptiScaler'],
       download: ['下载', 'GitHub 发行包 · HSF 组件 · 后台下载'],
       settings: ['设置', '外观、启动、显卡与备份'],
       about: ['关于', '版本与说明']
@@ -434,9 +565,10 @@
       home: ['Home', 'Library · one-click toggles · status overview'],
       usage: ['Usage Guide', 'Full guide · feature overview'],
       update: ['Update Log', 'Version history'],
-      framegen: ['Frame Gen Mods', 'Smooth Motion and HSF · choose one'],
+      framegen: ['Frame Gen Mods', 'Smooth Motion / HSF / external capture · choose one'],
       smooth: ['Smooth Motion', 'Driver profile · per-game toggle · 20/30 Mod'],
       hsf: ['HSF Frame Gen', 'ReShade add-on · built-in install · per-game restore'],
+      capture: ['External Capture (Experimental)', 'No game-folder writes · graphics capture · OptiScaler'],
       download: ['Downloads', 'GitHub releases · HSF components · background downloads'],
       settings: ['Settings', 'Appearance, startup, GPU and backups'],
       about: ['About', 'Version and notes']
@@ -553,7 +685,7 @@
 
   // ---------------- 语言 ----------------
   function updateAboutVer() {
-    var v = state.version || '1.62';
+    var v = state.version || '1.75';
     document.getElementById('aboutVer').textContent =
       L('版本：', 'Version: ') + 'V' + v + (state.isBeta ? ' · Beta' : '');
   }
@@ -596,6 +728,7 @@
     renderDownload();
     renderSmooth();
     renderHsf();
+    renderCapture();
     updateViewControl();
     renderSettingsMeta();
     refreshSelects();
@@ -1636,6 +1769,7 @@
     framegen: 'pageFrameGen',
     smooth: 'pageSmooth',
     hsf: 'pageHsf',
+    capture: 'pageCapture',
     download: 'pageDownload',
     settings: 'pageSettings',
     about: 'pageAbout'
@@ -1645,7 +1779,7 @@
   function activatePage(page) {
     if (!PAGE_PANES[page]) page = 'home';
     state.currentPage = page;
-    var navPage = (page === 'smooth' || page === 'hsf') ? 'framegen' : page;
+    var navPage = (page === 'smooth' || page === 'hsf' || page === 'capture') ? 'framegen' : page;
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (i) {
       i.classList.toggle('active', i.getAttribute('data-page') === navPage);
     });
@@ -1670,6 +1804,11 @@
     if (page === 'hsf') {
       renderHsf();
       post({ type: 'hsfRefresh' });
+    }
+    if (page === 'capture') {
+      captureFormInitialized = false;
+      renderCapture();
+      post({ type: 'captureRefresh', windows: true });
     }
   }
 
@@ -1714,6 +1853,398 @@
 
   setupSmoothEvents();
   setupHsfEvents();
+  setupCaptureEvents();
+
+  function captureNumber(value, digits) {
+    return (typeof value === 'number' && isFinite(value)) ? value.toFixed(digits) : '—';
+  }
+
+  function setCaptureSelect(id, value) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = String(value);
+    if (typeof el.__sync === 'function') el.__sync();
+  }
+
+  function captureConfigFromForm() {
+    var vsync = document.getElementById('captureVsyncToggle');
+    var depth = document.getElementById('captureDepthToggle');
+    return {
+      frameGenMode: parseInt(document.getElementById('captureFgMode').value, 10) || 0,
+      mfgCount: parseInt(document.getElementById('captureMfg').value, 10) || 0,
+      upscalerMode: parseInt(document.getElementById('captureUpscaler').value, 10) || 0,
+      upscale: parseInt(document.getElementById('captureUpscale').value, 10) || 0,
+      upscaleLevel: parseInt(document.getElementById('captureUpscaleLevel').value, 10) || 0,
+      presentMode: parseInt(document.getElementById('capturePresent').value, 10) || 0,
+      boost: parseInt(document.getElementById('captureBoost').value, 10) || 0,
+      presentDelay: parseInt(document.getElementById('capturePresentDelay').value, 10) || 0,
+      depthSource: (depth && depth.classList.contains('on')) ? 1 : 0,
+      vsync: !!(vsync && vsync.classList.contains('on'))
+    };
+  }
+
+  function captureFocusLabel(value) {
+    if (value === 0) return L('游戏焦点', 'Game focus');
+    if (value === 1) return L('覆盖层焦点', 'Overlay focus');
+    if (value === 2) return L('其他窗口', 'Other window');
+    return '—';
+  }
+
+  function captureWindowDesc(w) {
+    if (!w) return '';
+    var exe = String(w.exe || '').split(/[\\/]/).pop();
+    var parts = [];
+    if (w.process) parts.push(w.process);
+    if (exe) parts.push(exe);
+    if (w.width && w.height) parts.push(w.width + '×' + w.height);
+    if (w.minimized) parts.push(L('已最小化', 'Minimized'));
+    return parts.join(' · ');
+  }
+
+  function updateCaptureWindowPickerUI(selected) {
+    var icon = document.getElementById('captureWindowPickIcon');
+    var title = document.getElementById('captureWindowPickTitle');
+    var desc = document.getElementById('captureWindowPickDesc');
+    if (!title || !desc) return;
+    if (icon) {
+      icon.innerHTML = '';
+      if (selected && selected.icon) {
+        var img = document.createElement('img');
+        img.src = selected.icon;
+        img.alt = '';
+        icon.appendChild(img);
+      } else {
+        icon.textContent = '▣';
+      }
+    }
+    if (!selected) {
+      title.textContent = L('选择游戏窗口', 'Choose a game window');
+      title.setAttribute('data-i18n', 'capture.chooseWindow');
+      desc.textContent = L('点击打开窗口列表', 'Click to open the window list');
+      return;
+    }
+    title.removeAttribute('data-i18n');
+    title.textContent = selected.title || selected.process || L('游戏窗口', 'Game window');
+    desc.textContent = captureWindowDesc(selected);
+  }
+
+  function syncCaptureWindowPicker(input, options) {
+    if (!input) return;
+    var keep = input.value;
+    var selected = null;
+    if (keep) {
+      selected = options.find(function (w) { return String(w.hwnd) === String(keep); }) || null;
+      if (!selected) input.value = '';
+    }
+    updateCaptureWindowPickerUI(selected);
+  }
+
+  function updateCaptureButtons() {
+    var d = captureData || {};
+    var start = document.getElementById('captureStartBtn');
+    var stop = document.getElementById('captureStopBtn');
+    var menu = document.getElementById('captureMenuBtn');
+    var focus = document.getElementById('captureFocusBtn');
+    var overlay = document.getElementById('captureOverlayBtn');
+    var apply = document.getElementById('captureApplyBtn');
+    var win = document.getElementById('captureWindowSelect');
+    var pick = document.getElementById('captureWindowPickBtn');
+    var running = !!d.running;
+    if (start) start.disabled = running || !d.engineExists || !win || !win.value;
+    if (pick) pick.disabled = running;
+    if (stop) stop.disabled = !running;
+    if (menu) menu.disabled = !running;
+    if (focus) focus.disabled = !running;
+    if (overlay) {
+      overlay.disabled = !running;
+      overlay.textContent = d.overlayHidden
+        ? L('恢复覆盖层', 'Show overlay')
+        : L('隐藏覆盖层 / 切出窗口', 'Hide overlay / switch out');
+    }
+    if (apply) apply.disabled = !d.engineExists;
+  }
+
+  function renderCapture() {
+    var d = captureData;
+    if (!d) return;
+    var badge = document.getElementById('captureBadge');
+    var engine = document.getElementById('captureEngine');
+    var winTitle = document.getElementById('captureWindowTitle');
+    var fpsIn = document.getElementById('captureFpsIn');
+    var fpsOut = document.getElementById('captureFpsOut');
+    var note = document.getElementById('captureNote');
+    var hint = document.getElementById('captureCapHint');
+    var lastError = document.getElementById('captureLastError');
+
+    if (badge) {
+      badge.textContent = d.running ? L('运行中', 'Running') : L('未启动', 'Not running');
+      badge.className = 'sm-badge' + (d.running ? ' ok' : '');
+    }
+    if (engine) {
+      engine.textContent = d.engineExists
+        ? (d.engineVersion ? 'v' + d.engineVersion : L('已内置', 'Bundled'))
+        : L('未内置', 'Not installed');
+    }
+    if (winTitle) winTitle.textContent = d.windowTitle || '—';
+    if (fpsIn) fpsIn.textContent = d.statusFresh ? captureNumber(d.captureFps, 1) : '—';
+    var presentedFps = d.statusFresh ? (Number(d.dxgiFps) || Number(d.presentFps) || 0) : 0;
+    if (fpsOut) fpsOut.textContent = d.statusFresh ? captureNumber(presentedFps, 1) : '—';
+
+    var statCapture = document.getElementById('captureStatCapture');
+    var statPresent = document.getElementById('captureStatPresent');
+    var statDxgi = document.getElementById('captureStatDxgi');
+    var statPresentMs = document.getElementById('captureStatPresentMs');
+    var statFocus = document.getElementById('captureStatFocus');
+    var statDepth = document.getElementById('captureStatDepth');
+    var statRefresh = document.getElementById('captureStatRefresh');
+    if (statCapture) statCapture.textContent = d.statusFresh ? captureNumber(d.captureFps, 1) : '—';
+    if (statPresent) statPresent.textContent = d.statusFresh ? captureNumber(d.presentFps, 1) : '—';
+    if (statDxgi) statDxgi.textContent = d.statusFresh ? captureNumber(d.dxgiFps, 1) : '—';
+    if (statPresentMs) statPresentMs.textContent = d.statusFresh ? captureNumber(d.presentMs, 2) + ' ms' : '—';
+    if (statFocus) statFocus.textContent = d.statusFresh ? captureFocusLabel(d.focus) : '—';
+    if (statDepth) {
+      var depthState = d.statusFresh ? (Number(d.depthState) || 0) : -1;
+      var depthSize = (Number(d.depthWidth) || 0) > 0 ? (' ' + d.depthWidth + '×' + d.depthHeight) : '';
+      var depthText = '—';
+      if (depthState === 0) depthText = L('未使用（平面深度）', 'Off (flat depth)');
+      else if (depthState === 1) depthText = L('等待 ReShade 插件', 'Waiting for add-on');
+      else if (depthState === 2) depthText = L('接收中', 'Receiving') + depthSize;
+      else if (depthState === 3) depthText = L('尺寸不匹配', 'Size mismatch') + depthSize;
+      else if (depthState === 4) depthText = L('无法打开共享深度', 'Cannot open shared depth');
+      else if (depthState === 5) depthText = L('插件没有新画面', 'No new frames from add-on');
+      statDepth.textContent = depthText;
+    }
+    if (statRefresh) statRefresh.textContent = d.statusFresh ? captureNumber(d.refreshHz, 0) + ' Hz' : '—';
+
+    if (note) {
+      if (!d.engineExists) {
+        note.textContent = L('没有找到内置 CaptureHost。请确认 CaptureHost\\OptiCaptureHost.exe 和 OptiScaler.ini 在软件目录中。',
+          'Bundled CaptureHost was not found. Make sure CaptureHost\\OptiCaptureHost.exe and OptiScaler.ini exist in the app folder.');
+      } else if (d.running && d.statusFresh) {
+        var baseFps = Number(d.presentFps) || 0;
+        var submitFps = Number(d.dxgiFps) || baseFps;
+        var ratio = baseFps > 0 ? submitFps / baseFps : 0;
+        var ratioText = ratio >= 1.15 ? '（约 ' + ratio.toFixed(1) + 'X）' : '';
+        var ratioTextEn = ratio >= 1.15 ? ' (~' + ratio.toFixed(1) + 'X)' : '';
+        note.textContent = L('正在外置捕获：游戏画面 ' + captureNumber(d.captureFps, 1) + ' FPS → 补帧提交 ' + captureNumber(submitFps, 1) + ' FPS' + ratioText + '。游戏内按 Ctrl+Shift+F10 打开菜单，按 Ctrl+Shift+F12 停止。',
+          'External capture running: ' + captureNumber(d.captureFps, 1) + ' FPS in → ' + captureNumber(submitFps, 1) + ' FPS presented' + ratioTextEn + '. Ctrl+Shift+F10 opens the menu; Ctrl+Shift+F12 stops.');
+      } else if (d.running) {
+        note.textContent = L('Host 已启动，等待 OptiCaptureHost.status 出现第一帧数据…',
+          'Host is running, waiting for the first frame in OptiCaptureHost.status…');
+      } else {
+        note.textContent = L('先选择一个正在运行的游戏窗口，再点“开始捕获”。本页不会启动 OptiCaptureLauncher，也不会往游戏目录写任何文件。',
+          'Pick a running game window, then press Start. This page never opens OptiCaptureLauncher and never writes into the game folder.');
+      }
+    }
+
+    if (hint) {
+      if (d.statusFresh && d.capHint === 1) {
+        hint.style.display = '';
+        hint.textContent = L('检测到游戏帧率被外部限制器限制到约 ' + captureNumber(d.capFps, 0) + ' FPS。请关闭游戏内垂直同步或 RTSS 限帧后再试。',
+          'The game appears limited to about ' + captureNumber(d.capFps, 0) + ' FPS. Disable in-game VSync or the RTSS frame limiter and try again.');
+      } else {
+        hint.style.display = 'none';
+        hint.textContent = '';
+      }
+    }
+
+    if (lastError) {
+      if (d.lastError) {
+        lastError.style.display = '';
+        lastError.textContent = L('最近日志：', 'Recent log: ') + String(d.lastError).slice(-1400);
+        lastError.style.whiteSpace = 'pre-wrap';
+      } else {
+        lastError.style.display = 'none';
+        lastError.textContent = '';
+      }
+    }
+
+    var windowsSelect = document.getElementById('captureWindowSelect');
+    if (windowsSelect && d.windowsIncluded) {
+      var options = d.windows || [];
+      captureWindowOptions = options;
+      var keep = windowsSelect.value;
+      if (keep && !options.some(function (w) { return String(w.hwnd) === String(keep); })) {
+        windowsSelect.value = '';
+      }
+      syncCaptureWindowPicker(windowsSelect, options);
+    }
+
+    if (!captureFormInitialized && d.config) {
+      setCaptureSelect('captureFgMode', d.config.frameGenMode);
+      setCaptureSelect('captureMfg', d.config.mfgCount);
+      setCaptureSelect('captureUpscaler', d.config.upscalerMode);
+      setCaptureSelect('captureUpscale', d.config.upscale);
+      setCaptureSelect('captureUpscaleLevel', d.config.upscaleLevel);
+      setCaptureSelect('capturePresent', d.config.presentMode);
+      setCaptureSelect('captureBoost', d.config.boost);
+      setCaptureSelect('capturePresentDelay', d.config.presentDelay);
+      var vsync = document.getElementById('captureVsyncToggle');
+      if (vsync) vsync.classList.toggle('on', !!d.config.vsync);
+      var depth = document.getElementById('captureDepthToggle');
+      if (depth) depth.classList.toggle('on', !!d.config.depthSource);
+      captureFormInitialized = true;
+    }
+
+    updateCaptureButtons();
+  }
+
+  function setupCaptureEvents() {
+    var refresh = document.getElementById('captureRefreshBtn');
+    if (refresh) refresh.addEventListener('click', function () {
+      post({ type: 'captureRefresh', windows: true });
+    });
+
+    var start = document.getElementById('captureStartBtn');
+    if (start) start.addEventListener('click', function () {
+      var win = document.getElementById('captureWindowSelect');
+      if (!win || !win.value) {
+        toast(L('请先选择一个游戏窗口', 'Choose a game window first'));
+        return;
+      }
+      var msg = captureConfigFromForm();
+      msg.type = 'captureStart';
+      msg.hwnd = win.value;
+      captureFormInitialized = false;
+      post(msg);
+    });
+
+    var stop = document.getElementById('captureStopBtn');
+    if (stop) stop.addEventListener('click', function () {
+      post({ type: 'captureStop' });
+    });
+
+    var menu = document.getElementById('captureMenuBtn');
+    if (menu) menu.addEventListener('click', function () {
+      post({ type: 'captureMenu' });
+    });
+
+    var focus = document.getElementById('captureFocusBtn');
+    if (focus) focus.addEventListener('click', function () {
+      post({ type: 'captureFocus' });
+    });
+
+    var overlay = document.getElementById('captureOverlayBtn');
+    if (overlay) overlay.addEventListener('click', function () {
+      post({ type: 'captureOverlay' });
+    });
+
+    var apply = document.getElementById('captureApplyBtn');
+    if (apply) apply.addEventListener('click', function () {
+      var msg = captureConfigFromForm();
+      msg.type = 'captureApply';
+      captureFormInitialized = true;
+      post(msg);
+    });
+
+    var basePriority = document.getElementById('captureBasePriorityBtn');
+    if (basePriority) basePriority.addEventListener('click', function () {
+      setCaptureSelect('captureFgMode', 9);
+      setCaptureSelect('captureMfg', 1); // 2X
+      setCaptureSelect('capturePresent', 6);
+      setCaptureSelect('captureBoost', 3);
+      setCaptureSelect('capturePresentDelay', 0);
+      captureFormInitialized = true;
+      var msg = captureConfigFromForm();
+      msg.type = 'captureApply';
+      post(msg);
+      toast(L('已切到原始帧优先：F5Low + 2X + 0 ms。',
+        'Source-frame priority applied: F5Low + 2X + 0 ms.'));
+    });
+
+    // 帧生成模式和倍率不是热切换项。运行中改下拉框时自动重启捕获，
+    // 否则用户会以为“换哪个模式都一样”，实际一直跑的是旧模式。
+    // 不再强制把倍率改回 3X：旧深度测试的真实配置就是 F5Low + 4X。
+    ['captureFgMode', 'captureMfg'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', function () {
+        var mode = document.getElementById('captureFgMode');
+        var mfg = document.getElementById('captureMfg');
+        var value = parseInt(el.value, 10);
+        var modeValue = mode ? parseInt(mode.value, 10) : 9;
+        var mfgValue = mfg ? parseInt(mfg.value, 10) : 3;
+        if (id === 'captureFgMode') {
+          if (value === 9) {
+            toast(L('F5Low 的基础帧 ≈ 补帧输出 ÷ 倍率。3X 输出约 122 fps 时基础帧约 40.5；换模式不会改倍率。要更高基础帧请选 2X 或“原始帧优先”。',
+              'F5Low base FPS is roughly presented FPS ÷ multiplier. At about 122 fps presented, 3X means about 40.5 base; switching mode does not change the multiplier. Choose 2X or Source-frame priority for a higher base.'));
+          } else if (value === 0) {
+            toast(L('XeFG 同样受倍率影响：倍率越高，基础帧越低；所有外置模式共用同一个输出上限。',
+              'XeFG is also divided by the multiplier: a higher multiplier means a lower base rate. Every external mode shares the same GPU output ceiling.'));
+          }
+        } else if (id === 'captureMfg' && value >= 3) {
+          if (modeValue === 9) {
+            toast(L('3X/4X 会明显降低基础帧：基础帧 ≈ 输出 ÷ 倍率。165Hz 屏幕上优先试 2X；4X 只适合很轻的游戏。',
+              '3X/4X visibly lowers the base rate: base ≈ presented ÷ multiplier. On a 165 Hz panel try 2X first; 4X is only for very light games.'));
+          } else {
+            toast(L('当前不是 F5Low：4X/5X/6X 在这条路径上会明显压低原始帧；所有外置模式都受输出上限和倍率影响。',
+              'The current mode is not F5Low: 4X/5X/6X lowers the base rate heavily here; every external mode is limited by the output ceiling and multiplier.'));
+          }
+        }
+        captureFormInitialized = true;
+        if (captureData && captureData.running) {
+          var msg = captureConfigFromForm();
+          msg.type = 'captureApply';
+          post(msg);
+          toast(L('设置已保存，正在按新模式重启捕获…', 'Saved. Restarting capture with the new mode…'));
+        }
+      });
+    });
+
+    var openLog = document.getElementById('captureOpenLogBtn');
+    if (openLog) openLog.addEventListener('click', function () {
+      post({ type: 'captureOpenLog' });
+    });
+
+    var openEngine = document.getElementById('captureOpenEngineBtn');
+    if (openEngine) openEngine.addEventListener('click', function () {
+      post({ type: 'openPath', target: 'capture' });
+    });
+
+    var vsync = document.getElementById('captureVsyncToggle');
+    if (vsync) vsync.addEventListener('click', function () {
+      vsync.classList.toggle('on');
+      captureFormInitialized = true;
+    });
+
+    var depthToggle = document.getElementById('captureDepthToggle');
+    if (depthToggle) depthToggle.addEventListener('click', function () {
+      depthToggle.classList.toggle('on');
+      if (depthToggle.classList.contains('on')) {
+        var upscale = document.getElementById('captureUpscale');
+        var level = document.getElementById('captureUpscaleLevel');
+        if (upscale && upscale.value === '0') upscale.value = '4';
+        if (level && level.value === '3') level.value = '0';
+        toast(L('已开启 ReShade 深度：请先在游戏目录安装 ReShade 深度插件，并开启输出缩放；保存后需停止再开始捕获。',
+          'ReShade depth enabled: install the add-on in the game folder and turn on output scaling first. Save, then stop and restart capture.'));
+      }
+      captureFormInitialized = true;
+    });
+
+    var pick = document.getElementById('captureWindowPickBtn');
+    if (pick) pick.addEventListener('click', function () {
+      if (captureData && captureData.running) return;
+      post({ type: 'capturePickWindow' });
+    });
+
+    var winSelect = document.getElementById('captureWindowSelect');
+    if (winSelect) winSelect.addEventListener('change', function () {
+      captureFormInitialized = true;
+      updateCaptureButtons();
+    });
+
+    ['captureFgMode', 'captureMfg', 'captureUpscaler', 'captureUpscale', 'captureUpscaleLevel',
+      'capturePresent', 'captureBoost', 'capturePresentDelay'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', function () { captureFormInitialized = true; });
+    });
+
+    setInterval(function () {
+      if (state.currentPage === 'capture' && !document.hidden) {
+        post({ type: 'captureRefresh', windows: false });
+      }
+    }, 1400);
+  }
 
   // ---------------- 设置 ----------------
   function setSwitch(key, on) {
@@ -2492,6 +3023,7 @@
 
   // 截图/调试用钩子：只改当前渲染，不写设置
   window.__beta = {
+    page: function (page) { if (typeof activatePage === 'function') activatePage(page); },
     lang: function (english) { applyLang(!!english); },
     big: function (on) {
       state.bigView = !!on;
@@ -2601,7 +3133,7 @@
         delete state.downloads[d.id || 'release'];
         renderDownload();
       } else if (d.type === 'appinfo') {
-        state.version = d.version || '1.62';
+        state.version = d.version || '1.75';
         state.isBeta = !!d.isBeta;
         state.installPath = d.installPath || '';
         document.getElementById('setDataPath').textContent = d.dataPath || '—';
@@ -2642,6 +3174,31 @@
         renderHsf();
       } else if (d.type === 'hsfError') {
         toast(d.message || L('HSF 操作失败', 'HSF failed'));
+      } else if (d.type === 'captureState') {
+        captureData = d;
+        renderCapture();
+      } else if (d.type === 'captureWindowSelected') {
+        var selectedInput = document.getElementById('captureWindowSelect');
+        if (selectedInput && d.hwnd) {
+          selectedInput.value = String(d.hwnd);
+          selectedInput.dispatchEvent(new Event('change'));
+        }
+        var selectedWindow = (captureWindowOptions || []).find(function (w) {
+          return String(w.hwnd) === String(d.hwnd);
+        }) || null;
+        if (!selectedWindow && d.hwnd) {
+          selectedWindow = {
+            hwnd: d.hwnd,
+            process: d.process || '',
+            title: d.title || '',
+            exe: d.exe || '',
+            width: d.width || 0,
+            height: d.height || 0,
+            minimized: !!d.minimized,
+            icon: d.icon || ''
+          };
+        }
+        updateCaptureWindowPickerUI(selectedWindow);
       } else if (d.type === 'troubleshootFiles') {
         if (d.items && d.items.length) {
           openTroubleshootDialog(d.exe || '', d.items);

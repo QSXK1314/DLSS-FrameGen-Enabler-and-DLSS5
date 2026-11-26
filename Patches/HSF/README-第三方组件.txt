@@ -3,7 +3,7 @@ HSF 增强组件与第三方许可说明
 
 一、MFG-Unlocker（内置）
 ------------------------
-文件：MFG\MFGUnlocker.dll（V1.7.1）
+文件：MFG\MFGUnlocker.dll（V1.7.2）
 作者：dashdogy / Michael Robles
 项目：https://github.com/dashdogy/MFG-Unlocker
 许可：MIT License（见 MFG\LICENSE）

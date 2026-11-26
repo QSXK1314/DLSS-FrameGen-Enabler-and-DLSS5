@@ -61,6 +61,7 @@ public class MainForm : Form
     private readonly Dictionary<string, LaunchPadDownloadJob> _hsfLaunchPadJobs =
         new Dictionary<string, LaunchPadDownloadJob>();
     private readonly System.Windows.Forms.Timer _windowAnimTimer = new System.Windows.Forms.Timer();
+    private readonly System.Windows.Forms.Timer _captureLifecycleTimer = new System.Windows.Forms.Timer();
     private DateTime _windowAnimStart;
     private Rectangle _windowAnimFrom;
     private Rectangle _windowAnimTo;
@@ -68,6 +69,8 @@ public class MainForm : Form
     private bool _windowAnimating;
     private bool _windowMaximized;
     private Rectangle _windowRestoreBounds;
+    private bool _captureWindowMinimized;
+    private bool _captureOverlayHotkeyRegistered;
 
     private static readonly string OfficialGamesPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -109,6 +112,7 @@ public class MainForm : Form
         {
             Translator.CurrentLanguage = AppLanguage.English;
         }
+        CaptureHostService.SyncMenuLanguage();
         Text = Translator.IsEnglish
             ? "Frame Gen + DLSS5 Enabler"
             : "多帧生成+DLSS5开启工具";
@@ -147,7 +151,19 @@ public class MainForm : Form
         _windowAnimTimer.Interval = 15;
         _windowAnimTimer.Tick += WindowAnimTimer_Tick;
 
+        _captureLifecycleTimer.Interval = 1000;
+        _captureLifecycleTimer.Tick += CaptureLifecycleTimer_Tick;
+
         LoadGames();
+        try
+        {
+            // 启动时先执行一次旧配置迁移，保证外置捕获页首次打开就显示 F5Low + 4X，
+            // 而不是等到用户点击“开始捕获”才把旧的 3X 改回 4X。
+            CaptureHostService.ReadConfig();
+        }
+        catch
+        {
+        }
         Load += OnFormLoad;
         WriteStartupLog("MainForm 构造函数完成");
     }
@@ -167,14 +183,22 @@ public class MainForm : Form
             _ = DwmSetWindowAttribute(Handle, 33, ref pref, sizeof(int));
             int dark = _settings.DarkMode ? 1 : 0;
             _ = DwmSetWindowAttribute(Handle, 20, ref dark, sizeof(int));
+            _captureOverlayHotkeyRegistered = RegisterHotKey(
+                Handle, CaptureOverlayHotkeyId, MOD_CONTROL | MOD_SHIFT, VK_F9);
         }
         catch
         {
+            _captureOverlayHotkeyRegistered = false;
         }
     }
 
     private const int WM_NCHITTEST = 0x0084;
     private const int WM_SIZING = 0x0214;
+    private const int WM_HOTKEY = 0x0312;
+    private const int CaptureOverlayHotkeyId = 0x4F39; // Ctrl+Shift+F9
+    private const uint MOD_CONTROL = 0x0002;
+    private const uint MOD_SHIFT = 0x0004;
+    private const uint VK_F9 = 0x78;
     private const int WMSZ_LEFT = 1;
     private const int WMSZ_RIGHT = 2;
     private const int WMSZ_TOP = 3;
@@ -203,6 +227,12 @@ public class MainForm : Form
 
     protected override void WndProc(ref Message m)
     {
+        if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == CaptureOverlayHotkeyId)
+        {
+            _ = ToggleCaptureOverlayAsync();
+            return;
+        }
+
         // Windows 的原生边缘拖拽不会完全按 WinForms 的 MinimumSize 处理，
         // 这里在 WM_SIZING 阶段直接修正候选矩形，保证真实拖拽也不会小于最小尺寸。
         if (m.Msg == WM_SIZING
@@ -313,6 +343,16 @@ public class MainForm : Form
             return;
         }
         base.WndProc(ref m);
+    }
+
+    protected override void OnHandleDestroyed(EventArgs e)
+    {
+        if (_captureOverlayHotkeyRegistered)
+        {
+            try { UnregisterHotKey(Handle, CaptureOverlayHotkeyId); } catch { }
+            _captureOverlayHotkeyRegistered = false;
+        }
+        base.OnHandleDestroyed(e);
     }
 
     protected override void OnResize(EventArgs e)
@@ -724,6 +764,33 @@ public class MainForm : Form
                 break;
             case "hsfOpenDocs":
                 OpenUrl("https://github.com/Capt-Hunter/HSF");
+                break;
+            case "captureRefresh":
+                PostCaptureState(root.TryGetProperty("windows", out JsonElement captureWindows) && captureWindows.GetBoolean());
+                break;
+            case "capturePickWindow":
+                _ = PickCaptureWindowAsync();
+                break;
+            case "captureStart":
+                _ = StartCaptureAsync(root);
+                break;
+            case "captureStop":
+                _ = StopCaptureAsync();
+                break;
+            case "captureApply":
+                _ = ApplyCaptureConfigAsync(root);
+                break;
+            case "captureMenu":
+                CaptureMenu();
+                break;
+            case "captureFocus":
+                CaptureFocus();
+                break;
+            case "captureOverlay":
+                _ = ToggleCaptureOverlayAsync();
+                break;
+            case "captureOpenLog":
+                OpenCaptureLog();
                 break;
             case "downloadLatest":
                 _ = DownloadFromGitHubAsync(_settings.GithubUrl);
@@ -1443,7 +1510,7 @@ public class MainForm : Form
         await Task.Delay(700);
         try
         {
-            string js = "(function(){var b=document.querySelector('.nav-item[data-page=\"" + page + "\"]');if(b){b.click();}})()";
+            string js = "(function(){var b=document.querySelector('.nav-item[data-page=\"" + page + "\"]');if(b){b.click();return;}if(window.__beta&&window.__beta.page){window.__beta.page(\"" + page + "\");}})()";
             await _web.ExecuteScriptAsync(js);
             if (_demoScrollEnd)
             {
@@ -1472,6 +1539,453 @@ public class MainForm : Form
         });
     }
 
+    private void PostCaptureState(bool includeWindows)
+    {
+        CaptureHostService.CaptureSnapshot s = CaptureHostService.GetSnapshot(includeWindows);
+        if (!s.Running && _captureWindowMinimized)
+        {
+            // Host 自己退出（热键停止或崩溃）时，不能把主界面永久留在最小化状态。
+            RestoreMainWindowAfterCapture();
+        }
+        List<object> windows = new List<object>();
+        foreach (CaptureHostService.CaptureWindowInfo w in s.Windows)
+        {
+            windows.Add(new
+            {
+                hwnd = w.Hwnd,
+                pid = w.Pid,
+                process = w.ProcessName,
+                title = w.Title,
+                exe = w.ExePath,
+                width = w.Width,
+                height = w.Height,
+                minimized = w.Minimized,
+                icon = CaptureWindowIcon(w.ExePath)
+            });
+        }
+        PostJson(new
+        {
+            type = "captureState",
+            running = s.Running,
+            overlayHidden = s.OverlayHidden,
+            engineExists = s.EngineExists,
+            engineVersion = s.EngineVersion,
+            enginePath = s.EnginePath,
+            licenseOk = s.LicenseOk,
+            sourceOk = s.SourceOk,
+            pid = s.Pid,
+            windowTitle = s.WindowTitle,
+            statusFresh = s.StatusFresh,
+            refreshHz = Math.Round(s.RefreshHz, 1),
+            captureFps = Math.Round(s.CaptureFps, 1),
+            presentFps = Math.Round(s.PresentFps, 1),
+            dxgiFps = Math.Round(s.DxgiFps, 1),
+            presentMs = Math.Round(s.PresentMs, 2),
+            waitMs = Math.Round(s.WaitMs, 2),
+            interval = s.Interval,
+            focus = s.Focus,
+            capHint = s.CapHint,
+            capFps = Math.Round(s.CapFps, 1),
+            depthState = s.DepthState,
+            depthWidth = s.DepthWidth,
+            depthHeight = s.DepthHeight,
+            lastError = s.LastError,
+            config = new
+            {
+                frameGenMode = s.Config.FrameGenMode,
+                mfgCount = s.Config.MfgCount,
+                upscalerMode = s.Config.UpscalerMode,
+                upscale = s.Config.Upscale,
+                upscaleLevel = s.Config.UpscaleLevel,
+                presentMode = s.Config.PresentMode,
+                boost = s.Config.Boost,
+                vsync = s.Config.VSync,
+                presentDelay = s.Config.PresentDelay,
+                depthSource = s.Config.DepthSource
+            },
+            windowsIncluded = includeWindows,
+            windows
+        });
+    }
+
+    private string CaptureWindowIcon(string exePath)
+    {
+        if (string.IsNullOrWhiteSpace(exePath))
+        {
+            return "";
+        }
+        if (_iconCache.TryGetValue(exePath, out string? cached))
+        {
+            return cached;
+        }
+        string icon = "";
+        try
+        {
+            icon = ProcessDetector.GetExeIconDataUrl(exePath);
+        }
+        catch
+        {
+            icon = "";
+        }
+        _iconCache[exePath] = icon;
+        return icon;
+    }
+
+    private async Task PickCaptureWindowAsync()
+    {
+        CaptureHostService.CaptureSnapshot s = CaptureHostService.GetSnapshot(true);
+        if (s.Windows.Count == 0)
+        {
+            await ShowChoiceAsync(
+                Lang("没有可捕获窗口", "No capturable window"),
+                Lang("请先启动游戏并切到窗口化或无边框模式，再点“刷新窗口”。", "Start the game in windowed or borderless mode, then press Refresh Windows."),
+                new List<(string, string, string)> { ("ok", Lang("知道了", "Got it"), "") });
+            return;
+        }
+
+        List<DialogOption> opts = new List<DialogOption>();
+        foreach (CaptureHostService.CaptureWindowInfo w in s.Windows)
+        {
+            string exe = Path.GetFileName(w.ExePath);
+            string desc = string.IsNullOrWhiteSpace(w.Title) ? exe : w.Title;
+            if (!string.IsNullOrWhiteSpace(exe) && !desc.Contains(exe, StringComparison.OrdinalIgnoreCase))
+            {
+                desc += "  ·  " + exe;
+            }
+            if (w.Width > 0 && w.Height > 0)
+            {
+                desc += "  ·  " + w.Width + "×" + w.Height;
+            }
+            if (w.Minimized)
+            {
+                desc += "  ·  " + Lang("已最小化", "Minimized");
+            }
+            opts.Add(new DialogOption
+            {
+                Value = "h" + w.Hwnd,
+                Label = string.IsNullOrWhiteSpace(w.ProcessName) ? (string.IsNullOrWhiteSpace(w.Title) ? exe : w.Title) : w.ProcessName,
+                Desc = desc,
+                Icon = CaptureWindowIcon(w.ExePath)
+            });
+        }
+        opts.Add(new DialogOption
+        {
+            Value = "cancel",
+            Label = Lang("取消", "Cancel"),
+            Desc = Lang("不改变当前选择", "Keep the current selection")
+        });
+
+        string? pick = await ShowDialogAsync(
+            Lang("选择游戏窗口", "Select a game window"),
+            Lang("点击一个窗口即可选中；列表按窗口面积排序，已最小化的窗口通常无法捕获。", "Click a window to select it; the list is sorted by window area. Minimized windows usually cannot be captured."),
+            opts);
+
+        if (pick == null || pick == "cancel" || !pick.StartsWith("h", StringComparison.Ordinal))
+        {
+            return;
+        }
+        if (long.TryParse(pick.Substring(1), out long hwnd) && hwnd > 0)
+        {
+            CaptureHostService.CaptureWindowInfo? chosen = s.Windows.FirstOrDefault(w =>
+                long.TryParse(w.Hwnd, out long h) && h == hwnd);
+            PostJson(new
+            {
+                type = "captureWindowSelected",
+                hwnd = hwnd.ToString(),
+                process = chosen?.ProcessName ?? "",
+                title = chosen?.Title ?? "",
+                exe = chosen?.ExePath ?? "",
+                width = chosen?.Width ?? 0,
+                height = chosen?.Height ?? 0,
+                minimized = chosen?.Minimized ?? false,
+                icon = chosen == null ? "" : CaptureWindowIcon(chosen.ExePath)
+            });
+        }
+    }
+
+    private static CaptureHostService.CaptureConfig ReadCaptureConfig(JsonElement root)
+    {
+        CaptureHostService.CaptureConfig baseConfig = CaptureHostService.ReadConfig();
+        return new CaptureHostService.CaptureConfig
+        {
+            FrameGenMode = GetJsonInt(root, "frameGenMode", baseConfig.FrameGenMode),
+            MfgCount = GetJsonInt(root, "mfgCount", baseConfig.MfgCount),
+            UpscalerMode = GetJsonInt(root, "upscalerMode", baseConfig.UpscalerMode),
+            Upscale = GetJsonInt(root, "upscale", baseConfig.Upscale),
+            UpscaleLevel = GetJsonInt(root, "upscaleLevel", baseConfig.UpscaleLevel),
+            PresentMode = GetJsonInt(root, "presentMode", baseConfig.PresentMode),
+            Boost = GetJsonInt(root, "boost", baseConfig.Boost),
+            VSync = GetJsonBool(root, "vsync", baseConfig.VSync),
+            PresentDelay = GetJsonInt(root, "presentDelay", baseConfig.PresentDelay),
+            DepthSource = GetJsonInt(root, "depthSource", baseConfig.DepthSource)
+        };
+    }
+
+    private static int GetJsonInt(JsonElement root, string name, int fallback)
+    {
+        if (!root.TryGetProperty(name, out JsonElement value)) return fallback;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out int number)) return number;
+        if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out int parsed)) return parsed;
+        return fallback;
+    }
+
+    private static bool GetJsonBool(JsonElement root, string name, bool fallback)
+    {
+        if (!root.TryGetProperty(name, out JsonElement value)) return fallback;
+        if (value.ValueKind == JsonValueKind.True) return true;
+        if (value.ValueKind == JsonValueKind.False) return false;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out int number)) return number != 0;
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            string text = value.GetString() ?? "";
+            return text.Equals("true", StringComparison.OrdinalIgnoreCase) || text == "1";
+        }
+        return fallback;
+    }
+
+    private static long GetJsonLong(JsonElement root, string name, long fallback)
+    {
+        if (!root.TryGetProperty(name, out JsonElement value)) return fallback;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out long number)) return number;
+        if (value.ValueKind == JsonValueKind.String
+            && long.TryParse(value.GetString(), out long parsed)) return parsed;
+        return fallback;
+    }
+
+    private async Task StartCaptureAsync(JsonElement root)
+    {
+        long hwndValue = GetJsonLong(root, "hwnd", 0);
+        if (hwndValue <= 0)
+        {
+            PostStatus("请先选择一个游戏窗口。");
+            PostCaptureState(true);
+            return;
+        }
+        CaptureHostService.CaptureConfig config = ReadCaptureConfig(root);
+        ShowProgress("正在启动外置捕获…");
+        try
+        {
+            CaptureHostService.CaptureActionResult result = await Task.Run(
+                () => CaptureHostService.Start(new IntPtr(hwndValue), config));
+            PostStatus(result.Message);
+            if (result.Ok)
+            {
+                // 原启动器在 CREATE 之后会立刻最小化自己，等覆盖层起来再强制把游戏切回前台。
+                // WebUI 之前一直留在前台，游戏被当成后台窗口降频，WGC 只能拿到十几帧。
+                _captureWindowMinimized = true;
+                WindowState = FormWindowState.Minimized;
+                _captureLifecycleTimer.Start();
+                _ = ForceGameForegroundAfterDelay(new IntPtr(hwndValue));
+            }
+        }
+        catch (Exception ex)
+        {
+            PostStatus("启动外置捕获失败：" + ex.Message);
+        }
+        finally
+        {
+            HideProgress();
+            PostCaptureState(true);
+        }
+    }
+
+    private async Task ForceGameForegroundAfterDelay(IntPtr gameHwnd)
+    {
+        try
+        {
+            await Task.Delay(1800);
+            if (!_captureWindowMinimized
+                || WindowState != FormWindowState.Minimized
+                || !CaptureHostService.IsRunning)
+            {
+                return;
+            }
+            if (!IsWindow(gameHwnd))
+            {
+                return;
+            }
+            if (IsIconic(gameHwnd))
+            {
+                ShowWindow(gameHwnd, SW_RESTORE);
+            }
+            ForceGameForeground(gameHwnd);
+        }
+        catch
+        {
+        }
+    }
+
+    private void CaptureLifecycleTimer_Tick(object? sender, EventArgs e)
+    {
+        // WebUI 最小化后页面里的 setInterval 会因 document.hidden 停止，
+        // 不能再依赖前端轮询来发现 Host 已经退出，这里用 WinForms 计时器兜底。
+        if (_captureWindowMinimized && !CaptureHostService.IsRunning)
+        {
+            RestoreMainWindowAfterCapture();
+        }
+    }
+
+    private void RestoreMainWindowAfterCapture()
+    {
+        if (!_captureWindowMinimized)
+        {
+            return;
+        }
+        _captureWindowMinimized = false;
+        _captureLifecycleTimer.Stop();
+        if (WindowState == FormWindowState.Minimized)
+        {
+            WindowState = FormWindowState.Normal;
+        }
+        Show();
+        Activate();
+    }
+
+    private static void ForceGameForeground(IntPtr gameHwnd)
+    {
+        IntPtr foreground = GetForegroundWindow();
+        uint foregroundThread = foreground == IntPtr.Zero
+            ? 0
+            : GetWindowThreadProcessId(foreground, out _);
+        uint currentThread = GetCurrentThreadId();
+        bool attached = foregroundThread != 0
+            && foregroundThread != currentThread
+            && AttachThreadInput(currentThread, foregroundThread, true);
+        try
+        {
+            // 和原启动器 launcher.cpp 的 ForceForeground 同一套做法：
+            // 先用 Alt 键解除前台锁，再 BringWindowToTop + SetForegroundWindow。
+            keybd_event((byte)0x12, (byte)0, 0, UIntPtr.Zero);
+            keybd_event((byte)0x12, (byte)0, 0x0002, UIntPtr.Zero);
+            BringWindowToTop(gameHwnd);
+            SetForegroundWindow(gameHwnd);
+        }
+        finally
+        {
+            if (attached)
+            {
+                AttachThreadInput(currentThread, foregroundThread, false);
+            }
+        }
+    }
+
+    private async Task StopCaptureAsync()
+    {
+        ShowProgress("正在停止外置捕获…");
+        try
+        {
+            CaptureHostService.CaptureActionResult result = await Task.Run(CaptureHostService.Stop);
+            PostStatus(result.Message);
+        }
+        catch (Exception ex)
+        {
+            PostStatus("停止外置捕获失败：" + ex.Message);
+        }
+        finally
+        {
+            HideProgress();
+            PostCaptureState(true);
+            RestoreMainWindowAfterCapture();
+        }
+    }
+
+    private async Task ApplyCaptureConfigAsync(JsonElement root)
+    {
+        CaptureHostService.CaptureConfig config = ReadCaptureConfig(root);
+        bool wasRunning = CaptureHostService.IsRunning;
+        IntPtr target = CaptureHostService.TargetWindow;
+        try
+        {
+            CaptureHostService.CaptureActionResult result = await Task.Run(
+                () => CaptureHostService.ApplyConfig(config));
+            PostStatus(result.Message);
+
+            // 帧生成模式和倍率不是热切换项。运行中保存设置时直接重启捕获，
+            // 否则用户会看到“换了模式但帧率完全没变”，误以为所有模式都会压低原始帧。
+            if (wasRunning && target != IntPtr.Zero)
+            {
+                ShowProgress("正在按新设置重启外置捕获…");
+                await Task.Run(CaptureHostService.Stop);
+                await Task.Delay(350);
+                CaptureHostService.CaptureActionResult restart = await Task.Run(
+                    () => CaptureHostService.Start(target, config));
+                PostStatus(restart.Message);
+                if (restart.Ok)
+                {
+                    _captureWindowMinimized = true;
+                    WindowState = FormWindowState.Minimized;
+                    _captureLifecycleTimer.Start();
+                    _ = ForceGameForegroundAfterDelay(target);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            PostStatus("保存捕获设置失败：" + ex.Message);
+        }
+        finally
+        {
+            HideProgress();
+            PostCaptureState(false);
+        }
+    }
+
+    private void CaptureMenu()
+    {
+        CaptureHostService.CaptureActionResult result = CaptureHostService.SendMenu();
+        PostStatus(result.Message);
+        PostCaptureState(false);
+    }
+
+    private void CaptureFocus()
+    {
+        CaptureHostService.CaptureActionResult result = CaptureHostService.ToggleFocus();
+        PostStatus(result.Message);
+        PostCaptureState(false);
+    }
+
+    private async Task ToggleCaptureOverlayAsync()
+    {
+        if (!CaptureHostService.IsRunning)
+        {
+            PostStatus("捕获未运行，无法切换覆盖层。");
+            PostCaptureState(false);
+            return;
+        }
+
+        try
+        {
+            CaptureHostService.CaptureActionResult result =
+                await Task.Run(CaptureHostService.ToggleOverlay);
+            PostStatus(result.Message);
+        }
+        catch (Exception ex)
+        {
+            PostStatus("切换覆盖层失败：" + ex.Message);
+        }
+        finally
+        {
+            PostCaptureState(false);
+        }
+    }
+
+    private void OpenCaptureLog()
+    {
+        try
+        {
+            if (!File.Exists(CaptureHostService.LogFile))
+            {
+                PostStatus("捕获日志还没有生成，先启动一次捕获。");
+                return;
+            }
+            Process.Start(new ProcessStartInfo(CaptureHostService.LogFile) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            PostStatus("打开捕获日志失败：" + ex.Message);
+        }
+    }
+
     private void OpenPath(string target)
     {
         try
@@ -1489,6 +2003,15 @@ public class MainForm : Form
             else if (target == "install")
             {
                 path = _installRoot;
+            }
+            else if (target == "capture")
+            {
+                path = CaptureHostService.CaptureRoot;
+            }
+            else if (target == "captureLog")
+            {
+                OpenCaptureLog();
+                return;
             }
             else
             {
@@ -1980,7 +2503,7 @@ public class MainForm : Form
             string apiBase = GetGithubReleasesApi(githubUrl);
             using HttpClient client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(30);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.60");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.75");
 
             string releasesJson = await client.GetStringAsync(apiBase + "?per_page=20");
             using JsonDocument doc = JsonDocument.Parse(releasesJson);
@@ -2398,7 +2921,7 @@ public class MainForm : Form
             }
             using HttpClient client = new HttpClient();
             client.Timeout = TimeSpan.FromMinutes(120);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.60");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DLSSFrameGenEnabler-WebUI/1.75");
 
             using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, job.DownloadUrl);
             if (job.DownloadedBytes > 0)
@@ -2824,6 +3347,7 @@ public class MainForm : Form
                 {
                     _settings.Language = v.GetInt32();
                     Translator.CurrentLanguage = (AppLanguage)_settings.Language;
+                    CaptureHostService.SyncMenuLanguage();
                     Text = Translator.IsEnglish
                         ? "Frame Gen + DLSS5 Enabler"
                         : "多帧生成+DLSS5开启工具";
@@ -5158,6 +5682,16 @@ public class MainForm : Form
         try { _windowAnimTimer.Stop(); _windowAnimTimer.Dispose(); } catch { }
         try
         {
+            if (CaptureHostService.IsRunning)
+            {
+                CaptureHostService.Stop();
+            }
+        }
+        catch
+        {
+        }
+        try
+        {
             _web.Dispose();
         }
         catch
@@ -5193,8 +5727,46 @@ public class MainForm : Form
         }
     }
 
+    private const int SW_RESTORE = 9;
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);

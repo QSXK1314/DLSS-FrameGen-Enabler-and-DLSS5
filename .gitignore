@@ -4,3 +4,8 @@ obj/
 *.user
 *.log
 *.binlog
+
+# 捕获引擎与大型补丁资源从发布包获取，不随源码提交
+CaptureHost/
+Patches/*
+!Patches/README.md

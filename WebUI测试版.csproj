@@ -10,10 +10,10 @@
     <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
     <PublishRepositoryUrl>false</PublishRepositoryUrl>
     <EmbedUntrackedSources>false</EmbedUntrackedSources>
-    <Version>1.62.0.0</Version>
-    <FileVersion>1.62.0.0</FileVersion>
-    <ProductVersion>1.62.0.0</ProductVersion>
-    <AssemblyTitle>DLSS 多帧生成 + DLSS5 开启工具（WebUI 测试版）</AssemblyTitle>
+    <Version>1.75.0.0</Version>
+    <FileVersion>1.75.0.0</FileVersion>
+    <ProductVersion>1.75.0.0</ProductVersion>
+    <AssemblyTitle>DLSS 多帧生成 + DLSS5 开启工具（测试版）</AssemblyTitle>
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
@@ -23,19 +23,18 @@
   <ItemGroup>
     <None Update="app.ico" CopyToOutputDirectory="PreserveNewest" />
     <None Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Patches\SmoothMotion\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Patches\HSF\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Patches\**\*" />
   </ItemGroup>
-  <Target Name="CopySmoothMotionPatchesToPublish" AfterTargets="Publish">
+  <Target Name="CopyPatchesToPublish" AfterTargets="Publish" Condition="'$(SkipPatchesCopy)' != 'true'">
     <ItemGroup>
-      <SmoothMotionPatchFiles Include="$(MSBuildProjectDirectory)\Patches\SmoothMotion\**\*" />
+      <PatchFiles Include="$(MSBuildProjectDirectory)\Patches\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(SmoothMotionPatchFiles)" DestinationFiles="@(SmoothMotionPatchFiles->'$(PublishDir)Patches\SmoothMotion\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(PatchFiles)" DestinationFiles="@(PatchFiles->'$(PublishDir)Patches\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
-  <Target Name="CopyHsfPatchesToPublish" AfterTargets="Publish">
+  <Target Name="CopyCaptureHostToPublish" AfterTargets="Publish">
     <ItemGroup>
-      <HsfPatchFiles Include="$(MSBuildProjectDirectory)\Patches\HSF\**\*" />
+      <CaptureHostFiles Include="$(MSBuildProjectDirectory)\CaptureHost\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(HsfPatchFiles)" DestinationFiles="@(HsfPatchFiles->'$(PublishDir)Patches\HSF\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(CaptureHostFiles)" DestinationFiles="@(CaptureHostFiles->'$(PublishDir)CaptureHost\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 </Project>

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>多帧生成+DLSS5开启工具</title>
-<link rel="stylesheet" href="app.css?v=1.62.0" />
+<link rel="stylesheet" href="app.css?v=1.75.0.3" />
 </head>
 <body>
 <div id="app">
@@ -14,7 +14,7 @@
       <img class="tb-logo" src="app-icon.png" alt="" draggable="false" />
       <div class="tb-text">
         <div class="tb-brand" data-i18n="app.brand">多帧生成+DLSS5开启工具</div>
-        <div class="tb-sub" data-i18n="app.sub">V1.62-Beta</div>
+        <div class="tb-sub" data-i18n="app.sub">V1.75-Beta · 外置捕获正式接入</div>
       </div>
     </div>
     <div class="tb-right">
@@ -170,7 +170,18 @@
 
       <div id="pageUpdate" class="page-pane hidden">
         <div class="doc-card">
-          <div class="doc-h">V1.62</div>
+          <div class="doc-h" data-i18n="update.v175Title">V1.75 更新内容</div>
+          <div class="doc-li" data-i18n="update.v1751">· 测试版重新发布为 V1.75.0.0；外置捕获、OptiScaler 默认项和补丁目录保持当前配置，下面保留 V1.65 更新内容与 V1.63.2 历史记录。</div>
+          <div class="doc-li" data-i18n="update.v1752">· OptiScaler 菜单语言跟随软件语言：软件在简体中文与 English 之间切换后，菜单约 0.5 秒内同步；捕获运行中切换也生效，无需重启捕获。</div>
+          <div class="doc-li" data-i18n="update.v1651">· 外置捕获正式并入测试版：帧生成 mod 新增第三张卡，从这张卡进入即可使用；不向游戏目录写文件，用 Windows Graphics Capture 捕获游戏窗口，再由内置 OptiCaptureHost 2.12.00 + OptiScaler 完成超分和多帧生成。</div>
+          <div class="doc-li" data-i18n="update.v1652">· 2.12 真实深度：新增「ReShade 真实深度（实验）」开关与深度接收状态；D3D11 / D3D12 走 GPU 共享纹理，D3D9 / D3D10 / OpenGL / Vulkan 走 CPU 共享缓冲。深度只作用于 Host 自己的 FSR / DLSS 输出缩放，不改善 F5Low / MFG 的果冻感。</div>
+          <div class="doc-li" data-i18n="update.v1653">· 捕获默认：F5Low + 3X，支持 2X-6X、FSR4.1.2、Present Classic；OptiScaler 菜单完成中文汉化，Ctrl+Shift+F9 可隐藏 / 恢复覆盖层，热键被占用时页面按钮仍可用。</div>
+          <div class="doc-li" data-i18n="update.v1654">· 低延迟默认：输入 OptiScaler、输出 NVIDIA Reflex、帧率限制 0。0 表示关闭固定上限，避免先降帧再补帧；菜单里的 516 只是个人设置，不是推荐值。</div>
+          <div class="doc-li" data-i18n="update.v1655">· 内置定制 2.12 捕获引擎（无 NGX 依赖），避免与当前 nvngx_dlss.dll 310.9.1 卡在 NVSDK_NGX_D3D12_Init；Host 自带 DLSS 输出缩放会回退 FSR1，F5Low / MFG / OptiScaler 主链路不受影响，ReShade 深度测试请把输出缩放选为 FSR3/4。</div>
+          <div class="doc-li" data-i18n="update.v1656">· 1.63.x 外置捕获测试版的页面、状态、配置写回和 Full Pack 资源全部并入 1.65 主测试版；外置捕获独立测试包从本版起停止维护。</div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-h">V1.63.2</div>
           <div class="doc-li" data-i18n="update.v1621">· 渲染 API 改为读取 PE 导入表精确识别，不再靠 exe 位数或目录里是否存在 d3d9.dll；ReShade 自己放的代理 DLL 不会再让 DX11 游戏被误判成 DX9。</div>
           <div class="doc-li" data-i18n="update.v1622">· 自动识别 Source 1 引擎 DX9 游戏，把 ReShade / HSF 装到游戏根目录的 bin 子目录；游戏卡片会显示实际安装目录，安装前可手动切换「自动识别 / 游戏根目录 / bin 子目录」。</div>
           <div class="doc-li" data-i18n="update.v1623">· HSF 安装、还原、LaunchPad、MFG-Unlocker 和 ReShade 代理检测全部按安装记录中的目录处理；旧版根目录安装仍能正常还原，并会提示还原后自动迁移到 bin。</div>
@@ -226,7 +237,7 @@
         <div class="fg-hero">
           <div class="fg-kicker">FRAME GENERATION MOD</div>
           <div class="fg-title" data-i18n="fg.title">帧生成mod</div>
-          <div class="fg-sub" data-i18n="fg.sub">选择一种帧生成方案。两个方案都留在本软件内，不需要打开第二个工具。</div>
+          <div class="fg-sub" data-i18n="fg.sub">选择一种帧生成方案。三种方案都留在本软件内，不需要打开第二个工具。</div>
         </div>
 
         <div class="fg-choice-grid">
@@ -259,9 +270,24 @@
             </div>
             <div class="fg-choice-enter"><span data-i18n="fg.enter">进入设置</span><span>→</span></div>
           </button>
+
+          <button type="button" class="fg-choice-card" data-fg-open="capture">
+            <div class="fg-choice-head">
+              <span class="fg-choice-icon capture">OC</span>
+              <span class="nav-beta" data-i18n="capture.experimentalBadge">实验性</span>
+            </div>
+            <div class="fg-choice-title" data-i18n="fg.captureTitle">外置捕获（OptiCaptureHost）</div>
+            <div class="fg-choice-desc" data-i18n="fg.captureDesc">不向游戏目录写任何文件：用 Windows Graphics Capture 捕获游戏窗口，再交给内置 OptiScaler 插帧。适合不方便装 Mod 的游戏，支持窗口化 / 无边框，最高 6X。</div>
+            <div class="fg-choice-tags">
+              <span data-i18n="fg.captureTag1">不注入</span>
+              <span data-i18n="fg.captureTag2">任意窗口</span>
+              <span data-i18n="fg.captureTag3">最高 6X</span>
+            </div>
+            <div class="fg-choice-enter"><span data-i18n="fg.enter">进入设置</span><span>→</span></div>
+          </button>
         </div>
 
-        <div class="fg-footnote" data-i18n="fg.tip">提示：HSF 安装 LaunchPad 后的光流质量比默认 NVOF 更好，鬼影会明显减少；Vulkan 游戏建议使用窗口模式，无边框/全屏可能看不到补帧画面。</div>
+        <div class="fg-footnote" data-i18n="fg.tip">提示：外置捕获是实验性方案，不修改游戏文件，但仍可能被部分反作弊检测；在线游戏请先确认风险。HSF 安装 LaunchPad 后的光流质量比默认 NVOF 更好，鬼影会明显减少；Vulkan 游戏建议使用窗口模式，无边框/全屏可能看不到补帧画面。</div>
       </div>
 
       <div id="pageSmooth" class="page-pane hidden">
@@ -440,6 +466,236 @@
         </div>
       </div>
 
+      <div id="pageCapture" class="page-pane hidden">
+        <div class="fg-back-row">
+          <button type="button" class="fg-back" data-fg-back><span>←</span><span data-i18n="fg.back">返回帧生成mod</span></button>
+        </div>
+
+        <div class="doc-card sm-hero capture-hero">
+          <div class="sm-hero-top">
+            <div>
+              <div class="sm-hero-title" data-i18n="capture.title">外置捕获（实验性）</div>
+              <div class="sm-hero-sub" data-i18n="capture.sub">不向游戏目录写文件：Windows Graphics Capture 捕获游戏窗口，由内置 OptiCaptureHost + OptiScaler 完成超分和多帧生成。游戏请使用窗口化或无边框模式。</div>
+            </div>
+            <span class="sm-badge" id="captureBadge" data-i18n="capture.notRunning">未启动</span>
+          </div>
+          <div class="sm-meta">
+            <div class="sm-meta-item"><span data-i18n="capture.engine">捕获引擎</span><b id="captureEngine">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="capture.window">当前窗口</span><b id="captureWindowTitle">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="capture.fpsIn">捕获 FPS</span><b id="captureFpsIn">—</b></div>
+            <div class="sm-meta-item"><span data-i18n="capture.fpsOut">补帧提交 FPS</span><b id="captureFpsOut">—</b></div>
+          </div>
+          <div class="sm-support-note" id="captureNote" data-i18n="capture.idleNote">先选择一个正在运行的游戏窗口，再点“开始捕获”。本页不会启动 OptiCaptureLauncher，也不会往游戏目录写任何文件。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="sm-toolbar">
+            <div>
+              <div class="doc-h" data-i18n="capture.windowTitle">选择游戏窗口</div>
+              <div class="set-desc" data-i18n="capture.windowDesc">列出当前正在运行的可见窗口，按进程合并为面积最大的主窗口。游戏需要先进入窗口化或无边框模式；独占全屏无法捕获。</div>
+            </div>
+            <div class="sm-actions">
+              <button class="pill" id="captureRefreshBtn" data-i18n="capture.refresh">刷新窗口</button>
+              <button class="pill" id="captureOpenLogBtn" data-i18n="capture.openLog">打开捕获日志</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.windowSelect">游戏窗口</div>
+              <div class="set-desc" data-i18n="capture.windowSelectDesc">如果列表里没有，先启动游戏并切到窗口模式，再点刷新。</div>
+            </div>
+            <div class="capture-window-picker">
+              <button type="button" class="capture-window-btn" id="captureWindowPickBtn">
+                <span class="capture-window-icon" id="captureWindowPickIcon">▣</span>
+                <span class="capture-window-body">
+                  <span class="capture-window-title" id="captureWindowPickTitle" data-i18n="capture.chooseWindow">刷新后选择游戏窗口</span>
+                  <span class="capture-window-desc" id="captureWindowPickDesc"></span>
+                </span>
+                <span class="capture-window-caret">›</span>
+              </button>
+              <input type="hidden" id="captureWindowSelect" value="">
+            </div>
+          </div>
+          <div class="capture-actions">
+            <button class="pill primary" id="captureStartBtn" data-i18n="capture.start">开始捕获</button>
+            <button class="pill danger" id="captureStopBtn" data-i18n="capture.stop">停止捕获</button>
+            <button class="pill" id="captureMenuBtn" data-i18n="capture.menu">打开 OptiScaler 菜单</button>
+            <button class="pill" id="captureFocusBtn" data-i18n="capture.focus">交还鼠标 / 焦点</button>
+            <button class="pill" id="captureOverlayBtn" data-i18n="capture.overlay">隐藏覆盖层 / 切出窗口</button>
+          </div>
+          <div class="sm-support-note" data-i18n="capture.hotkeyNote">游戏内快捷键：Ctrl+Shift+F9 隐藏/恢复覆盖层（捕获不停止），Ctrl+Shift+F10 打开菜单，Ctrl+Shift+F11 切换游戏 / 覆盖层焦点，Ctrl+Shift+F12 停止捕获。隐藏覆盖层后可以 Alt+Tab 切到其他窗口；游戏失焦期间补帧可能暂停，切回游戏焦点后继续。</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="capture.settingsTitle">帧生成与画面设置</div>
+          <div class="set-desc" data-i18n="capture.settingsDesc">这些设置写入内置 OptiCaptureHost.ini 与 OptiScaler.ini，不修改游戏目录。VSync 即时生效；帧生成模式或倍率改动会自动重启捕获；超分和输出缩放需停止后重新开始。</div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.fgMode">帧生成模式</div>
+              <div class="set-desc" data-i18n="capture.fgModeDesc">选择外置补帧使用的帧生成方案。F5Low 为默认方案，其他模式按显卡和运行库选择。</div>
+            </div>
+            <select class="set-select" id="captureFgMode">
+              <option value="9" data-i18n="capture.fgF5low">F5Low（外置捕获推荐）</option>
+              <option value="0" data-i18n="capture.fgXefg">XeFG（原版兼容）</option>
+              <option value="1" data-i18n="capture.fgDlssg">DLSSG（Artur / 旧显卡）</option>
+              <option value="5" data-i18n="capture.fgCombo">Combo MFG（DLSSG + XeFG）</option>
+              <option value="6" data-i18n="capture.fgNukem">Nukem FG</option>
+              <option value="7" data-i18n="capture.fgFsr">FSR3-4 FG</option>
+              <option value="8" data-i18n="capture.fgNvidia">NVIDIA MFG（RTX 50）</option>
+              <option value="2" data-i18n="capture.fgOff">关闭帧生成</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.mfg">多帧倍率</div>
+              <div class="set-desc" data-i18n="capture.mfgDesc">设置每个原始帧生成的补帧数量。倍率越高，补帧输出越多；不同帧生成模式支持的倍率不同。</div>
+            </div>
+            <select class="set-select" id="captureMfg">
+              <option value="0" data-i18n="capture.mfgAuto">自动</option>
+              <option value="1">2X</option>
+              <option value="2" selected>3X（默认）</option>
+              <option value="3">4X</option>
+              <option value="4">5X</option>
+              <option value="5">6X</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.upscaler">超分器</div>
+              <div class="set-desc" data-i18n="capture.upscalerDesc">选择 OptiScaler 使用的超分后端。按显卡型号和游戏兼容性选择。</div>
+            </div>
+            <select class="set-select" id="captureUpscaler">
+              <option value="4" data-i18n="capture.upFsr4">FSR 4.1.2（推荐）</option>
+              <option value="0" data-i18n="capture.upXess">Intel XeSS</option>
+              <option value="1" data-i18n="capture.upFsr3">AMD FSR 3.1.6</option>
+              <option value="2" data-i18n="capture.upDlss">NVIDIA DLSS</option>
+              <option value="3" data-i18n="capture.upDlss37">DLSS 3.7（AMD / GTX 16）</option>
+              <option value="5" data-i18n="capture.upDitto">DittoSR</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.upscale">输出缩放</div>
+              <div class="set-desc" data-i18n="capture.upscaleDesc">开启后，开始捕获时缩小游戏窗口，由 Host 放大到全屏；停止捕获后恢复原窗口。</div>
+            </div>
+            <select class="set-select" id="captureUpscale">
+              <option value="0" data-i18n="capture.upOff">关闭</option>
+              <option value="4" data-i18n="capture.upFsr">FSR3/4</option>
+              <option value="5" data-i18n="capture.upDlssOut">DLSS</option>
+              <option value="2" data-i18n="capture.upFsr1">FSR 1</option>
+              <option value="3" data-i18n="capture.upNis">NIS</option>
+              <option value="1" data-i18n="capture.upBilinear">Bilinear</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.upscaleLevel">输出缩放档位</div>
+              <div class="set-desc" data-i18n="capture.upscaleLevelDesc">设置输出缩放的缩放比例。Native 不缩小窗口，只做超分抗锯齿。</div>
+            </div>
+            <select class="set-select" id="captureUpscaleLevel">
+              <option value="0" data-i18n="capture.lvQuality">Quality（1.5X）</option>
+              <option value="1" data-i18n="capture.lvBalanced">Balanced（1.7X）</option>
+              <option value="2" data-i18n="capture.lvPerformance">Performance（2X）</option>
+              <option value="3" data-i18n="capture.lvNative">Native（1X）</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.depth">ReShade 真实深度（实验）</div>
+              <div class="set-desc" data-i18n="capture.depthDesc">开启后，Host 在输出缩放时读取游戏真实深度，用于改善边缘和遮挡。需要同时开启输出缩放，并在游戏目录安装 ReShade 深度插件。</div>
+            </div>
+            <button class="sw" id="captureDepthToggle"><i></i></button>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.vsync">VSync</div>
+              <div class="set-desc" data-i18n="capture.vsyncDesc">控制 Host 是否启用垂直同步。修改后即时生效。</div>
+            </div>
+            <button class="sw on" id="captureVsyncToggle"><i></i></button>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.presentMode">呈现模式</div>
+              <div class="set-desc" data-i18n="capture.presentModeDesc">选择 Host 的呈现方式。Classic 兼容性较好；Lossless 使用另一套呈现路径。</div>
+            </div>
+            <select class="set-select" id="capturePresent">
+              <option value="6" data-i18n="capture.pmClassicUnlimited">Classic + 不限帧（推荐）</option>
+              <option value="3" data-i18n="capture.pmClassic">Classic</option>
+              <option value="4" data-i18n="capture.pmLossless">Lossless 低延迟</option>
+              <option value="0" data-i18n="capture.pmAuto">自动</option>
+              <option value="1" data-i18n="capture.pmNoWait">始终不等待</option>
+              <option value="2" data-i18n="capture.pmWait">始终等待垂直同步</option>
+              <option value="5" data-i18n="capture.pmHalf">Classic + 半刷新率</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.boost">性能模式</div>
+              <div class="set-desc" data-i18n="capture.boostDesc">设置 Host 进程优先级。默认 Max；弱显卡可选择更低优先级。</div>
+            </div>
+            <select class="set-select" id="captureBoost">
+              <option value="3" selected data-i18n="capture.boostMax">Max（强显卡，推荐）</option>
+              <option value="2" data-i18n="capture.boostBalanced">Balanced（弱显卡）</option>
+              <option value="1" data-i18n="capture.boostLight">Light（仅 CPU）</option>
+              <option value="0" data-i18n="capture.boostOff">关闭</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.presentDelay">呈现延迟</div>
+              <div class="set-desc" data-i18n="capture.presentDelayDesc">设置每帧 Present 前的等待毫秒数，0 为关闭。用于微调呈现节奏。</div>
+            </div>
+            <select class="set-select" id="capturePresentDelay">
+              <option value="0">0 ms</option>
+              <option value="1">1 ms</option>
+              <option value="2">2 ms</option>
+              <option value="3">3 ms</option>
+              <option value="4">4 ms</option>
+              <option value="6">6 ms</option>
+              <option value="8">8 ms</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-name" data-i18n="capture.basePriority">原始帧优先</div>
+              <div class="set-desc" data-i18n="capture.basePriorityDesc">切换到 F5Low + 2X + 0 ms，降低补帧倍率对原始帧的占用；不会关闭补帧。</div>
+            </div>
+            <button class="pill" id="captureBasePriorityBtn" data-i18n="capture.basePriorityBtn">切到原始帧优先（2X）</button>
+          </div>
+          <div class="sm-actions">
+            <button class="pill primary" id="captureApplyBtn" data-i18n="capture.apply">保存设置</button>
+            <button class="pill" id="captureOpenEngineBtn" data-i18n="capture.openEngine">打开捕获引擎目录</button>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="capture.statsTitle">实时状态</div>
+          <div class="capture-stats">
+            <div class="capture-stat"><span data-i18n="capture.statCapture">捕获 FPS</span><b id="captureStatCapture">—</b></div>
+            <div class="capture-stat"><span data-i18n="capture.statPresent">Host 基帧 FPS</span><b id="captureStatPresent">—</b></div>
+            <div class="capture-stat"><span data-i18n="capture.statDxgi">补帧提交 FPS</span><b id="captureStatDxgi">—</b></div>
+            <div class="capture-stat"><span data-i18n="capture.statPresentMs">Present 耗时</span><b id="captureStatPresentMs">—</b></div>
+            <div class="capture-stat"><span data-i18n="capture.statFocus">焦点</span><b id="captureStatFocus">—</b></div>
+            <div class="capture-stat"><span data-i18n="capture.statDepth">深度接收</span><b id="captureStatDepth">—</b></div>
+            <div class="capture-stat"><span data-i18n="capture.statRefresh">显示器刷新率</span><b id="captureStatRefresh">—</b></div>
+          </div>
+          <div class="sm-support-note" id="captureCapHint"></div>
+          <div class="sm-support-note" id="captureLastError"></div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="capture.notesTitle">说明与限制</div>
+          <div class="doc-li" data-i18n="capture.note1">· 这是外置捕获方案：默认不修改游戏文件，OptiScaler 只挂在 OptiCaptureHost 进程里。只有你主动开启 ReShade 深度并手动安装插件时，才会向游戏目录写入 ReShade 深度辅助文件。</div>
+          <div class="doc-li" data-i18n="capture.note2">· 捕获画面没有真实运动矢量，Host 会在 GPU 上估算运动；ReShade 深度只补充深度，不会消除快速移动时的“果冻感”。</div>
+          <div class="doc-li" data-i18n="capture.note3">· 游戏必须是窗口化 / 无边框；独占全屏无法捕获。HDR 目前不是强项，建议先关闭 HDR 测试。</div>
+          <div class="doc-li" data-i18n="capture.note4">· 在线游戏、带反作弊的游戏仍可能把捕获/缩放窗口判定为异常；ReShade 和深度插件在在线/反作弊游戏中有封号风险，只建议单机测试。</div>
+          <div class="doc-li" data-i18n="capture.note5">· 内置 OptiCaptureHost 2.12.0（QSXK 定制：保留 Ctrl+Shift+F9 隐藏覆盖层）与 OptiScaler 0.1.39-pre1，均为 GPL-3.0；许可证全文和对应源码压缩包放在 CaptureHost\licenses 与 CaptureHost\source。</div>
+          <div class="doc-li" data-i18n="capture.note6">· ReShade 深度用法：游戏先安装 ReShade 6+（带 add-on 支持）→ 关闭游戏 → 把本软件 CaptureHost\ReShade depth 里的文件按原目录结构复制到游戏 exe 所在目录 → 启动游戏，在 ReShade 里勾选 OptiCaptureDepth → 回到本页开启“ReShade 真实深度”和输出缩放后开始捕获。</div>
+          <div class="doc-li" data-i18n="capture.note7">· 低延迟默认：输入 OptiScaler、输出 NVIDIA Reflex、帧率限制 0。0 是关闭固定上限，避免“先压低渲染帧率、再补帧回来”；图中 516 只是个人设置，不要当默认值。</div>
+          <div class="doc-li" data-i18n="capture.note8">· 本版已关闭 OptiCaptureHost 自带的 RTSS 限帧和 OptiFps 覆盖；每次开始捕获会强制写回 Target=0 / Auto=0 / Fps=0 / OptiFps=0，帧率限制 0 不会再被改成刷新率或 1/4 刷新率。</div>
+        </div>
+      </div>
+
       <div id="pageDownload" class="page-pane hidden">
         <div id="downloadEmpty" class="doc-card download-empty">
           <div class="download-empty-icon">ZIP</div>
@@ -612,7 +868,7 @@
         <div class="doc-card about-card">
           <div class="about-logo"><img src="app-icon-256.png" alt="DLSS Toolbox" draggable="false" /></div>
           <div class="about-name" data-i18n="about.name">多帧生成 + DLSS5 开启工具</div>
-          <div class="about-ver" id="aboutVer">版本：V1.62.0.0</div>
+          <div class="about-ver" id="aboutVer">版本：V1.75.0.0</div>
           <div class="about-line" data-i18n="about.devlang">开发语言：C# + WebView2 + 自绘 HTML</div>
           <div class="about-line" data-i18n="about.openSource">本软件已免费开源，欢迎 Star 和 Fork！</div>
         </div>
@@ -656,7 +912,72 @@
             <li data-i18n="about.thanks7">• HSF 0.9.9（Capt-Hunter）</li>
             <li data-i18n="about.thanks8">• MFG-Unlocker（Michael Robles / dashdogy，MIT License）</li>
             <li data-i18n="about.thanks9">• iMMERSE LaunchPad（Pascal Gilcher / Marty McFly；按原作者许可仅从官方 GitHub 下载，不随本软件分发）</li>
+            <li data-i18n="about.thanks10">• OptiCaptureHost（MK-JH / tegraultra，GPL-3.0；外置捕获宿主）</li>
+            <li data-i18n="about.thanks11">• OptiScaler（janblade / OptiScaler-F5-DLSSNR-Multipass，GPL-3.0；超分与多帧生成）</li>
           </ul>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-h" data-i18n="about.patchLinks">补丁来源</div>
+          <div class="about-meta" data-i18n="about.patchLinksIntro">以下为本软件集成的补丁及其原始仓库，点击可跳转查看：</div>
+          <div class="about-links about-patch-links">
+            <button class="about-link" data-url="https://github.com/pipotoufikxyz-lgtm/dlssg_for_sm86-MFG-version">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t">
+                <span class="about-link-name" data-i18n="about.patchSmooth">Smooth Motion 帧生成</span>
+                <span class="about-link-sub">pipotoufikxyz-lgtm / dlssg_for_sm86-MFG-version</span>
+              </span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://github.com/Capt-Hunter/HSF">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t">
+                <span class="about-link-name" data-i18n="about.patchHsf">HSF 帧生成</span>
+                <span class="about-link-sub">Capt-Hunter / HSF</span>
+              </span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://github.com/sdli1995/dlssg_for_sm86">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t">
+                <span class="about-link-name" data-i18n="about.patchSm86">SM86 帧生成</span>
+                <span class="about-link-sub">sdli1995 / dlssg_for_sm86</span>
+              </span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://github.com/dashdogy/MFG-Unlocker">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t">
+                <span class="about-link-name" data-i18n="about.patchMfg">MFG 帧生成</span>
+                <span class="about-link-sub">dashdogy / MFG-Unlocker</span>
+              </span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://github.com/ghostinthecamera/GITC-Uplift">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t">
+                <span class="about-link-name" data-i18n="about.patchDlss5">DLSS5</span>
+                <span class="about-link-sub">ghostinthecamera / GITC-Uplift</span>
+              </span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://github.com/tegraultra/OptiCaptureHost">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t">
+                <span class="about-link-name" data-i18n="about.patchCapture">OptiCaptureHost 外置捕获</span>
+                <span class="about-link-sub">tegraultra / OptiCaptureHost</span>
+              </span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+            <button class="about-link" data-url="https://github.com/janblade/OptiScaler-F5-DLSSNR-Multipass">
+              <span class="about-ico"><img class="gh-icon" src="about-github.png" alt="" draggable="false" /></span>
+              <span class="about-link-t">
+                <span class="about-link-name" data-i18n="about.patchOptiScaler">OptiScaler 超分/插帧</span>
+                <span class="about-link-sub">janblade / OptiScaler-F5-DLSSNR-Multipass</span>
+              </span>
+              <span class="about-arrow">&rsaquo;</span>
+            </button>
+          </div>
         </div>
 
         <div class="doc-card">
@@ -746,8 +1067,9 @@
 
   <div id="toast" class="toast"></div>
 </div>
-<script src="app.js?v=1.62.0"></script>
+<script src="app.js?v=1.75.0.3"></script>
 </body>
 </html>
+
 
 
